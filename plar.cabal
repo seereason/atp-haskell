@@ -13,7 +13,7 @@ Cabal-version:    >= 1.9
 Build-Type:       Simple
 
 Library
-  Build-Depends: applicative-extras, base, containers, hashable, HUnit, pretty >= 1.1.2, syb, template-haskell
+  Build-Depends: applicative-extras, base, containers, hashable, HUnit, mtl, pretty >= 1.1.2, syb, template-haskell
   GHC-options: -Wall -O2
   Exposed-Modules:
     Lib
@@ -21,6 +21,7 @@ Library
     Formulas
     Prop
     FOL
+    Skolem
 
 Test-Suite atp-haskell-tests
   Type: exitcode-stdio-1.0

@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs #-}
+{-# LANGUAGE GADTs, OverloadedStrings #-}
 module FOL where
 
 import Formulas
@@ -6,6 +6,7 @@ import Lib
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
+import Data.String (IsString(fromString))
 import Prelude hiding (pred)
 import Test.HUnit
 
@@ -19,14 +20,25 @@ import Test.HUnit
 
 -- | Terms.
 data Term
-    = Var String
-    | Fn String [Term]
+    = Var V
+    | Function AtomicFunction [Term]
     deriving (Eq, Show)
 
-vt :: String -> Term
+vt :: V -> Term
 vt = Var
-fApp :: String -> [Term] -> Term
-fApp = Fn
+
+-- | Things that can have argument terms applied, the first argument of fApp.
+-- Use of the Skolem constructor will be developed later.
+data AtomicFunction
+    = Fn String
+    | Skolem V
+    deriving (Eq, Show)
+
+instance IsString AtomicFunction where
+    fromString = Fn
+
+fApp :: AtomicFunction -> [Term] -> Term
+fApp = Function
 
 {-
 (* ------------------------------------------------------------------------- *)
@@ -221,13 +233,13 @@ END_INTERACTIVE;;
 -}
 
 -- | Semantics, implemented of course for finite domains only.
-termval :: ([a], String -> [a] -> a, p -> [a] -> Bool) -> Map String a -> Term -> a
+termval :: ([a], AtomicFunction -> [a] -> a, p -> [a] -> Bool) -> Map V a -> Term -> a
 termval m@(_domain,func,_pred) v tm =
   case tm of
     Var x -> fromMaybe (error $ "Undefined variable: " ++ show x) (Map.lookup x v)
-    Fn f args -> func f $ map (termval m v) args
+    Function f args -> func f $ map (termval m v) args
 
-holds :: ([a], String -> [a] -> a, String -> [a] -> Bool) -> Map String a -> Formula FOLEQ -> Bool
+holds :: ([a], AtomicFunction -> [a] -> a, String -> [a] -> Bool) -> Map V a -> Formula FOLEQ -> Bool
 holds m@(domain,_func,pred) v fm =
   case fm of
     False' -> False
@@ -243,32 +255,32 @@ holds m@(domain,_func,pred) v fm =
     Exists x p -> or (map (\a -> holds m (Map.insert x a v) p) domain) -- return . all (== True)?
 
 -- | Examples of particular interpretations.
-bool_interp :: Eq a => ([Bool], String -> [Bool] -> Bool, String -> [a] -> Bool)
+bool_interp :: Eq a => ([Bool], AtomicFunction -> [Bool] -> Bool, String -> [a] -> Bool)
 bool_interp =
   ([False, True],func,pred)
     where
     func f args =
             case (f,args) of
-              ("False",[]) -> False
-              ("True",[]) -> True
-              ("|",[x,y]) -> not(x == y)
-              ("&",[x,y]) -> x && y
+              (Fn "False",[]) -> False
+              (Fn "True",[]) -> True
+              (Fn "|",[x,y]) -> not(x == y)
+              (Fn "&",[x,y]) -> x && y
               _ -> error "uninterpreted function"
     pred p args =
             case (p,args) of
               ("=",[x,y]) -> x == y
               _ -> error "uninterpreted predicate"
 
-mod_interp :: Int -> ([Int], String -> [Int] -> Int, String -> [Int] -> Bool)
+mod_interp :: Int -> ([Int], AtomicFunction -> [Int] -> Int, String -> [Int] -> Bool)
 mod_interp n =
   ([0..(n-1)],func,pred)
     where
       func f args =
           case (f,args) of
-            ("0",[]) -> 0
-            ("1",[]) -> 1 `mod` n
-            ("+",[x,y]) -> (x + y) `mod` n
-            ("*",[x,y]) -> (x * y) `mod` n
+            (Fn "0",[]) -> 0
+            (Fn "1",[]) -> 1 `mod` n
+            (Fn "+",[x,y]) -> (x + y) `mod` n
+            (Fn "*",[x,y]) -> (x * y) `mod` n
             _ -> error "uninterpreted function"
       pred p args =
           case (p,args) of
@@ -294,40 +306,40 @@ END_INTERACTIVE;;
 
 test01 :: Test
 test01 = TestCase $ assertEqual "holds bool test (p. 126)" expected input
-    where input = holds bool_interp Map.empty (for_all "x" (vt "x" .=. fApp "False" [] .|. vt "x" .=. fApp "True" []) :: Formula FOLEQ)
+    where input = holds bool_interp Map.empty (for_all  "x" (vt "x" .=. fApp (Fn "False") [] .|. vt "x" .=. fApp (Fn "True") []) :: Formula FOLEQ)
           expected = True
 test02 :: Test
 test02 = TestCase $ assertEqual "holds mod test 1 (p. 126)" expected input
-    where input =  holds (mod_interp 2) Map.empty (for_all "x" (vt "x" .=. (fApp "0" [] :: Term) .|. vt "x" .=. (fApp "1" [] :: Term)) :: Formula FOLEQ)
+    where input =  holds (mod_interp 2) Map.empty (for_all "x" (vt "x" .=. (fApp (Fn "0") [] :: Term) .|. vt "x" .=. (fApp (Fn "1") [] :: Term)) :: Formula FOLEQ)
           expected = True
 test03 :: Test
 test03 = TestCase $ assertEqual "holds mod test 2 (p. 126)" expected input
-    where input =  holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .|. vt "x" .=. fApp "1" []) :: Formula FOLEQ)
+    where input =  holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp (Fn "0") [] .|. vt "x" .=. fApp (Fn "1") []) :: Formula FOLEQ)
           expected = False
 
 test04 :: Test
 test04 = TestCase $ assertEqual "holds mod test 3 (p. 126)" expected input
     where input = filter (\ n -> holds (mod_interp n) Map.empty fm) [1..45]
-                  where fm = for_all "x" ((.~.) (vt "x" .=. fApp "0" []) .=>. exists "y" (fApp "*" [vt "x", vt "y"] .=. fApp "1" [])) :: Formula FOLEQ
+                  where fm = for_all "x" ((.~.) (vt "x" .=. fApp (Fn "0") []) .=>. exists "y" (fApp (Fn "*") [vt "x", vt "y"] .=. fApp (Fn "1") [])) :: Formula FOLEQ
           expected = [1,2,3,5,7,11,13,17,19,23,29,31,37,41,43]
 
 test05 :: Test
 test05 = TestCase $ assertEqual "holds mod test 4 (p. 129)" expected input
-    where input = holds (mod_interp 3) Map.empty ((for_all "x" (vt "x" .=. fApp "0" [])) .=>. fApp "1" [] .=. fApp "0" [] :: Formula FOLEQ)
+    where input = holds (mod_interp 3) Map.empty ((for_all "x" (vt "x" .=. fApp (Fn "0") [])) .=>. fApp (Fn "1") [] .=. fApp (Fn "0") [] :: Formula FOLEQ)
           expected = True
 test06 :: Test
 test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
-    where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: Formula FOLEQ)
+    where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp (Fn "0") [] .=>. fApp (Fn "1") [] .=. fApp (Fn "0") []) :: Formula FOLEQ)
           expected = False
 
 -- | Free variables in terms and formulas.
-fvt :: Term -> Set String
+fvt :: Term -> Set V
 fvt tm =
   case tm of
     Var x -> singleton x
-    Fn _f args -> unions (map fvt args)
+    Function _f args -> unions (map fvt args)
 
-var :: Formula FOL -> Set String
+var :: Formula FOL -> Set V
 var fm =
    case fm of
     False' -> Set.empty
@@ -341,14 +353,14 @@ var fm =
     Forall x p -> Set.insert x (var p)
     Exists x p -> Set.insert x (var p)
 
-fvFOL :: FOL -> Set String
+fvFOL :: FOL -> Set V
 fvFOL (R _p args) = unions (map fvt args)
 
-fvFOLEQ :: FOLEQ -> Set String
+fvFOLEQ :: FOLEQ -> Set V
 fvFOLEQ (R' _p args) = unions (map fvt args)
 fvFOLEQ (a :=: b) = union (fvt a) (fvt b)
 
-fv :: (a -> Set String) -> Formula a -> Set String
+fv :: (a -> Set V) -> Formula a -> Set V
 fv fva fm =
   case fm of
     False' -> Set.empty
@@ -367,28 +379,28 @@ generalize :: Formula FOL -> Formula FOL
 generalize fm = Set.fold Forall fm (fv fvFOL fm)
 
 -- | Substitution within terms.
-tsubst :: Map String Term -> Term -> Term
+tsubst :: Map V Term -> Term -> Term
 tsubst sfn tm =
   case tm of
     Var x -> fromMaybe tm (Map.lookup x sfn)
-    Fn f args -> Fn f (map (tsubst sfn) args)
+    Function f args -> Function f (map (tsubst sfn) args)
 
 -- | Variant function and examples.
-variant :: String -> Set String -> String
-variant x vars =
-    if Set.member x vars then variant (x ++ "'") vars else x
+variant :: V -> Set V -> V
+variant x@(V s) vars =
+    if Set.member x vars then variant (V (s ++ "'")) vars else x
 
 test07 :: Test
 test07 = TestCase $ assertEqual "variant 1 (p. 133)" expected input
-    where input = variant "x" (Set.fromList ["y", "z"]) :: String
+    where input = variant "x" (Set.fromList ["y", "z"]) :: V
           expected = "x"
 test08 :: Test
 test08 = TestCase $ assertEqual "variant 2 (p. 133)" expected input
-    where input = variant "x" (Set.fromList ["x", "y"]) :: String
+    where input = variant "x" (Set.fromList ["x", "y"]) :: V
           expected = "x'"
 test09 :: Test
 test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
-    where input = variant "x" (Set.fromList ["x", "x'"]) :: String
+    where input = variant "x" (Set.fromList ["x", "x'"]) :: V
           expected = "x''"
 
 mapTermsFOL :: (Term -> Term) -> FOL -> FOL
@@ -399,7 +411,7 @@ mapTermsFOLEQ f (R' p args) = R' p (map f args)
 mapTermsFOLEQ f (a :=: b) = (f a :=: f b)
 
 -- | Substitution in formulas, with variable renaming.
-subst :: (a -> Set String) -> ((Term -> Term) -> a -> a) -> Map String Term -> Formula a -> Formula a
+subst :: (a -> Set V) -> ((Term -> Term) -> a -> a) -> Map V Term -> Formula a -> Formula a
 subst fva mapTerms subfn fm =
   case fm of
     False' -> False'
@@ -413,11 +425,11 @@ subst fva mapTerms subfn fm =
     Forall x p -> substq fva mapTerms subfn Forall x p
     Exists x p -> substq fva mapTerms subfn Exists x p
 
-substq :: (a -> Set String)
+substq :: (a -> Set V)
        -> ((Term -> Term) -> a -> a)
-       -> Map String Term
-       -> (String -> Formula a -> Formula a)
-       -> String
+       -> Map V Term
+       -> (V -> Formula a -> Formula a)
+       -> V
        -> Formula a
        -> Formula a
 substq fva mapTerms subfn quant x p =
@@ -445,8 +457,15 @@ test11 = TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x x'. x = 
                                        (Map.fromList [("y", Var "x")])
                                        (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))))
 
+{-
+test12 :: Test
+test12 =
+    let fm = (let (x, y) = (vt "x" :: Term, vt "y" :: Term) in ((for_all "x" ((x .=. x))) .=>. (for_all "x" (exists "y" ((x .=. y))))) :: Formula FOLEQ) in
+    TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y" (holds fm) True
+-}
+
 tests :: Test
 tests = TestLabel "FOL" $
         TestList [test01, test02, test03, test04, test05,
                   test06, test07, test08, test09, test10,
-                  test11]
+                  test11 {-, test12-}]

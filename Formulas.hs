@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wall #-}
 module Formulas
-    ( Formula(False', True', Atom, Not, And, Or, Imp, Iff, Forall, Exists)
+    ( V(V), Formula(False', True', Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     , (.|.), (.&.), (.=>.), (.<=>.), (.~.), true, false, atomic
     , (==>), (<=>), (∧), (∨), (⇒), (⇔), (¬), (⊨), (⊭)
     , for_all, exists
@@ -10,6 +10,12 @@ module Formulas
     ) where
 
 import Data.Set as Set (Set, empty, union)
+import Data.String (IsString(fromString))
+
+newtype V = V String deriving (Eq, Ord, Read, Show)
+
+instance IsString V where
+    fromString = V
 
 data Formula a
     = False'
@@ -20,8 +26,8 @@ data Formula a
     | Or (Formula a) (Formula a)
     | Imp (Formula a) (Formula a)
     | Iff (Formula a) (Formula a)
-    | Forall String (Formula a)
-    | Exists String (Formula a)
+    | Forall V (Formula a)
+    | Exists V (Formula a)
     deriving (Eq, Ord, Read)
 
 instance Show a => Show (Formula a) where
@@ -83,8 +89,10 @@ atomic = Atom
 (⊭) :: Formula a
 (⊭) = false
 
+for_all :: V -> Formula a -> Formula a
 for_all = Forall
 
+exists :: V -> Formula a -> Formula a
 exists = Exists
 
 infixl 1  .<=>. , ⇔, <=>
