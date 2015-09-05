@@ -3,7 +3,7 @@ module FOL where
 
 import Formulas
 import Lib
-import Data.Map as Map (empty, insert, lookup, Map)
+import Data.Map as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Prelude hiding (pred)
@@ -21,7 +21,7 @@ import Test.HUnit
 data Term
     = Var String
     | Fn String [Term]
-    deriving Show
+    deriving (Eq, Show)
 
 vt :: String -> Term
 vt = Var
@@ -47,7 +47,7 @@ class FirstOrderFormula fol where
 -}
 
 -- | Abbreviation for FOL formula.
-data FOL = R String [Term]
+data FOL = R String [Term] deriving (Eq, Show)
 
 {-
 instance FirstOrderFormula FOL where
@@ -58,7 +58,7 @@ instance FirstOrderFormula FOL where
 data FOLEQ
     = R' String [Term]
     | Term :=: Term
-    deriving Show
+    deriving (Eq, Show)
 
 (.=.) :: Term -> Term -> Formula FOLEQ
 a .=. b = Atom (a :=: b)
@@ -227,12 +227,6 @@ termval m@(_domain,func,_pred) v tm =
     Var x -> fromMaybe (error $ "Undefined variable: " ++ show x) (Map.lookup x v)
     Fn f args -> func f $ map (termval m v) args
 
-{-
-holds :: (p ~ String, v ~ String) => ([a], String -> [a] -> a, p -> [a] -> Bool)
-      -> Map v a
-      -> Formula a
-      -> Bool
--}
 holds :: ([a], String -> [a] -> a, String -> [a] -> Bool) -> Map String a -> Formula FOLEQ -> Bool
 holds m@(domain,_func,pred) v fm =
   case fm of
@@ -347,23 +341,30 @@ var fm =
     Forall x p -> Set.insert x (var p)
     Exists x p -> Set.insert x (var p)
 
-fv :: Formula FOL -> Set String
-fv fm =
+fvFOL :: FOL -> Set String
+fvFOL (R _p args) = unions (map fvt args)
+
+fvFOLEQ :: FOLEQ -> Set String
+fvFOLEQ (R' _p args) = unions (map fvt args)
+fvFOLEQ (a :=: b) = union (fvt a) (fvt b)
+
+fv :: (a -> Set String) -> Formula a -> Set String
+fv fva fm =
   case fm of
     False' -> Set.empty
     True' -> Set.empty
-    Atom (R _p args) -> unions (map fvt args)
-    Not p -> fv p
-    And p q -> union (fv p) (fv q)
-    Or p q -> union (fv p) (fv q)
-    Imp p q -> union (fv p) (fv q)
-    Iff p q -> union (fv p) (fv q)
-    Forall x p -> difference (fv p) (singleton x)
-    Exists x p -> difference (fv p) (singleton x)
+    Atom a -> fva a
+    Not p -> fv fva p
+    And p q -> union (fv fva p) (fv fva q)
+    Or p q -> union (fv fva p) (fv fva q)
+    Imp p q -> union (fv fva p) (fv fva q)
+    Iff p q -> union (fv fva p) (fv fva q)
+    Forall x p -> difference (fv fva p) (singleton x)
+    Exists x p -> difference (fv fva p) (singleton x)
 
 -- | Universal closure of a formula.
 generalize :: Formula FOL -> Formula FOL
-generalize fm = Set.fold Forall fm (fv fm)
+generalize fm = Set.fold Forall fm (fv fvFOL fm)
 
 -- | Substitution within terms.
 tsubst :: Map String Term -> Term -> Term
@@ -390,45 +391,62 @@ test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
     where input = variant "x" (Set.fromList ["x", "x'"]) :: String
           expected = "x''"
 
+mapTermsFOL :: (Term -> Term) -> FOL -> FOL
+mapTermsFOL f (R p args) = R p (map f args)
+
+mapTermsFOLEQ :: (Term -> Term) -> FOLEQ -> FOLEQ
+mapTermsFOLEQ f (R' p args) = R' p (map f args)
+mapTermsFOLEQ f (a :=: b) = (f a :=: f b)
+
 -- | Substitution in formulas, with variable renaming.
-subst :: Map String Term -> Formula FOL -> Formula FOL
-subst subfn fm =
+subst :: (a -> Set String) -> ((Term -> Term) -> a -> a) -> Map String Term -> Formula a -> Formula a
+subst fva mapTerms subfn fm =
   case fm of
     False' -> False'
     True' -> True'
-    Atom(R p args) -> Atom (R p (map (tsubst subfn) args))
-    Not(p) -> Not (subst subfn p)
-    And p q -> And (subst subfn p) (subst subfn q)
-    Or p q -> Or (subst subfn p) (subst subfn q)
-    Imp p q -> Imp (subst subfn p) (subst subfn q)
-    Iff p q -> Iff (subst subfn p) (subst subfn q)
-    Forall x p -> substq subfn Forall x p
-    Exists x p -> substq subfn Exists x p
+    Atom a -> Atom (mapTerms (tsubst subfn) a)
+    Not(p) -> Not (subst fva mapTerms subfn p)
+    And p q -> And (subst fva mapTerms subfn p) (subst fva mapTerms subfn q)
+    Or p q -> Or (subst fva mapTerms subfn p) (subst fva mapTerms subfn q)
+    Imp p q -> Imp (subst fva mapTerms subfn p) (subst fva mapTerms subfn q)
+    Iff p q -> Iff (subst fva mapTerms subfn p) (subst fva mapTerms subfn q)
+    Forall x p -> substq fva mapTerms subfn Forall x p
+    Exists x p -> substq fva mapTerms subfn Exists x p
 
-substq :: Map String Term
-       -> (String -> Formula FOL -> Formula FOL)
+substq :: (a -> Set String)
+       -> ((Term -> Term) -> a -> a)
+       -> Map String Term
+       -> (String -> Formula a -> Formula a)
        -> String
-       -> Formula FOL
-       -> Formula FOL
-substq subfn quant x p =
+       -> Formula a
+       -> Formula a
+substq fva mapTerms subfn quant x p =
   let x' = if setAny (\y -> Set.member x (fvt(tryApplyD subfn y (Var y))))
-                     (difference (fv p) (singleton x))
-           then variant x (fv(subst (undefine x subfn) p)) else x in
-  quant x' (subst ((x |-> Var x') subfn) p)
+                     (difference (fv fva p) (singleton x))
+           then variant x (fv fva (subst fva mapTerms (undefine x subfn) p)) else x in
+  quant x' (subst fva mapTerms ((x |-> Var x') subfn) p)
 
-{-
-(* ------------------------------------------------------------------------- *)
-(* Examples.                                                                 *)
-(* ------------------------------------------------------------------------- *)
 
-START_INTERACTIVE;;
-subst ("y" |=> Var "x") <<forall x. x = y>>;;
+-- Examples.
 
-subst ("y" |=> Var "x") <<forall x x'. x = y ==> x = x'>>;;
-END_INTERACTIVE;;
--}
+test10 :: Test
+test10 = TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x. x = y>>;;"
+                                (for_all "x'" (Atom (Var "x'" :=: Var "x")))
+                                (let (x, y) = (vt "x", vt "y") in
+                                 subst fvFOLEQ mapTermsFOLEQ
+                                       (Map.fromList [("y", Var "x")])
+                                       (for_all "x" (x .=. y)))
+
+test11 :: Test
+test11 = TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x x'. x = y ==> x = x'>>;;"
+                                (for_all "x'" (for_all "x''" (Atom (Var "x'" :=: Var "x") .=>. (Atom (Var "x'" :=: Var "x''")))))
+                                (let (x, x', y) = (vt "x", vt "x'", vt "y") in
+                                 subst fvFOLEQ mapTermsFOLEQ
+                                       (Map.fromList [("y", Var "x")])
+                                       (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))))
 
 tests :: Test
 tests = TestLabel "FOL" $
         TestList [test01, test02, test03, test04, test05,
-                  test06, test07, test08, test09]
+                  test06, test07, test08, test09, test10,
+                  test11]
