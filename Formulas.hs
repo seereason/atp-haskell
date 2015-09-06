@@ -16,10 +16,13 @@ import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixL,
 import Lib.Pretty (HasFixity(fixity), topFixity)
 import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), text)
 
-newtype V = V String deriving (Eq, Ord, Read, Show)
+newtype V = V String deriving (Eq, Ord, Read)
 
 instance IsString V where
     fromString = V
+
+instance Show V where
+    show (V s) = show s
 
 instance Pretty V where
     pPrint (V s) = text s

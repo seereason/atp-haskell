@@ -48,14 +48,14 @@ import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
 data Prop = P {pname :: String} deriving (Eq, Ord)
 
--- | The default Show instance would display 'P {pname = "x"}', but P
--- "x" is sufficient.
-instance Show Prop where
-    show (P {pname = s}) = "P " ++ show s
-
 -- Allows us to say "q" instead of P "q" or P {pname = "q"}
 instance IsString Prop where
     fromString = P
+
+-- Because of the IsString instance, the Show instance can just
+-- be a String.
+instance Show Prop where
+    show (P {pname = s}) = show s
 
 instance Pretty Prop where
     pPrint (P s) = text s
@@ -79,9 +79,14 @@ test36 = TestCase $ assertEqual "show propositional formula 1" expected input
 -- Testing the parser and printer.
 
 test01 :: Test
-test01 = TestCase $ assertEqual "Build Formula 1" expected input
-    where input = prettyShow (atomic "p" .=>. atomic "q" .<=>. atomic "r" .&. atomic "s" .|. (atomic "t" .<=>. ((.~.) ((.~.) (atomic "u"))) .&. atomic "v") :: Formula Prop)
-          expected = "p⇒q⇔r∧s∨(t⇔¬¬u∧v)"
+test01 =
+    let fm = atomic "p" .=>. atomic "q" .<=>. atomic "r" .&. atomic "s" .|. (atomic "t" .<=>. ((.~.) ((.~.) (atomic "u"))) .&. atomic "v") :: Formula Prop
+        input = (prettyShow fm, show fm)
+        expected = (-- Pretty printed
+                    "p⇒q⇔r∧s∨(t⇔¬¬u∧v)",
+                    -- Haskell expression
+                    "((atomic (\"p\")) .=>. (atomic (\"q\"))) .<=>. (((atomic (\"r\")) .&. (atomic (\"s\"))) .|. ((atomic (\"t\")) .<=>. (((.~.) ((.~.) (atomic (\"u\")))) .&. (atomic (\"v\")))))") in
+    TestCase $ assertEqual "Build Formula 1" expected input
 
 test02 :: Test
 test02 = TestCase $ assertEqual "Build Formula 2" expected input

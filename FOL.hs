@@ -55,10 +55,14 @@ vt = Var
 data Function
     = Fn String
     | Skolem V
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord)
 
 instance IsString Function where
     fromString = Fn
+
+instance Show Function where
+    show (Fn s) = show s
+    show (Skolem v) = "Skolem " ++ show v
 
 instance Pretty Function where
     pPrint (Fn s) = text s
@@ -68,18 +72,7 @@ instance Pretty Function where
 fApp :: Function -> [Term] -> Term
 fApp = FApply
 
-{-
-(* ------------------------------------------------------------------------- *)
-(* Example.                                                                  *)
-(* ------------------------------------------------------------------------- *)
-
-START_INTERACTIVE;;
-Fn("sqrt",[Fn("-",[Fn("1",[]);
-                   Fn("cos",[Fn("power",[Fn("+",[Var "x"; Var "y"]);
-                                        Fn("2",[])])])])]);;
-END_INTERACTIVE;;
--}
-
+-- Example.
 test00 :: Test
 test00 = TestCase $ assertEqual "print an expression"
                                 "sqrt [- [1, cos [power [+ [x, y], 2]]]]"
