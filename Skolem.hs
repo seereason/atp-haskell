@@ -296,10 +296,9 @@ specialize f =
 -- | Skolemize and then specialize.  Because we know all quantifiers
 -- are gone we can convert to any instance of PropositionalFormula.
 skolemize :: (Monad m, Skolem function V, atom ~ FOL predicate function) =>
-             (atom -> atom2)
-          -> Formula atom
+             Formula atom
           -> SkolemT m (Formula atom)
-skolemize _ca fm = (specialize . pnf) <$> askolemize fm
+skolemize fm = (specialize . pnf) <$> askolemize fm
 
 -- | A function type that is an instance of Skolem
 data Function
@@ -327,7 +326,7 @@ instance Skolem Function V where
 
 test04 :: Test
 test04 = TestCase $ assertEqual "skolemize 1 (p. 150)" expected input
-    where input = runSkolem (skolemize id fm) :: Formula (FOL Predicate Function)
+    where input = runSkolem (skolemize fm) :: Formula (FOL Predicate Function)
           fm :: Formula (FOL Predicate Function)
           fm = exists "y" (pApp ("<") [vt "x", vt "y"] .=>.
                            for_all "u" (exists "v" (pApp ("<") [fApp "*" [vt "x", vt "u"],  fApp "*" [vt "y", vt "v"]])))
@@ -338,7 +337,7 @@ test05 :: Test
 test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
     where p = "P"
           q = "Q"
-          input = runSkolem (skolemize id fm) :: Formula (FOL Predicate Function)
+          input = runSkolem (skolemize fm) :: Formula (FOL Predicate Function)
           fm :: Formula (FOL Predicate Function)
           fm = for_all "x" ((pApp p [vt "x"]) .=>.
                             (exists "y" (exists "z" ((pApp q [vt "y"]) .|.
