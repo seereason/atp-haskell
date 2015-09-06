@@ -294,11 +294,12 @@ overatoms f fm b =
     Exists _x p -> overatoms f p b
     _ -> b
 
--- | Special case of a union of the results of a function over the atoms.
-atom_union :: Ord a => (atom -> Set a) -> Formula atom -> Set a
-atom_union f fm = overatoms (\h t -> Set.union (f h) t) fm Set.empty
-
 instance Formulae (Formula atom) atom where
     atomic = Atom
     foldAtoms f r0 fm = overatoms (flip f) fm r0
     mapAtoms = onatoms
+
+-- | Special case of a union of the results of a function over the atoms.
+-- atom_union :: Ord a => (atom -> Set a) -> Formula atom -> Set a
+atom_union :: (Ord a, Formulae formula atom) => (atom -> Set a) -> formula -> Set a
+atom_union f fm = foldAtoms (\t h -> Set.union (f h) t) Set.empty fm
