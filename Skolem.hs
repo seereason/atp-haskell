@@ -18,23 +18,23 @@ import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
-simplify1 :: forall a. (a -> Set V) -> Formula a -> Formula a
-simplify1 fva fm =
+simplify1 :: (atom ~ FOL predicate formula) => Formula atom -> Formula atom
+simplify1 fm =
   case fm of
-    Forall x p -> if member x (fv fva p) then fm else p
-    Exists x p -> if member x (fv fva p) then fm else p
+    Forall x p -> if member x (fv p) then fm else p
+    Exists x p -> if member x (fv p) then fm else p
     _ -> psimplify1 fm
 
-simplify :: forall a. (a -> Set V) -> Formula a -> Formula a
-simplify fva fm =
+simplify :: (atom ~ FOL predicate formula) => Formula atom -> Formula atom
+simplify fm =
   case fm of
-    Not p -> simplify1 fva (Not (simplify fva p))
-    And p q -> simplify1 fva (And (simplify fva p) (simplify fva q))
-    Or p q -> simplify1 fva (Or (simplify fva p) (simplify fva q))
-    Imp p q -> simplify1 fva (Imp (simplify fva p) (simplify fva q))
-    Iff p q -> simplify1 fva (Iff (simplify fva p) (simplify fva q))
-    Forall x p -> simplify1 fva (Forall x (simplify fva p))
-    Exists x p -> simplify1 fva (Exists x (simplify fva p))
+    Not p -> simplify1 (Not (simplify p))
+    And p q -> simplify1 (And (simplify p) (simplify q))
+    Or p q -> simplify1 (Or (simplify p) (simplify q))
+    Imp p q -> simplify1 (Imp (simplify p) (simplify q))
+    Iff p q -> simplify1 (Iff (simplify p) (simplify q))
+    Forall x p -> simplify1 (Forall x (simplify p))
+    Exists x p -> simplify1 (Exists x (simplify p))
     _ -> fm
 
 -- Example.
@@ -45,7 +45,7 @@ pApp p args = Atom $ R p args
 
 test01 :: Test
 test01 = TestCase $ assertEqual "simplify (p. 140)" expected input
-    where input = simplify fvFOLEQ fm
+    where input = simplify fm
           expected = (for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: Formula (FOL Predicate FName)
           fm :: Formula (FOL Predicate function)
           fm = (for_all "x" (for_all "y" (pApp "P" [vt "x"] .|. (pApp "P" [vt "y"] .&. false)))) .=>. exists "z" (pApp "Q" [])
@@ -83,26 +83,25 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
           fm = (for_all "x" (pApp p [vt "x"])) .=>. ((exists "y" (pApp q [vt "y"])) .<=>. exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"]))
 
 -- | Prenex normal form.
-pullquants :: (atom -> Set V) -> ((Term function -> Term function) -> atom -> atom) -> Formula atom -> Formula atom
-pullquants fva mapTerms fm =
+pullquants :: (atom ~ FOL predicate function) => Formula atom -> Formula atom
+pullquants fm =
   case fm of
     And (Forall (x) (p)) (Forall (y) (q)) ->
-                          pullq fva mapTerms (True,True) fm Forall And x y p q
+                          pullq (True,True) fm Forall And x y p q
     Or (Exists (x) (p)) (Exists (y) (q)) ->
-                          pullq fva mapTerms (True,True) fm Exists Or x y p q
-    And (Forall (x) (p)) (q) -> pullq fva mapTerms (True,False) fm Forall And x x p q
-    And (p) (Forall (y) (q)) -> pullq fva mapTerms (False,True) fm Forall And y y p q
-    Or (Forall (x) (p)) (q) ->  pullq fva mapTerms (True,False) fm Forall Or x x p q
-    Or (p) (Forall (y) (q)) ->  pullq fva mapTerms (False,True) fm Forall Or y y p q
-    And (Exists (x) (p)) (q) -> pullq fva mapTerms (True,False) fm Exists And x x p q
-    And (p) (Exists (y) (q)) -> pullq fva mapTerms (False,True) fm Exists And y y p q
-    Or (Exists (x) (p)) (q) ->  pullq fva mapTerms (True,False) fm Exists Or x x p q
-    Or (p) (Exists (y) (q)) ->  pullq fva mapTerms (False,True) fm Exists Or y y p q
+                          pullq (True,True) fm Exists Or x y p q
+    And (Forall (x) (p)) (q) -> pullq (True,False) fm Forall And x x p q
+    And (p) (Forall (y) (q)) -> pullq (False,True) fm Forall And y y p q
+    Or (Forall (x) (p)) (q) ->  pullq (True,False) fm Forall Or x x p q
+    Or (p) (Forall (y) (q)) ->  pullq (False,True) fm Forall Or y y p q
+    And (Exists (x) (p)) (q) -> pullq (True,False) fm Exists And x x p q
+    And (p) (Exists (y) (q)) -> pullq (False,True) fm Exists And y y p q
+    Or (Exists (x) (p)) (q) ->  pullq (True,False) fm Exists Or x x p q
+    Or (p) (Exists (y) (q)) ->  pullq (False,True) fm Exists Or y y p q
     _ -> fm
 
-pullq :: (atom -> Set V)
-      -> ((Term function -> Term function) -> atom -> atom)
-      -> (Bool, Bool)
+pullq :: (atom ~ FOL predicate function) =>
+         (Bool, Bool)
       -> Formula atom
       -> (V -> Formula atom -> Formula atom)
       -> (Formula atom -> Formula atom -> Formula atom)
@@ -111,24 +110,23 @@ pullq :: (atom -> Set V)
       -> Formula atom
       -> Formula atom
       -> Formula atom
-pullq fva mapTerms (l,r) fm quant op x y p q =
-  let z = variant x (fv fva fm) in
-  let p' = if l then subst fva mapTerms (Map.singleton x (Var z)) p else p
-      q' = if r then subst fva mapTerms (Map.singleton y (Var z)) q else q in
-  quant z (pullquants fva mapTerms (op p' q'))
+pullq (l,r) fm quant op x y p q =
+  let z = variant x (fv fm) in
+  let p' = if l then subst (Map.singleton x (Var z)) p else p
+      q' = if r then subst (Map.singleton y (Var z)) q else q in
+  quant z (pullquants (op p' q'))
 
-prenex :: (atom -> Set V) -> ((Term function -> Term function) -> atom -> atom) -> Formula atom -> Formula atom
-prenex fva mapTerms fm =
+prenex :: (atom ~ FOL predicate function) => Formula atom -> Formula atom
+prenex fm =
   case fm of
-    Forall (x) (p) -> Forall (x) (prenex fva mapTerms p)
-    Exists (x) (p) -> Exists (x) (prenex fva mapTerms p)
-    And (p) (q) -> pullquants fva mapTerms (And (prenex fva mapTerms p) (prenex fva mapTerms q))
-    Or (p) (q) -> pullquants fva mapTerms (Or (prenex fva mapTerms p) (prenex fva mapTerms q))
+    Forall (x) (p) -> Forall (x) (prenex p)
+    Exists (x) (p) -> Exists (x) (prenex p)
+    And (p) (q) -> pullquants (And (prenex p) (prenex q))
+    Or (p) (q) -> pullquants (Or (prenex p) (prenex q))
     _ -> fm
 
-pnf :: (atom -> Set V) -> ((Term function -> Term function) -> atom -> atom) -> Formula atom -> Formula atom
-pnf fva mapTerms fm = prenex fva mapTerms (nnf (simplify fva fm))
-    where
+pnf :: (atom ~ FOL predicate function) => Formula atom -> Formula atom
+pnf fm = prenex (nnf (simplify fm))
 
 -- Example.
 
@@ -137,7 +135,7 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" expected input
     where p = "P"
           q = "Q"
           r = "R"
-          input = pnf fvFOLEQ mapTermsFOLEQ fm
+          input = pnf fm
           expected = exists "x" (for_all "z"
                                  ((((.~.)(pApp p [vt "x"])) .&. ((.~.)(pApp r [vt "y"]))) .|.
                                   ((pApp q [vt "x"]) .|.
@@ -231,8 +229,9 @@ class Skolem function var where
 -- are applied to the list of variables which are universally
 -- quantified in the context where the existential quantifier
 -- appeared.
-skolem :: (Monad m, Skolem function V) => (atom -> Set V) -> ((Term function -> Term function) -> atom -> atom) -> Formula atom -> SkolemT m (Formula atom)
-skolem fva mapTerms fm =
+skolem :: (Monad m, Skolem function V, atom ~ FOL predicate function) =>
+          Formula atom -> SkolemT m (Formula atom)
+skolem fm =
     case fm of
       Atom a -> return $ atomic a
       T -> return true
@@ -244,27 +243,25 @@ skolem fva mapTerms fm =
       -- function is assumed to equal the value of y which satisfies
       -- the formula.
       Exists y p ->
-          do let xs = fv fva fm
+          do let xs = fv fm
              let fx = fApp (toSkolem y) (map vt (Set.toAscList xs))
-             skolem fva mapTerms (subst fva mapTerms (Map.singleton y fx) p)
-      Forall x p -> skolem fva mapTerms p >>= return . for_all x
-      And l r -> skolem2 fva mapTerms (.&.) l r
-      Or l r -> skolem2 fva mapTerms (.|.) l r
+             skolem (subst (Map.singleton y fx) p)
+      Forall x p -> skolem p >>= return . for_all x
+      And l r -> skolem2 (.&.) l r
+      Or l r -> skolem2 (.|.) l r
       _ -> return fm
 
-skolem2 :: (Monad m, Skolem function V) => (atom -> Set V) -> ((Term function -> Term function) -> atom -> atom) -> (Formula atom -> Formula atom -> Formula atom) -> Formula atom -> Formula atom -> SkolemT m (Formula atom)
-skolem2 fva mapTerms cons p q =
-    skolem fva mapTerms p >>= \ p' ->
-    skolem fva mapTerms q >>= \ q' ->
+skolem2 :: (Monad m, Skolem function V, atom ~ FOL predicate function) =>
+           (Formula atom -> Formula atom -> Formula atom) -> Formula atom -> Formula atom -> SkolemT m (Formula atom)
+skolem2 cons p q =
+    skolem p >>= \ p' ->
+    skolem q >>= \ q' ->
     return (cons p' q')
 
 -- | Overall Skolemization function.
-askolemize :: (Monad m, Skolem function V) =>
-              (atom -> Set V)
-           -> ((Term function -> Term function) -> atom -> atom)
-           -> Formula atom
-           -> SkolemT m (Formula atom)
-askolemize fva mapTerms = skolem fva mapTerms . nnf . simplify fva
+askolemize :: (Monad m, Skolem function V, atom ~ FOL predicate function) =>
+              Formula atom -> SkolemT m (Formula atom)
+askolemize = skolem . nnf . simplify
 
 -- | Remove the leading universal quantifiers.  After a call to pnf
 -- this will be all the universal quantifiers, and the skolemization
@@ -278,13 +275,11 @@ specialize f =
 
 -- | Skolemize and then specialize.  Because we know all quantifiers
 -- are gone we can convert to any instance of PropositionalFormula.
-skolemize :: (Monad m, Skolem function V) =>
-             (atom -> Set V)
-          -> ((Term function -> Term function) -> atom -> atom)
-          -> (atom -> atom2)
+skolemize :: (Monad m, Skolem function V, atom ~ FOL predicate function) =>
+             (atom -> atom2)
           -> Formula atom
           -> SkolemT m (Formula atom)
-skolemize fva mapTerms _ca fm = (specialize . pnf fva mapTerms) <$> askolemize fva mapTerms fm
+skolemize _ca fm = (specialize . pnf) <$> askolemize fm
 
 -- | A function type that is an instance of Skolem
 data Function
@@ -312,7 +307,7 @@ instance Skolem Function V where
 
 test04 :: Test
 test04 = TestCase $ assertEqual "skolemize 1 (p. 150)" expected input
-    where input = runSkolem (skolemize fvFOLEQ mapTermsFOLEQ id fm) :: Formula (FOL Predicate Function)
+    where input = runSkolem (skolemize id fm) :: Formula (FOL Predicate Function)
           fm :: Formula (FOL Predicate Function)
           fm = exists "y" (pApp ("<") [vt "x", vt "y"] .=>.
                            for_all "u" (exists "v" (pApp ("<") [fApp "*" [vt "x", vt "u"],  fApp "*" [vt "y", vt "v"]])))
@@ -323,7 +318,7 @@ test05 :: Test
 test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
     where p = "P"
           q = "Q"
-          input = runSkolem (skolemize fvFOLEQ mapTermsFOLEQ id fm) :: Formula (FOL Predicate Function)
+          input = runSkolem (skolemize id fm) :: Formula (FOL Predicate Function)
           fm :: Formula (FOL Predicate Function)
           fm = for_all "x" ((pApp p [vt "x"]) .=>.
                             (exists "y" (exists "z" ((pApp q [vt "y"]) .|.

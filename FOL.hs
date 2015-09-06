@@ -12,10 +12,8 @@ module FOL
     , mod_interp
     , var
     , fv
-    , fvFOL, fvFOLEQ
     , generalize
     , variant
-    , mapTermsFOL, mapTermsFOLEQ
     , subst, substq
     , tests
     ) where
@@ -363,29 +361,23 @@ var fm =
     Forall x p -> Set.insert x (var p)
     Exists x p -> Set.insert x (var p)
 
-fvFOL :: FOL predicate function -> Set V
-fvFOL (R _p args) = unions (map fvt args)
-
-fvFOLEQ :: HasEquality predicate => FOL predicate function -> Set V
-fvFOLEQ (R _p args) = unions (map fvt args)
-
-fv :: (a -> Set V) -> Formula a -> Set V
-fv fva fm =
+fv :: (atom ~ FOL predicate formula) => Formula atom -> Set V
+fv fm =
   case fm of
     F -> Set.empty
     T -> Set.empty
-    Atom a -> fva a
-    Not p -> fv fva p
-    And p q -> union (fv fva p) (fv fva q)
-    Or p q -> union (fv fva p) (fv fva q)
-    Imp p q -> union (fv fva p) (fv fva q)
-    Iff p q -> union (fv fva p) (fv fva q)
-    Forall x p -> difference (fv fva p) (singleton x)
-    Exists x p -> difference (fv fva p) (singleton x)
+    Atom (R _p args) -> unions (map fvt args)
+    Not p -> fv p
+    And p q -> union (fv p) (fv q)
+    Or p q -> union (fv p) (fv q)
+    Imp p q -> union (fv p) (fv q)
+    Iff p q -> union (fv p) (fv q)
+    Forall x p -> difference (fv p) (singleton x)
+    Exists x p -> difference (fv p) (singleton x)
 
 -- | Universal closure of a formula.
 generalize :: Formula (FOL predicate function) -> Formula (FOL predicate function)
-generalize fm = Set.fold Forall fm (fv fvFOL fm)
+generalize fm = Set.fold Forall fm (fv fm)
 
 -- | Substitution within terms.
 tsubst :: Map V (Term function) -> Term function -> Term function
@@ -412,39 +404,32 @@ test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
     where input = variant "x" (Set.fromList ["x", "x'"]) :: V
           expected = "x''"
 
-mapTermsFOL :: (Term function -> Term function) -> FOL predicate function -> FOL predicate function
-mapTermsFOL f (R p args) = R p (map f args)
-
-mapTermsFOLEQ :: HasEquality predicate => (Term function -> Term function) -> FOL predicate function -> FOL predicate function
-mapTermsFOLEQ f (R p args) = R p (map f args)
-
 -- | Substitution in formulas, with variable renaming.
-subst :: (a -> Set V) -> ((Term function -> Term function) -> a -> a) -> Map V (Term function) -> Formula a -> Formula a
-subst fva mapTerms subfn fm =
+subst :: (atom ~ FOL predicate function) => Map V (Term function) -> Formula atom -> Formula atom
+subst subfn fm =
   case fm of
     F -> F
     T -> T
-    Atom a -> Atom (mapTerms (tsubst subfn) a)
-    Not(p) -> Not (subst fva mapTerms subfn p)
-    And p q -> And (subst fva mapTerms subfn p) (subst fva mapTerms subfn q)
-    Or p q -> Or (subst fva mapTerms subfn p) (subst fva mapTerms subfn q)
-    Imp p q -> Imp (subst fva mapTerms subfn p) (subst fva mapTerms subfn q)
-    Iff p q -> Iff (subst fva mapTerms subfn p) (subst fva mapTerms subfn q)
-    Forall x p -> substq fva mapTerms subfn Forall x p
-    Exists x p -> substq fva mapTerms subfn Exists x p
+    Atom (R p args) -> Atom (R p (map (tsubst subfn) args))
+    Not(p) -> Not (subst subfn p)
+    And p q -> And (subst subfn p) (subst subfn q)
+    Or p q -> Or (subst subfn p) (subst subfn q)
+    Imp p q -> Imp (subst subfn p) (subst subfn q)
+    Iff p q -> Iff (subst subfn p) (subst subfn q)
+    Forall x p -> substq subfn Forall x p
+    Exists x p -> substq subfn Exists x p
 
-substq :: (a -> Set V)
-       -> ((Term function -> Term function) -> a -> a)
-       -> Map V (Term function)
-       -> (V -> Formula a -> Formula a)
+substq :: (atom ~ FOL predicate function) => 
+          Map V (Term function)
+       -> (V -> Formula atom -> Formula atom)
        -> V
-       -> Formula a
-       -> Formula a
-substq fva mapTerms subfn quant x p =
+       -> Formula atom
+       -> Formula atom
+substq subfn quant x p =
   let x' = if setAny (\y -> Set.member x (fvt(tryApplyD subfn y (Var y))))
-                     (difference (fv fva p) (singleton x))
-           then variant x (fv fva (subst fva mapTerms (undefine x subfn) p)) else x in
-  quant x' (subst fva mapTerms ((x |-> Var x') subfn) p)
+                     (difference (fv p) (singleton x))
+           then variant x (fv (subst (undefine x subfn) p)) else x in
+  quant x' (subst ((x |-> Var x') subfn) p)
 
 
 -- Examples.
@@ -454,8 +439,7 @@ test10 =
     let [x, x', y] = [vt "x", vt "x'", vt "y"] in
     TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x. x = y>>;;"
                            (for_all "x'" (x' .=. x) :: Formula (FOL Predicate FName))
-                           (subst fvFOLEQ mapTermsFOLEQ
-                                  (Map.fromList [("y", x)])
+                           (subst (Map.fromList [("y", x)])
                                   (for_all "x" ((x .=. y))))
 
 test11 :: Test
@@ -463,8 +447,7 @@ test11 =
     let [x, x', x'', y] = [vt "x", vt "x'", vt "x''", vt "y"] in
     TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x x'. x = y ==> x = x'>>;;"
                            (for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: Formula (FOL Predicate FName))
-                           (subst fvFOLEQ mapTermsFOLEQ
-                                  (Map.fromList [("y", x)])
+                           (subst (Map.fromList [("y", x)])
                                   (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))))
 
 tests :: Test
