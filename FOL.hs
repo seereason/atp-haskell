@@ -244,14 +244,16 @@ START_INTERACTIVE;;
 END_INTERACTIVE;;
 -}
 
+type Interp function predicate d = ([d], function -> [d] -> d, predicate -> [d] -> Bool)
+
 -- | Semantics, implemented of course for finite domains only.
-termval :: ([a], function -> [a] -> a, p -> [a] -> Bool) -> Map V a -> Term function -> a
+termval :: Interp function predicate a -> Map V a -> Term function -> a
 termval m@(_domain,func,_pred) v tm =
   case tm of
     Var x -> fromMaybe (error $ "Undefined variable: " ++ show x) (Map.lookup x v)
     FApply f args -> func f $ map (termval m v) args
 
-holds :: ([a], function -> [a] -> a, String -> [a] -> Bool) -> Map V a -> Formula (FOLEQ function) -> Bool
+holds :: Interp function String d -> Map V d -> Formula (FOLEQ function) -> Bool
 holds m@(domain,_func,pred) v fm =
   case fm of
     F -> False
@@ -267,7 +269,7 @@ holds m@(domain,_func,pred) v fm =
     Exists x p -> or (map (\a -> holds m (Map.insert x a v) p) domain) -- return . all (== True)?
 
 -- | Examples of particular interpretations.
-bool_interp :: Eq a => ([Bool], Function -> [Bool] -> Bool, String -> [a] -> Bool)
+bool_interp :: (Eq predicate, IsString predicate) => Interp Function predicate Bool
 bool_interp =
   ([False, True],func,pred)
     where
@@ -283,7 +285,7 @@ bool_interp =
               ("=",[x,y]) -> x == y
               _ -> error "uninterpreted predicate"
 
-mod_interp :: Int -> ([Int], Function -> [Int] -> Int, String -> [Int] -> Bool)
+mod_interp :: (Eq predicate, IsString predicate) => Int -> Interp Function predicate Int
 mod_interp n =
   ([0..(n-1)],func,pred)
     where
