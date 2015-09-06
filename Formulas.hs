@@ -209,8 +209,11 @@ instance Combinable (Formula atom) where
 -- | Class associating a formula type with its atom type.
 class Formulae formula atom | formula -> atom where
     atomic :: atom -> formula
-    foldAtoms :: Formulae formula atom => (r -> atom -> r) -> r -> formula -> r
-    mapAtoms :: Formulae formula atom => (atom -> formula) -> formula -> formula
+    -- ^ Build a formula from an atom.
+    foldAtoms :: (atom -> r -> r) -> formula -> r -> r
+    -- ^ Formula analog of list iterator "itlist".
+    mapAtoms :: (atom -> formula) -> formula -> formula
+    -- ^ Apply a function to the atoms, otherwise keeping structure.
 
 -- infixr 9 !, ?, ∀, ∃
 
@@ -266,40 +269,37 @@ prettyFormula prettyAtom (Fixity parentPrecidence parentDirection) fm =
 instance (HasFixity atom, Pretty atom)  => Pretty (Formula atom) where
     pPrint fm = prettyFormula pPrint topFixity fm
 
--- | Apply a function to the atoms, otherwise keeping structure.
-onatoms :: (atom -> Formula atom) -> Formula atom -> Formula atom
-onatoms f fm =
-    case fm of
-      Atom a -> f a
-      Not p -> Not (onatoms f p)
-      And p q -> And (onatoms f p) (onatoms f q)
-      Or p q -> Or (onatoms f p) (onatoms f q)
-      Imp p q -> Imp (onatoms f p) (onatoms f q)
-      Iff p q -> Iff (onatoms f p) (onatoms f q)
-      Forall x p -> Forall x (onatoms f p)
-      Exists x p -> Exists x (onatoms f p)
-      _ -> fm
-
--- | Formula analog of list iterator "itlist".
-overatoms :: (atom -> r -> r) -> Formula atom -> r -> r
-overatoms f fm b =
-  case fm of
-    Atom a -> f a b
-    Not p -> overatoms f p b
-    And p q -> overatoms f p (overatoms f q b)
-    Or p q -> overatoms f p (overatoms f q b)
-    Imp p q -> overatoms f p (overatoms f q b)
-    Iff p q -> overatoms f p (overatoms f q b)
-    Forall _x p -> overatoms f p b
-    Exists _x p -> overatoms f p b
-    _ -> b
-
 instance Formulae (Formula atom) atom where
     atomic = Atom
-    foldAtoms f r0 fm = overatoms (flip f) fm r0
-    mapAtoms = onatoms
+    foldAtoms f fm b =
+      case fm of
+        Atom a -> f a b
+        Not p -> foldAtoms f p b
+        And p q -> foldAtoms f p (foldAtoms f q b)
+        Or p q -> foldAtoms f p (foldAtoms f q b)
+        Imp p q -> foldAtoms f p (foldAtoms f q b)
+        Iff p q -> foldAtoms f p (foldAtoms f q b)
+        Forall _x p -> foldAtoms f p b
+        Exists _x p -> foldAtoms f p b
+        _ -> b
+    mapAtoms f fm =
+      case fm of
+        Atom a -> f a
+        Not p -> Not (mapAtoms f p)
+        And p q -> And (mapAtoms f p) (mapAtoms f q)
+        Or p q -> Or (mapAtoms f p) (mapAtoms f q)
+        Imp p q -> Imp (mapAtoms f p) (mapAtoms f q)
+        Iff p q -> Iff (mapAtoms f p) (mapAtoms f q)
+        Forall x p -> Forall x (mapAtoms f p)
+        Exists x p -> Exists x (mapAtoms f p)
+        _ -> fm
+
+overatoms :: Formulae formula atom => (atom -> r -> r) -> formula -> r -> r
+overatoms = foldAtoms
+onatoms :: Formulae formula atom => (atom -> formula) -> formula -> formula
+onatoms = mapAtoms
 
 -- | Special case of a union of the results of a function over the atoms.
 -- atom_union :: Ord a => (atom -> Set a) -> Formula atom -> Set a
 atom_union :: (Ord a, Formulae formula atom) => (atom -> Set a) -> formula -> Set a
-atom_union f fm = foldAtoms (\t h -> Set.union (f h) t) Set.empty fm
+atom_union f fm = foldAtoms (\h t -> Set.union (f h) t) fm Set.empty
