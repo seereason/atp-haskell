@@ -9,13 +9,20 @@ module Formulas
     , atom_union
     ) where
 
+import Data.Monoid ((<>))
 import Data.Set as Set (Set, empty, union)
 import Data.String (IsString(fromString))
+import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixL, InfixR, InfixN))
+import Lib.Pretty (HasFixity(fixity), topFixity)
+import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), text)
 
 newtype V = V String deriving (Eq, Ord, Read, Show)
 
 instance IsString V where
     fromString = V
+
+instance Pretty V where
+    pPrint (V s) = text s
 
 data Formula atom
     = F
@@ -83,11 +90,6 @@ for_all = Forall
 exists :: V -> Formula atom -> Formula atom
 exists = Exists
 
-infixl 1  .<=>. , ⇔, <=>
-infixr 2  .=>., ⇒, ==>
-infixr 3  .|., ∨
-infixl 4  .&., ∧
-
 -- Display formulas using infix notation
 instance Show atom => Show (Formula atom) where
     show F = "false"
@@ -100,6 +102,51 @@ instance Show atom => Show (Formula atom) where
     show (Iff f g) = "(" ++ show f ++ ") .<=>. (" ++ show g ++ ")"
     show (Forall v f) = "(for_all " ++ show v ++ " " ++ show f ++ ")"
     show (Exists v f) = "(exists " ++ show v ++ " " ++ show f ++ ")"
+
+infixl 1  .<=>. , ⇔, <=>
+infixr 2  .=>., ⇒, ==>
+infixr 3  .|., ∨
+infixl 4  .&., ∧
+-- infixr 9 !, ?, ∀, ∃
+
+instance HasFixity atom => HasFixity (Formula atom) where
+    fixity T = Fixity 10 InfixN
+    fixity F = Fixity 10 InfixN
+    fixity (Atom a) = fixity a
+    fixity (Not _) = Fixity 5 InfixN
+    fixity (And _ _) = Fixity 4 InfixL
+    fixity (Or _ _) = Fixity 3 InfixL
+    fixity (Imp _ _) = Fixity 2 InfixR
+    fixity (Iff _ _) = Fixity 1 InfixL
+    fixity (Forall _ _) = Fixity 9 InfixN
+    fixity (Exists _ _) = Fixity 9 InfixN
+
+-- | Show a formula in a visually pleasing format.
+prettyFormula :: HasFixity atom =>
+                 (atom -> Doc)
+              -> Fixity        -- ^ The fixity of the parent formula.  If the operator being formatted here
+                               -- has a lower precedence it needs to be parenthesized.
+              -> Formula atom
+              -> Doc
+prettyFormula prettyAtom (Fixity parentPrecidence parentDirection) fm =
+    parenIf (parentPrecidence > precidence) (pp fm)
+    where
+      fix@(Fixity precidence direction) = fixity fm
+      parenIf True x = text "(" <> x <> text ")"
+      parenIf False x = x
+      pp F = text "⊨"
+      pp T = text "⊭"
+      pp (Atom atom) = prettyAtom atom
+      pp (Not f) = text "¬" <> prettyFormula prettyAtom fix f
+      pp (And f g) = prettyFormula prettyAtom fix f <> text "∧" <> prettyFormula prettyAtom fix g
+      pp (Or f g) = prettyFormula prettyAtom fix f <> text "∨" <> prettyFormula prettyAtom fix g
+      pp (Imp f g) = prettyFormula prettyAtom fix f <> text "⇒" <> prettyFormula prettyAtom fix g
+      pp (Iff f g) = prettyFormula prettyAtom fix f <> text "⇔" <> prettyFormula prettyAtom fix g
+      pp (Forall v f) = text ("∀" ++ show v ++ ". ") <> prettyFormula prettyAtom fix f
+      pp (Exists v f) = text ("∃" ++ show v ++ ". ") <> prettyFormula prettyAtom fix f
+
+instance (HasFixity atom, Pretty atom)  => Pretty (Formula atom) where
+    pPrint fm = prettyFormula pPrint topFixity fm
 
 -- | Apply a function to the atoms, otherwise keeping structure.
 onatoms :: (atom -> Formula atom) -> Formula atom -> Formula atom

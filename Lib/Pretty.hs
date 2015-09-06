@@ -66,7 +66,7 @@ topFixity :: TH.Fixity
 topFixity = TH.Fixity 0 TH.InfixN
 
 -- | This is used as the fixity for things that never need
--- parenthesization, such as function application.
+-- parenthesization, such as function application or a variable name.
 botFixity :: TH.Fixity
 botFixity = TH.Fixity 10 TH.InfixN
 

@@ -20,12 +20,15 @@ module FOL
 
 import Formulas
 import Lib (setAny, tryApplyD, undefine, (|->))
+import Data.List (intersperse)
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
+import Data.Monoid ((<>))
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Prelude hiding (pred)
 import Test.HUnit
+import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
 -- =========================================================================
 -- Basic stuff for first order logic.
@@ -39,6 +42,11 @@ data Term
     | FApply Function [Term]
     deriving (Eq, Ord, Show)
 
+instance Pretty Term where
+    pPrint (Var v) = pPrint v
+    pPrint (FApply fn []) = pPrint fn
+    pPrint (FApply fn args) = pPrint fn <> text " [" <> mconcat (intersperse (text ", ") (map pPrint args)) <> "]"
+
 vt :: V -> Term
 vt = Var
 
@@ -51,6 +59,10 @@ data Function
 
 instance IsString Function where
     fromString = Fn
+
+instance Pretty Function where
+    pPrint (Fn s) = text s
+    pPrint (Skolem v) = text "sK" <> pPrint v
 
 -- | Build a new term by applying some terms to a function.
 fApp :: Function -> [Term] -> Term
@@ -70,10 +82,10 @@ END_INTERACTIVE;;
 
 test00 :: Test
 test00 = TestCase $ assertEqual "print an expression"
-                                "FApply (Fn \"sqrt\") [FApply (Fn \"-\") [FApply (Fn \"1\") [],FApply (Fn \"cos\") [FApply (Fn \"power\") [FApply (Fn \"+\") [Var (V \"x\"),Var (V \"y\")],FApply (Fn \"2\") []]]]]"
-                                (show $ FApply (Fn "sqrt") [FApply (Fn "-") [FApply (Fn "1") [],
-                                                           FApply (Fn "cos") [FApply (Fn "power") [FApply (Fn "+") [Var "x", Var "y"],
-                                                                                 FApply (Fn "2") []]]]])
+                                "sqrt [- [1, cos [power [+ [x, y], 2]]]]"
+                                (prettyShow $ fApp "sqrt" [fApp "-" [fApp "1" [],
+                                                                     fApp "cos" [fApp "power" [fApp "+" [Var "x", Var "y"],
+                                                                                               fApp "2" []]]]])
 
 -- | First order logic formula atom type.
 data FOL = R String [Term] deriving (Eq, Ord, Show)
@@ -87,12 +99,7 @@ data FOLEQ
 (.=.) :: Term -> Term -> Formula FOLEQ
 a .=. b = Atom (a :=: b)
 
-{-
-instance FirstOrderFormula FOLEQ where
-    pApp = R'
-    foldFirstOrderFormula r (R' s ts) = r s ts
-    foldFirstOrderFormula r (a :=: b) = r s ts
--}
+infix 5 .=. -- , .!=., ≡, ≢
 
 -- | Special case of applying a subfunction to the top *terms*.
 onformula :: (Term -> Term) -> Formula FOL -> Formula FOL

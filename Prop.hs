@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Prop
     ( Prop(P, pname)
@@ -40,8 +41,10 @@ import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf,
 import Data.String (IsString(fromString))
 import Formulas
 import Lib (fpf, (|=>), allpairs, setAny)
+import Lib.Pretty (HasFixity(fixity), botFixity)
 import Prelude hiding (negate, null)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
+import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
 data Prop = P {pname :: String} deriving (Eq, Ord)
 
@@ -54,15 +57,21 @@ instance Show Prop where
 instance IsString Prop where
     fromString = P
 
+instance Pretty Prop where
+    pPrint (P s) = text s
+
+instance HasFixity Prop where
+    fixity _ = botFixity
+
 data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
 type TruthTableRow = ([Bool], Bool)
 
 test36 :: Test
 test36 = TestCase $ assertEqual "show propositional formula 1" expected input
-    where input = List.map show fms
-          expected = ["((atomic (P \"p\")) .&. (atomic (P \"q\"))) .|. (atomic (P \"r\"))",
-                      "(atomic (P \"p\")) .&. ((atomic (P \"q\")) .|. (atomic (P \"r\")))",
-                      "((atomic (P \"p\")) .&. (atomic (P \"q\"))) .|. (atomic (P \"r\"))"]
+    where input = List.map prettyShow fms
+          expected = ["p∧q∨r",
+                      "p∧(q∨r)",
+                      "p∧q∨r"]
           fms :: [Formula Prop]
           fms = [p .&. q .|. r, p .&. (q .|. r), (p .&. q) .|. r]
           (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
@@ -71,24 +80,17 @@ test36 = TestCase $ assertEqual "show propositional formula 1" expected input
 
 test01 :: Test
 test01 = TestCase $ assertEqual "Build Formula 1" expected input
-    where input = (Atom "p" .=>. Atom "q" .<=>. Atom "r" .&. Atom "s" .|. (Atom "t" .<=>. ((.~.) ((.~.) (Atom "u"))) .&. Atom "v"))
-          expected = (Iff
-                      (Imp
-                       (Atom "p")
-                       (Atom "q"))
-                      (Or
-                       (And (Atom "r") (Atom "s"))
-                       (Iff (Atom "t")
-                        (And (Not (Not (Atom "u"))) (Atom "v")))))
+    where input = prettyShow (atomic "p" .=>. atomic "q" .<=>. atomic "r" .&. atomic "s" .|. (atomic "t" .<=>. ((.~.) ((.~.) (atomic "u"))) .&. atomic "v") :: Formula Prop)
+          expected = "p⇒q⇔r∧s∨(t⇔¬¬u∧v)"
 
 test02 :: Test
 test02 = TestCase $ assertEqual "Build Formula 2" expected input
-    where input = (Atom "fm" .&. Atom "fm")
+    where input = (Atom "fm" .&. Atom "fm") :: Formula Prop
           expected = (And (Atom "fm") (Atom "fm"))
 
 test03 :: Test
 test03 = TestCase $ assertEqual "Build Formula 3"
-                                (Atom "fm" .|. Atom "fm" .&. Atom "fm")
+                                (Atom "fm" .|. Atom "fm" .&. Atom "fm" :: Formula Prop)
                                 (Or (Atom "fm") (And (Atom "fm") (Atom "fm")))
 
 -- Example of use.
@@ -96,7 +98,7 @@ test03 = TestCase $ assertEqual "Build Formula 3"
 test04 :: Test
 test04 = TestCase $ assertEqual "fixity tests" expected input
     where (input, expected) = unzip (List.map (\ (fm, flag) -> (eval fm v0, flag)) pairs)
-          v0 x = error $ "Tests.Harrison.Prop.v0: " ++ show x
+          v0 x = error $ "v0: " ++ show x
           pairs :: [(Formula String, Bool)]
           pairs =
               [ ( true .&. false .=>. false .&. true,  True)
