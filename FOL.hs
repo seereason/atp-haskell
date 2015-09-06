@@ -269,37 +269,29 @@ holds m@(domain,_func,pred) v fm =
     Exists x p -> or (map (\a -> holds m (Map.insert x a v) p) domain) -- return . all (== True)?
 
 -- | Examples of particular interpretations.
-bool_interp :: (Eq predicate, IsString predicate) => Interp Function predicate Bool
+bool_interp :: (Eq function, IsString function, Eq predicate, IsString predicate) => Interp function predicate Bool
 bool_interp =
   ([False, True],func,pred)
     where
-    func f args =
-            case (f,args) of
-              (Fn "False",[]) -> False
-              (Fn "True",[]) -> True
-              (Fn "|",[x,y]) -> not(x == y)
-              (Fn "&",[x,y]) -> x && y
-              _ -> error "uninterpreted function"
-    pred p args =
-            case (p,args) of
-              ("=",[x,y]) -> x == y
-              _ -> error "uninterpreted predicate"
+      func f [] | f == fromString "False" = False
+      func f [] | f == fromString "True" = True
+      func f [x,y] | f == fromString "+" = not(x == y)
+      func f [x,y] | f == fromString "*" = x && y
+      func _ _ = error "uninterpreted function"
+      pred "=" [x,y] = x == y
+      pred _ _ = error "uninterpreted predicate"
 
-mod_interp :: (Eq predicate, IsString predicate) => Int -> Interp Function predicate Int
+mod_interp :: (Eq function, IsString function, Eq predicate, IsString predicate) => Int -> Interp function predicate Int
 mod_interp n =
   ([0..(n-1)],func,pred)
     where
-      func f args =
-          case (f,args) of
-            (Fn "0",[]) -> 0
-            (Fn "1",[]) -> 1 `mod` n
-            (Fn "+",[x,y]) -> (x + y) `mod` n
-            (Fn "*",[x,y]) -> (x * y) `mod` n
-            _ -> error "uninterpreted function"
-      pred p args =
-          case (p,args) of
-            ("=",[x,y]) -> x == y
-            _ -> error "uninterpreted predicate"
+      func f [] | f == fromString "0" = 0
+      func f [] | f == fromString "1" = 1 `mod` n
+      func f [x,y] | f == fromString "+" = (x + y) `mod` n
+      func f [x,y] | f == fromString "*" = (x * y) `mod` n
+      func _ _ = error "uninterpreted function"
+      pred "=" [x,y] = x == y
+      pred _ _ = error "uninterpreted predicate"
 
 {-
 START_INTERACTIVE;;
