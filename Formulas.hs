@@ -33,7 +33,7 @@ data Formula atom
 instance Show atom => Show (Formula atom) where
     show False' = "false"
     show True' = "true"
-    show (Atom atom) = show atom
+    show (Atom atom) = "atomic (" ++ show atom ++ ")"
     show (Not f) = "(.~.) (" ++ show f ++ ")"
     show (And f g) = "(" ++ show f ++ ") .&. (" ++ show g ++ ")"
     show (Or f g) = "(" ++ show f ++ ") .|. (" ++ show g ++ ")"

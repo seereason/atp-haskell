@@ -22,9 +22,9 @@ module Prop
     , list_disj
     , mk_lits
     , allsatvaluations
-    , dnf1
+    , dnfList
     , purednf
-    , dnf2
+    , dnf
     , purecnf
     , simpcnf
     , cnf
@@ -32,20 +32,23 @@ module Prop
     , tests
     ) where
 
+import Data.Foldable as Foldable (null)
 import Data.List as List (map)
 import Data.Map as Map (Map)
 import Data.Monoid ((<>))
-import Data.Set as Set (empty, filter, fold, fromList, intersection, isProperSubsetOf, map, minView, null, partition, Set, singleton, toAscList, union)
+import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map, minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
 import Formulas
 import Lib (fpf, (|=>), allpairs, setAny)
-import Prelude hiding (negate)
+import Prelude hiding (negate, null)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 
 data Prop = P {pname :: String} deriving (Eq, Ord)
 
+-- | The default Show instance would display 'P {pname = "x"}', but P
+-- "x" is sufficient.
 instance Show Prop where
-    show (P s) = "P " ++ show s
+    show (P {pname = s}) = "P " ++ show s
 
 -- Allows us to say "q" instead of P "q" or P {pname = "q"}
 instance IsString Prop where
@@ -57,9 +60,9 @@ type TruthTableRow = ([Bool], Bool)
 test36 :: Test
 test36 = TestCase $ assertEqual "show propositional formula 1" expected input
     where input = List.map show fms
-          expected = ["((P \"p\") .&. (P \"q\")) .|. (P \"r\")",
-                      "(P \"p\") .&. ((P \"q\") .|. (P \"r\"))",
-                      "((P \"p\") .&. (P \"q\")) .|. (P \"r\")"]
+          expected = ["((atomic (P \"p\")) .&. (atomic (P \"q\"))) .|. (atomic (P \"r\"))",
+                      "(atomic (P \"p\")) .&. ((atomic (P \"q\")) .|. (atomic (P \"r\")))",
+                      "((atomic (P \"p\")) .&. (atomic (P \"q\"))) .|. (atomic (P \"r\"))"]
           fms :: [Formula Prop]
           fms = [p .&. q .|. r, p .&. (q .|. r), (p .&. q) .|. r]
           (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
@@ -434,14 +437,16 @@ test28 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           q' = Atom (P "q'")
 
 -- | Disjunctive normal form (DNF) via truth tables.
-list_conj :: Set (Formula atom) -> Formula atom
-list_conj l = maybe true (\ (x, xs) -> Set.fold (.&.) x xs) (Set.minView l)
+list_conj :: Foldable t => t (Formula atom) -> Formula atom
+list_conj l | null l = true
+list_conj l = foldl1 (.&.) l
 
-list_disj :: Set (Formula atom) -> Formula atom
-list_disj l = maybe false (\ (x, xs) -> Set.fold (.|.) x xs) (Set.minView l)
+list_disj :: Foldable t => t (Formula atom) -> Formula atom
+list_disj l | null l = false
+list_disj l = foldl1 (.|.) l
 
-mk_lits :: Ord atom => Set (Formula atom) -> (atom -> Bool) -> Formula atom
-mk_lits pvs v = list_conj (Set.map (\ p -> if eval p v then p else Not p) pvs)
+mk_lits :: Ord atom => [Formula atom] -> (atom -> Bool) -> Formula atom
+mk_lits pvs v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs)
 
 allsatvaluations :: Eq a => ((a -> Bool) -> Bool) -> (a -> Bool) -> Set a -> [a -> Bool]
 allsatvaluations subfn v pvs =
@@ -450,9 +455,9 @@ allsatvaluations subfn v pvs =
       Just (p, ps) -> (allsatvaluations subfn (\a -> if a == p then False else v a) ps) ++
                       (allsatvaluations subfn (\a -> if a == p then True else v a) ps)
 
-dnf1 :: Ord atom => Formula atom -> Formula atom
-dnf1 fm =
-    list_disj (Set.fromList (List.map (mk_lits (Set.map atomic pvs)) satvals))
+dnfList :: Ord atom => Formula atom -> Formula atom
+dnfList fm =
+    list_disj (List.map (mk_lits (Set.toAscList (Set.map atomic pvs))) satvals)
     where
       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
       pvs = atoms fm
@@ -461,57 +466,57 @@ dnf1 fm =
 
 test29 :: Test
 test29 = TestCase $ assertEqual "dnf 1 (p. 56)" expected input
-    where input = (dnf1 fm, truthTable fm)
-          expected = ((r .&. (((.~.) p) .&. q)) .|. ((((.~.) q) .&. (((.~.) r) .&. p)) .|. (q .&. (((.~.) r) .&. p))),
-                      (TruthTable
-                       [P "p", P "q", P "r"]
-                       [([False,False,False],False),
-                        ([False,False,True],False),
-                        ([False,True,False],False),
-                        ([False,True,True],True),
-                        ([True,False,False],True),
-                        ([True,False,True],False),
-                        ([True,True,False],True),
-                        ([True,True,True],False)]))
+    where input = (dnfList fm, truthTable fm)
+          expected = ((((((.~.) p) .&. q) .&. r) .|. ((p .&. ((.~.) q)) .&. ((.~.) r))) .|. ((p .&. q) .&. ((.~.) r)),
+                      TruthTable
+                      [P "p", P "q", P "r"]
+                      [([False,False,False],False),
+                       ([False,False,True],False),
+                       ([False,True,False],False),
+                       ([False,True,True],True),
+                       ([True,False,False],True),
+                       ([True,False,True],False),
+                       ([True,True,False],True),
+                       ([True,True,True],False)])
           fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
           (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
 
 test30 :: Test
 test30 = TestCase $ assertEqual "dnf 2 (p. 56)" expected input
-    where input = dnf1 (p .&. q .&. r .&. s .&. t .&. u .|. u .&. v :: Formula Prop)
-          expected = (q .&. (r .&. (s .&. (t .&. (u .&. (((.~.) v) .&. p)))))) .|.
-                      ((q .&. (r .&. (s .&. (u .&. (v .&. (((.~.) t) .&. p)))))) .|.
-                       ((q .&. (r .&. (t .&. (u .&. (v .&. (((.~.) s) .&. p)))))) .|.
-                        ((q .&. (r .&. (u .&. (v .&. (((.~.) s) .&. (((.~.) t) .&. p)))))) .|.
-                         ((q .&. (s .&. (t .&. (u .&. (v .&. (((.~.) r) .&. p)))))) .|.
-                          ((q .&. (s .&. (u .&. (v .&. (((.~.) r) .&. (((.~.) t) .&. p)))))) .|.
-                           ((q .&. (t .&. (u .&. (v .&. (((.~.) r) .&. (((.~.) s) .&. p)))))) .|.
-                            ((q .&. (u .&. (v .&. (((.~.) r) .&. (((.~.) s) .&. (((.~.) t) .&. p)))))) .|.
-                             ((r .&. (s .&. (t .&. (u .&. (v .&. (((.~.) p) .&. q)))))) .|.
-                              ((r .&. (s .&. (t .&. (u .&. (v .&. (((.~.) q) .&. p)))))) .|.
-                               ((r .&. (s .&. (u .&. (v .&. (((.~.) p) .&. (((.~.) t) .&. q)))))) .|.
-                                ((r .&. (s .&. (u .&. (v .&. (((.~.) q) .&. (((.~.) t) .&. p)))))) .|.
-                                 ((r .&. (t .&. (u .&. (v .&. (((.~.) p) .&. (((.~.) s) .&. q)))))) .|.
-                                  ((r .&. (t .&. (u .&. (v .&. (((.~.) q) .&. (((.~.) s) .&. p)))))) .|.
-                                   ((r .&. (u .&. (v .&. (((.~.) p) .&. (((.~.) s) .&. (((.~.) t) .&. q)))))) .|.
-                                    ((r .&. (u .&. (v .&. (((.~.) q) .&. (((.~.) s) .&. (((.~.) t) .&. p)))))) .|.
-                                     ((s .&. (t .&. (u .&. (v .&. (((.~.) p) .&. (((.~.) q) .&. r)))))) .|.
-                                      ((s .&. (t .&. (u .&. (v .&. (((.~.) p) .&. (((.~.) r) .&. q)))))) .|.
-                                       ((s .&. (t .&. (u .&. (v .&. (((.~.) q) .&. (((.~.) r) .&. p)))))) .|.
-                                        ((s .&. (u .&. (v .&. (((.~.) p) .&. (((.~.) q) .&. (((.~.) t) .&. r)))))) .|.
-                                         ((s .&. (u .&. (v .&. (((.~.) p) .&. (((.~.) r) .&. (((.~.) t) .&. q)))))) .|.
-                                          ((s .&. (u .&. (v .&. (((.~.) q) .&. (((.~.) r) .&. (((.~.) t) .&. p)))))) .|.
-                                           ((t .&. (u .&. (v .&. (((.~.) p) .&. (((.~.) q) .&. (((.~.) r) .&. s)))))) .|.
-                                            ((t .&. (u .&. (v .&. (((.~.) p) .&. (((.~.) q) .&. (((.~.) s) .&. r)))))) .|.
-                                             ((t .&. (u .&. (v .&. (((.~.) p) .&. (((.~.) r) .&. (((.~.) s) .&. q)))))) .|.
-                                              ((t .&. (u .&. (v .&. (((.~.) q) .&. (((.~.) r) .&. (((.~.) s) .&. p)))))) .|.
-                                               ((u .&. (v .&. (((.~.) p) .&. (((.~.) q) .&. (((.~.) r) .&. (((.~.) s) .&. t)))))) .|.
-                                                ((u .&. (v .&. (((.~.) p) .&. (((.~.) q) .&. (((.~.) r) .&. (((.~.) t) .&. s)))))) .|.
-                                                 ((u .&. (v .&. (((.~.) p) .&. (((.~.) q) .&. (((.~.) s) .&. (((.~.) t) .&. r)))))) .|.
-                                                  ((u .&. (v .&. (((.~.) p) .&. (((.~.) r) .&. (((.~.) s) .&. (((.~.) t) .&. q)))))) .|.
-                                                   ((u .&. (v .&. (((.~.) q) .&. (((.~.) r) .&. (((.~.) s) .&. (((.~.) t) .&. p)))))) .|.
-                                                    ((v .&. (((.~.) p) .&. (((.~.) q) .&. (((.~.) r) .&. (((.~.) s) .&. (((.~.) t) .&. u)))))) .|.
-                                                     (q .&. (r .&. (s .&. (t .&. (u .&. (v .&. p)))))))))))))))))))))))))))))))))))))
+    where input = dnfList (p .&. q .&. r .&. s .&. t .&. u .|. u .&. v :: Formula Prop)
+          expected = (((((((((((((((((((((((((((((((((((((((.~.) p) .&. ((.~.) q)) .&. ((.~.) r)) .&. ((.~.) s)) .&. ((.~.) t)) .&. u) .&. v) .|.
+                                                    ((((((((.~.) p) .&. ((.~.) q)) .&. ((.~.) r)) .&. ((.~.) s)) .&. t) .&. u) .&. v)) .|.
+                                                   ((((((((.~.) p) .&. ((.~.) q)) .&. ((.~.) r)) .&. s) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                                                  ((((((((.~.) p) .&. ((.~.) q)) .&. ((.~.) r)) .&. s) .&. t) .&. u) .&. v)) .|.
+                                                 ((((((((.~.) p) .&. ((.~.) q)) .&. r) .&. ((.~.) s)) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                                                ((((((((.~.) p) .&. ((.~.) q)) .&. r) .&. ((.~.) s)) .&. t) .&. u) .&. v)) .|.
+                                               ((((((((.~.) p) .&. ((.~.) q)) .&. r) .&. s) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                                              ((((((((.~.) p) .&. ((.~.) q)) .&. r) .&. s) .&. t) .&. u) .&. v)) .|.
+                                             ((((((((.~.) p) .&. q) .&. ((.~.) r)) .&. ((.~.) s)) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                                            ((((((((.~.) p) .&. q) .&. ((.~.) r)) .&. ((.~.) s)) .&. t) .&. u) .&. v)) .|.
+                                           ((((((((.~.) p) .&. q) .&. ((.~.) r)) .&. s) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                                          ((((((((.~.) p) .&. q) .&. ((.~.) r)) .&. s) .&. t) .&. u) .&. v)) .|.
+                                         ((((((((.~.) p) .&. q) .&. r) .&. ((.~.) s)) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                                        ((((((((.~.) p) .&. q) .&. r) .&. ((.~.) s)) .&. t) .&. u) .&. v)) .|.
+                                       ((((((((.~.) p) .&. q) .&. r) .&. s) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                                      ((((((((.~.) p) .&. q) .&. r) .&. s) .&. t) .&. u) .&. v)) .|.
+                                     ((((((p .&. ((.~.) q)) .&. ((.~.) r)) .&. ((.~.) s)) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                                    ((((((p .&. ((.~.) q)) .&. ((.~.) r)) .&. ((.~.) s)) .&. t) .&. u) .&. v)) .|.
+                                   ((((((p .&. ((.~.) q)) .&. ((.~.) r)) .&. s) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                                  ((((((p .&. ((.~.) q)) .&. ((.~.) r)) .&. s) .&. t) .&. u) .&. v)) .|.
+                                 ((((((p .&. ((.~.) q)) .&. r) .&. ((.~.) s)) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                                ((((((p .&. ((.~.) q)) .&. r) .&. ((.~.) s)) .&. t) .&. u) .&. v)) .|.
+                               ((((((p .&. ((.~.) q)) .&. r) .&. s) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                              ((((((p .&. ((.~.) q)) .&. r) .&. s) .&. t) .&. u) .&. v)) .|.
+                             ((((((p .&. q) .&. ((.~.) r)) .&. ((.~.) s)) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                            ((((((p .&. q) .&. ((.~.) r)) .&. ((.~.) s)) .&. t) .&. u) .&. v)) .|.
+                           ((((((p .&. q) .&. ((.~.) r)) .&. s) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                          ((((((p .&. q) .&. ((.~.) r)) .&. s) .&. t) .&. u) .&. v)) .|.
+                         ((((((p .&. q) .&. r) .&. ((.~.) s)) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                        ((((((p .&. q) .&. r) .&. ((.~.) s)) .&. t) .&. u) .&. v)) .|.
+                       ((((((p .&. q) .&. r) .&. s) .&. ((.~.) t)) .&. u) .&. v)) .|.
+                      ((((((p .&. q) .&. r) .&. s) .&. t) .&. u) .&. ((.~.) v))) .|.
+                     ((((((p .&. q) .&. r) .&. s) .&. t) .&. u) .&. v)
           [p, q, r, s, t, u, v] = List.map (Atom . P) ["p", "q", "r", "s", "t", "u", "v"]
 
 -- | DNF via distribution.
@@ -567,7 +572,7 @@ test32 = TestCase $ assertEqual "purednf (p. 58)" expected input
 -- | Filtering out trivial disjuncts (in this guise, contradictory).
 trivial :: Ord atom => Set (Formula atom) -> Bool
 trivial lits =
-    not . Set.null $ Set.intersection neg (Set.map Not pos)
+    not . null $ Set.intersection neg (Set.map Not pos)
     where (pos, neg) = Set.partition positive lits
 
 -- Example.
@@ -589,15 +594,15 @@ simpdnf fm =
   Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
 
 -- | Mapping back to a formula.
-dnf2 :: Ord atom => Formula atom -> Formula atom
-dnf2 fm = list_disj (Set.map list_conj (simpdnf fm))
+dnf :: Ord atom => Formula atom -> Formula atom
+dnf fm = list_disj (Set.toAscList (Set.map list_conj (simpdnf fm)))
 
 -- Example.
 
 test34 :: Test
 test34 = TestCase $ assertEqual "dnf" expected input
-    where input = (dnf2 fm, tautology (Iff fm (dnf2 fm)))
-          expected = (Or (And (Not r) p) (And r (And (Not p) q)), True)
+    where input = (dnf fm, tautology (Iff fm (dnf fm)))
+          expected = ((p .&. ((.~.) r)) .|. ((q .&. r) .&. ((.~.) p)),True)
           fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
           p = Atom (P "p")
           q = Atom (P "q")
@@ -621,16 +626,16 @@ cnf fm = list_conj (Set.map list_disj (simpcnf fm))
 test35 :: Test
 test35 = TestCase $ assertEqual "cnf" expected input
     where input = (cnf fm, tautology (Iff fm (cnf fm)))
-          -- Fully parenthesized
-          -- expected = (((atomic (P "r")) .|. (atomic (P "p"))) .&. (((((.~.)(atomic (P "r")))) .|. (((.~.)(atomic (P "p"))))) .&. ((atomic (P "q")) .|. (atomic (P "p")))),True)
-          -- Edited
+{-
           expected = ( (((.~.) ((.~.) (atomic (P "q")))) .|. ((.~.) ((.~.) (atomic (P "p")))))         .&.
                       ((((.~.) ((.~.) (atomic (P "r")))) .|. ((.~.) ((.~.) (atomic (P "p")))))        .&.
                               (((.~.) (atomic (P "r")))  .|. ((.~.) (atomic (P "p"))))),
                       True)
-          -- expected = (And (Or q p) (And (Or r p) (Or (Not r) (Not p))),True)
-          -- expected = (F, True)
-          -- expected = (((atomic (P "r")) .|. (atomic (P "p"))) .&. (((((.~.)(atomic (P "r"))))) .|. ((((.~.)(atomic (P "p"))))) .&. (atomic (P "q")) .|. (atomic (P "p"))),True)
+-}
+          expected = ((       (((.~.) (atomic (P "p"))) .|. ((.~.) (atomic (P "r")))) .&.
+                       (((.~.) ((.~.) (atomic (P "p")))) .|. ((.~.) ((.~.) (atomic (P "q")))))) .&.
+                      (((.~.) ((.~.) (atomic (P "p")))) .|. ((.~.) ((.~.) (atomic (P "r"))))),
+                      True)
           fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
           p = Atom (P "p")
           q = Atom (P "q")
