@@ -1,3 +1,4 @@
+-- | Basic stuff for propositional logic: datatype, parsing and printing.
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -5,18 +6,26 @@
 module Prop
     ( Prop(P, pname)
     , TruthTable(TruthTable)
+    -- * Interpretation of formulas.
     , eval
     , atoms
+    -- * Truth Tables
     , onallvaluations
     , truthTable
+    -- * Tautologies and related concepts
     , tautology
     , unsatisfiable
     , satisfiable
+    -- * Substitution
     , psubst
+    -- * Dualization
     , dual
+    -- * Simplification
     , psimplify
     , psimplify1
+    -- * Operations on literals
     , negative, positive, negate
+    -- * Normal forms
     , nnf
     , nenf
     , list_conj
@@ -30,6 +39,7 @@ module Prop
     , simpcnf
     , cnf
     , trivial
+    -- * Tests
     , tests
     ) where
 

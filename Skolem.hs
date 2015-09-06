@@ -2,7 +2,26 @@
 -- | Prenex and Skolem normal forms.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
-module Skolem where
+module Skolem
+    ( -- * Simplify for predicate formulas
+      simplify
+    -- Predicate Application
+    , pApp
+    -- * Normal forms
+    , nnf
+    , pnf
+    , functions
+    -- * Skolem monad
+    , SkolemM
+    , runSkolem
+    , runSkolemT
+    , Skolem(toSkolem, fromSkolem)
+    , askolemize
+    , skolemize
+    , Function(Fn, Skolem)
+    -- * Tests
+    , tests
+    ) where
 
 import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT)
@@ -10,10 +29,10 @@ import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
 import Data.Set as Set (member, Set, toAscList)
 import Data.String (IsString(fromString))
-import FOL
+import FOL hiding (tests)
 import Formulas
 --import Lib
-import Prop hiding (nnf)
+import Prop hiding (nnf, tests)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
 
@@ -165,13 +184,16 @@ functions fa fm =
 -- State monad for generating Skolem functions and constants.
 -- -------------------------------------------------------------------------
 
--- | The original code generates skolem functions by adding a prefix to
+-- | The OCaml code generates skolem functions by adding a prefix to
 -- the variable name they are based on.  Here we have a more general
 -- and type safe solution: we require that variables be instances of
--- class Skolem which creates Skolem functions based on an integer.
--- This state value exists in the SkolemT monad during skolemization
+-- class 'Skolem' which creates Skolem functions based on an integer.
+-- This state value exists in the 'SkolemM' monad during skolemization
 -- and tracks the next available number and the current list of
 -- universally quantified variables.
+
+-- | The Skolem monad
+type SkolemM v term = StateT SkolemState Identity
 
 data SkolemState
     = SkolemState
@@ -183,15 +205,6 @@ data SkolemState
         -- Skolemization these are the parameters passed to the Skolem
         -- function.
       }
-
--- | Skolem functions are created to replace an an existentially
--- quantified variable.  The idea is that if we have a predicate
--- P[x,y,z], and z is existentially quantified, then P is satisfiable
--- if there is at least one z that causes P to be true.  We postulate
--- a skolem function sKz[x,y] whose value is one of the z's that cause
--- P to be satisfied.  The value of sKz will depend on x and y, so we
--- make these parameters.  Thus we have eliminated existential
--- quantifiers and obtained the formula P[x,y,sKz[x,y]].
 
 -- | The state associated with the Skolem monad.
 newSkolemState :: SkolemState
@@ -208,14 +221,21 @@ type SkolemT m = StateT SkolemState m
 runSkolem :: SkolemT Identity a -> a
 runSkolem = runIdentity . runSkolemT
 
--- | The Skolem monad
-type SkolemM v term = StateT SkolemState Identity
-
 -- | Run a computation in a stacked invocation of the Skolem monad.
 runSkolemT :: Monad m => SkolemT m a -> m a
 runSkolemT action = (runStateT action) newSkolemState >>= return . fst
 
 -- | Class of functions that include embedded Skolem functions
+--
+-- Skolem functions are created to replace an an existentially
+-- quantified variable.  The idea is that if we have a predicate
+-- @P[x,y,z]@, and @z@ is existentially quantified, then @P@ is
+-- satisfiable if there is at least one @z@ that causes @P@ to be
+-- true.  We postulate a skolem function @sKz[x,y]@ whose value is one
+-- of the z's that cause @P@ to be satisfied.  The value of @sKz@ will
+-- depend on @x@ and @y@, so we make these parameters.  Thus we have
+-- eliminated existential quantifiers and obtained the formula
+-- @P[x,y,sKz[x,y]]@.
 class Skolem function var where
     toSkolem :: var -> function
     fromSkolem :: function -> Maybe var

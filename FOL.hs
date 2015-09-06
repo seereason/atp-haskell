@@ -1,20 +1,30 @@
+-- | Basic stuff for first order logic.
+--
+-- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
+
 {-# LANGUAGE CPP, GADTs, OverloadedStrings #-}
 module FOL
-    ( Term(Var, FApply), vt, fApp
+    ( -- * Terms
+      Term(Var, FApply), vt, fApp
     , FName(FName)
     , FOL(R), (.=.)
     , HasEquality(equals)
     , Predicate(NamedPredicate, Equals)
     , onformula
+    , Interp
+    -- * Semantics
     , termval
     , holds
     , bool_interp
     , mod_interp
+    -- * Free Variables
     , var
     , fv
     , generalize
+    -- * Substitution
     , variant
     , subst, substq
+    -- * Tests
     , tests
     ) where
 
@@ -30,13 +40,7 @@ import Prelude hiding (pred)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
--- =========================================================================
--- Basic stuff for first order logic.
---
--- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
--- =========================================================================
-
--- | Terms.
+-- | Terms are combined by predicates to build the atoms of a formula.
 data Term function
     = Var V
     | FApply function [Term function]
@@ -48,6 +52,8 @@ instance Pretty function => Pretty (Term function) where
     pPrint (FApply fn args) = pPrint fn <> text " [" <> mconcat (intersperse (text ", ") (map pPrint args)) <> "]"
 
 -- | A simple type to use as the function parameter of Term, FOL, etc.
+-- The only reason to use this instead of String is to get nicer
+-- pretty printing.
 newtype FName = FName String deriving (Eq, Ord)
 
 instance IsString FName where fromString = FName
@@ -56,6 +62,7 @@ instance Show FName where show (FName s) = s
 
 instance Pretty FName where pPrint (FName s) = text s
 
+-- | Build a term from a variable.
 vt :: V -> Term function
 vt = Var
 
@@ -75,12 +82,16 @@ test00 = TestCase $ assertEqual "print an expression"
 class HasEquality predicate where
     equals :: predicate
 
+-- | Predicates with a 'HasEquality' instance are needed whenever the
+-- '.=.' combiner is used.
 instance HasEquality Predicate where
     equals = Equals
 
 -- | First order logic formula atom type.
 data FOL predicate function = R predicate [Term function] deriving (Eq, Ord, Show)
 
+-- | This Predicate type includes an distinct Equals constructor, so
+-- that we can build a HasEquality instance for it.
 data Predicate
     = NamedPredicate String
     | Equals
@@ -245,55 +256,60 @@ START_INTERACTIVE;;
 END_INTERACTIVE;;
 -}
 
-type Interp function predicate d = ([d], function -> [d] -> d, predicate -> [d] -> Bool)
+-- | Specify the domain of a formula interpretation, and how to
+-- interpret its functions and predicates.
+data Interp function predicate d
+    = Interp { domain :: [d]
+             , funcApply :: function -> [d] -> d
+             , predApply :: predicate -> [d] -> Bool }
 
 -- | Semantics, implemented of course for finite domains only.
 termval :: Interp function predicate a -> Map V a -> Term function -> a
-termval m@(_domain,func,_pred) v tm =
+termval m v tm =
   case tm of
-    Var x -> fromMaybe (error $ "Undefined variable: " ++ show x) (Map.lookup x v)
-    FApply f args -> func f $ map (termval m v) args
+    Var x -> fromMaybe (error ("Undefined variable: " ++ show x)) (Map.lookup x v)
+    FApply f args -> funcApply m f (map (termval m v) args)
 
 holds :: IsString predicate => Interp function predicate d -> Map V d -> Formula (FOL predicate function) -> Bool
-holds m@(domain,_func,pred) v fm =
+holds m v fm =
   case fm of
     F -> False
     T -> True
-    Atom (R r args) -> pred r (map (termval m v) args)
+    Atom (R r args) -> predApply m r (map (termval m v) args)
     Not p -> not  (holds m v p)
     And p q -> (holds m v p) && (holds m v q)
     Or p q -> (holds m v p) || (holds m v q)
     Imp p q -> (not (holds m v p)) || (holds m v q)
     Iff p q -> (holds m v p) == (holds m v q)
-    Forall x p -> and (map (\a -> holds m (Map.insert x a v) p) domain) -- >>= return . any (== True)
-    Exists x p -> or (map (\a -> holds m (Map.insert x a v) p) domain) -- return . all (== True)?
+    Forall x p -> and (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- >>= return . any (== True)
+    Exists x p -> or (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- return . all (== True)?
 
 -- | Examples of particular interpretations.
 bool_interp :: (Eq function, Show function, IsString function, Eq predicate, Show predicate, IsString predicate, HasEquality predicate) =>
                Interp function predicate Bool
 bool_interp =
-  ([False, True],func,pred)
+    Interp [False, True] func pred
     where
       func f [] | f == fromString "False" = False
       func f [] | f == fromString "True" = True
       func f [x,y] | f == fromString "+" = not(x == y)
       func f [x,y] | f == fromString "*" = x && y
-      func f _ = error $ "bool_interp - uninterpreted function: " ++ show f
+      func f _ = error ("bool_interp - uninterpreted function: " ++ show f)
       pred p [x,y] | p == equals = x == y
-      pred p _ = error $ "bool_interp - uninterpreted predicate: " ++ show p
+      pred p _ = error ("bool_interp - uninterpreted predicate: " ++ show p)
 
 mod_interp :: (Eq function, Show function, IsString function, Eq predicate, Show predicate, IsString predicate, HasEquality predicate) =>
               Int -> Interp function predicate Int
 mod_interp n =
-  ([0..(n-1)],func,pred)
+    Interp [0..(n-1)] func pred
     where
       func f [] | f == fromString "0" = 0
       func f [] | f == fromString "1" = 1 `mod` n
       func f [x,y] | f == fromString "+" = (x + y) `mod` n
       func f [x,y] | f == fromString "*" = (x * y) `mod` n
-      func f _ = error $ "mod_interp - uninterpreted function: " ++ show f
+      func f _ = error ("mod_interp - uninterpreted function: " ++ show f)
       pred p [x,y] | p == equals = x == y
-      pred p _ = error $ "mod_interp - uninterpreted predicate: " ++ show p
+      pred p _ = error ("mod_interp - uninterpreted predicate: " ++ show p)
 
 {-
 START_INTERACTIVE;;
@@ -340,13 +356,16 @@ test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
     where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: Formula (FOL Predicate FName))
           expected = False
 
--- | Free variables in terms and formulas.
+-- Free variables in terms and formulas.
+
+-- | Find the variables in a 'Term'.
 fvt :: Term function -> Set V
 fvt tm =
   case tm of
     Var x -> singleton x
     FApply _f args -> unions (map fvt args)
 
+-- | Find the variables in a formula.
 var :: Formula (FOL predicate function) -> Set V
 var fm =
    case fm of
@@ -361,6 +380,7 @@ var fm =
     Forall x p -> Set.insert x (var p)
     Exists x p -> Set.insert x (var p)
 
+-- | Find the free variables in a formula.
 fv :: (atom ~ FOL predicate formula) => Formula atom -> Set V
 fv fm =
   case fm of
