@@ -72,21 +72,21 @@ test00 = TestCase $ assertEqual "print an expression"
                                                                                                fApp "2" []]]]] :: Term FName))
 
 -- | First order logic formula atom type.
-data FOL function = R String [Term function] deriving (Eq, Ord, Show)
+data FOL predicate function = R predicate [Term function] deriving (Eq, Ord, Show)
 
 -- | First order logic formula atom type with equality.
-data FOLEQ function
-    = R' String [Term function]
+data FOLEQ predicate function
+    = R' predicate [Term function]
     | Term function :=: Term function
     deriving (Eq, Ord, Show)
 
-(.=.) :: Term function -> Term function -> Formula (FOLEQ function)
+(.=.) :: Term function -> Term function -> Formula (FOLEQ predicate function)
 a .=. b = Atom (a :=: b)
 
 infix 5 .=. -- , .!=., ≡, ≢
 
 -- | Special case of applying a subfunction to the top *terms*.
-onformula :: (Term function -> Term function) -> Formula (FOL function) -> Formula (FOL function)
+onformula :: (Term function -> Term function) -> Formula (FOL predicate function) -> Formula (FOL predicate function)
 onformula f = onatoms (\(R p a) -> Atom (R p (map f a)))
 
 {-
@@ -244,13 +244,13 @@ termval m@(_domain,func,_pred) v tm =
     Var x -> fromMaybe (error $ "Undefined variable: " ++ show x) (Map.lookup x v)
     FApply f args -> func f $ map (termval m v) args
 
-holds :: Interp function String d -> Map V d -> Formula (FOLEQ function) -> Bool
+holds :: IsString predicate => Interp function predicate d -> Map V d -> Formula (FOLEQ predicate function) -> Bool
 holds m@(domain,_func,pred) v fm =
   case fm of
     F -> False
     T -> True
     Atom (R' r args) -> pred r (map (termval m v) args)
-    Atom (a :=: b) -> pred "=" (map (termval m v) [a, b])
+    Atom (a :=: b) -> pred (fromString "="{-FIXME-}) (map (termval m v) [a, b])
     Not p -> not  (holds m v p)
     And p q -> (holds m v p) && (holds m v q)
     Or p q -> (holds m v p) || (holds m v q)
@@ -303,30 +303,30 @@ END_INTERACTIVE;;
 
 test01 :: Test
 test01 = TestCase $ assertEqual "holds bool test (p. 126)" expected input
-    where input = holds bool_interp Map.empty (for_all  "x" (vt "x" .=. fApp "False" [] .|. vt "x" .=. fApp "True" []) :: Formula (FOLEQ FName))
+    where input = holds bool_interp Map.empty (for_all  "x" (vt "x" .=. fApp "False" [] .|. vt "x" .=. fApp "True" []) :: Formula (FOLEQ String FName))
           expected = True
 test02 :: Test
 test02 = TestCase $ assertEqual "holds mod test 1 (p. 126)" expected input
-    where input =  holds (mod_interp 2) Map.empty (for_all "x" (vt "x" .=. (fApp "0" []) .|. vt "x" .=. (fApp "1" [])) :: Formula (FOLEQ FName))
+    where input =  holds (mod_interp 2) Map.empty (for_all "x" (vt "x" .=. (fApp "0" []) .|. vt "x" .=. (fApp "1" [])) :: Formula (FOLEQ String FName))
           expected = True
 test03 :: Test
 test03 = TestCase $ assertEqual "holds mod test 2 (p. 126)" expected input
-    where input =  holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .|. vt "x" .=. fApp "1" []) :: Formula (FOLEQ FName))
+    where input =  holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .|. vt "x" .=. fApp "1" []) :: Formula (FOLEQ String FName))
           expected = False
 
 test04 :: Test
 test04 = TestCase $ assertEqual "holds mod test 3 (p. 126)" expected input
     where input = filter (\ n -> holds (mod_interp n) Map.empty fm) [1..45]
-                  where fm = for_all "x" ((.~.) (vt "x" .=. fApp "0" []) .=>. exists "y" (fApp "*" [vt "x", vt "y"] .=. fApp "1" [])) :: Formula (FOLEQ FName)
+                  where fm = for_all "x" ((.~.) (vt "x" .=. fApp "0" []) .=>. exists "y" (fApp "*" [vt "x", vt "y"] .=. fApp "1" [])) :: Formula (FOLEQ String FName)
           expected = [1,2,3,5,7,11,13,17,19,23,29,31,37,41,43]
 
 test05 :: Test
 test05 = TestCase $ assertEqual "holds mod test 4 (p. 129)" expected input
-    where input = holds (mod_interp 3) Map.empty ((for_all "x" (vt "x" .=. fApp "0" [])) .=>. fApp "1" [] .=. fApp "0" [] :: Formula (FOLEQ FName))
+    where input = holds (mod_interp 3) Map.empty ((for_all "x" (vt "x" .=. fApp "0" [])) .=>. fApp "1" [] .=. fApp "0" [] :: Formula (FOLEQ String FName))
           expected = True
 test06 :: Test
 test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
-    where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: Formula (FOLEQ FName))
+    where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: Formula (FOLEQ String FName))
           expected = False
 
 -- | Free variables in terms and formulas.
@@ -336,7 +336,7 @@ fvt tm =
     Var x -> singleton x
     FApply _f args -> unions (map fvt args)
 
-var :: Formula (FOL function) -> Set V
+var :: Formula (FOL predicate function) -> Set V
 var fm =
    case fm of
     F -> Set.empty
@@ -350,10 +350,10 @@ var fm =
     Forall x p -> Set.insert x (var p)
     Exists x p -> Set.insert x (var p)
 
-fvFOL :: FOL function -> Set V
+fvFOL :: FOL predicate function -> Set V
 fvFOL (R _p args) = unions (map fvt args)
 
-fvFOLEQ :: FOLEQ function -> Set V
+fvFOLEQ :: FOLEQ predicate function -> Set V
 fvFOLEQ (R' _p args) = unions (map fvt args)
 fvFOLEQ (a :=: b) = union (fvt a) (fvt b)
 
@@ -372,7 +372,7 @@ fv fva fm =
     Exists x p -> difference (fv fva p) (singleton x)
 
 -- | Universal closure of a formula.
-generalize :: Formula (FOL function) -> Formula (FOL function)
+generalize :: Formula (FOL predicate function) -> Formula (FOL predicate function)
 generalize fm = Set.fold Forall fm (fv fvFOL fm)
 
 -- | Substitution within terms.
@@ -400,10 +400,10 @@ test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
     where input = variant "x" (Set.fromList ["x", "x'"]) :: V
           expected = "x''"
 
-mapTermsFOL :: (Term function -> Term function) -> FOL function -> FOL function
+mapTermsFOL :: (Term function -> Term function) -> FOL predicate function -> FOL predicate function
 mapTermsFOL f (R p args) = R p (map f args)
 
-mapTermsFOLEQ :: (Term function -> Term function) -> FOLEQ function -> FOLEQ function
+mapTermsFOLEQ :: (Term function -> Term function) -> FOLEQ predicate function -> FOLEQ predicate function
 mapTermsFOLEQ f (R' p args) = R' p (map f args)
 mapTermsFOLEQ f (a :=: b) = (f a :=: f b)
 
@@ -444,7 +444,7 @@ test10 = TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x. x = y>>
                                 (let (x, y) = (vt "x", vt "y") in
                                  subst fvFOLEQ mapTermsFOLEQ
                                        (Map.fromList [("y", Var "x")])
-                                       (for_all "x" (x .=. y)) :: Formula (FOLEQ FName))
+                                       (for_all "x" (x .=. y)) :: Formula (FOLEQ String FName))
 
 test11 :: Test
 test11 = TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x x'. x = y ==> x = x'>>;;"
@@ -452,7 +452,7 @@ test11 = TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x x'. x = 
                                 (let (x, x', y) = (vt "x", vt "x'", vt "y") in
                                  subst fvFOLEQ mapTermsFOLEQ
                                        (Map.fromList [("y", Var "x")])
-                                       (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x'))) :: Formula (FOLEQ FName)))
+                                       (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x'))) :: Formula (FOLEQ String FName)))
 
 tests :: Test
 tests = TestLabel "FOL" $
