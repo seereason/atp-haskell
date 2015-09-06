@@ -1,5 +1,8 @@
 -- | Polymorphic type of formulas
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wall #-}
 module Formulas
     ( -- * True and False
@@ -11,10 +14,10 @@ module Formulas
     , Combinable((.|.), (.&.), (.<=>.), (.=>.), (.<=.), (.<~>.), (.~|.), (.~&.))
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
     -- * Variables
-    , Variable(variant, prefix, prettyVariable), variants, showVariable
+    , Variable(variant, prefix, prettyVariable), variants, showVariable, V(V)
     -- * Formulas
-    , V(V), Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
-    , atomic
+    , Formulae(atomic, foldAtoms, mapAtoms)
+    , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     , onatoms
     , overatoms
     , atom_union
@@ -203,8 +206,11 @@ instance Combinable (Formula atom) where
     (.=>.) = Imp
     (.<=>.) = Iff
 
-atomic :: atom -> Formula atom
-atomic = Atom
+-- | Class associating a formula type with its atom type.
+class Formulae formula atom | formula -> atom where
+    atomic :: atom -> formula
+    foldAtoms :: Formulae formula atom => (r -> atom -> r) -> r -> formula -> r
+    mapAtoms :: Formulae formula atom => (atom -> formula) -> formula -> formula
 
 -- infixr 9 !, ?, ∀, ∃
 
@@ -291,3 +297,8 @@ overatoms f fm b =
 -- | Special case of a union of the results of a function over the atoms.
 atom_union :: Ord a => (atom -> Set a) -> Formula atom -> Set a
 atom_union f fm = overatoms (\h t -> Set.union (f h) t) fm Set.empty
+
+instance Formulae (Formula atom) atom where
+    atomic = Atom
+    foldAtoms f r0 fm = overatoms (flip f) fm r0
+    mapAtoms = onatoms
