@@ -15,7 +15,6 @@ module Formulas
     -- * Formulas
     , V(V), Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     , atomic
-    , for_all, exists
     , onatoms
     , overatoms
     , atom_union
@@ -206,12 +205,6 @@ instance Combinable (Formula atom) where
 
 atomic :: atom -> Formula atom
 atomic = Atom
-
-for_all :: V -> Formula atom -> Formula atom
-for_all = Forall
-
-exists :: V -> Formula atom -> Formula atom
-exists = Exists
 
 -- infixr 9 !, ?, ∀, ∃
 

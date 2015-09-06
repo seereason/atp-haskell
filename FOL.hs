@@ -7,12 +7,15 @@ module FOL
     ( -- * Terms
       Term(Var, FApply), vt, fApp
     , FName(FName)
-    , FOL(R), (.=.)
+    , FOL(R)
     , HasEquality(equals)
     , Predicate(NamedPredicate, Equals)
+    -- Formulae
+    , (.=.)
+    , for_all, exists
     , onformula
-    , Interp
     -- * Semantics
+    , Interp
     , termval
     , holds
     , bool_interp
@@ -104,6 +107,12 @@ instance IsString Predicate where
 a .=. b = Atom (R equals [a, b])
 
 infix 5 .=. -- , .!=., ≡, ≢
+
+for_all :: V -> Formula atom -> Formula atom
+for_all = Forall
+
+exists :: V -> Formula atom -> Formula atom
+exists = Exists
 
 -- | Special case of applying a subfunction to the top *terms*.
 onformula :: (Term function -> Term function) -> Formula (FOL predicate function) -> Formula (FOL predicate function)
