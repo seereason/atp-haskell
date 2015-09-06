@@ -256,7 +256,7 @@ termval m@(_domain,func,_pred) v tm =
     Var x -> fromMaybe (error $ "Undefined variable: " ++ show x) (Map.lookup x v)
     FApply f args -> func f $ map (termval m v) args
 
-holds :: (IsString predicate, HasEquality predicate) => Interp function predicate d -> Map V d -> Formula (FOL predicate function) -> Bool
+holds :: IsString predicate => Interp function predicate d -> Map V d -> Formula (FOL predicate function) -> Bool
 holds m@(domain,_func,pred) v fm =
   case fm of
     F -> False

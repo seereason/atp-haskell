@@ -40,7 +40,7 @@ simplify fva fm =
 -- Example.
 
 -- | Use a predicate to combine some terms into a formula.
-pApp :: HasEquality predicate => predicate -> [Term function] -> Formula (FOL predicate function)
+pApp :: predicate -> [Term function] -> Formula (FOL predicate function)
 pApp p args = Atom $ R p args
 
 test01 :: Test
