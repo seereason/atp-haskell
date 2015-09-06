@@ -9,20 +9,13 @@ import Control.Monad.State (runStateT, StateT)
 import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
 import Data.Set as Set (member, Set, toAscList)
+import Data.String (IsString(fromString))
 import FOL
 import Formulas
 --import Lib
 import Prop hiding (nnf)
 import Test.HUnit
-
-class Skolem fun var where
-    toSkolem :: var -> fun
-    fromSkolem :: fun -> Maybe var
-
-instance Skolem Function V where
-    toSkolem = Skolem
-    fromSkolem (Skolem v) = Just v
-    fromSkolem _ = Nothing
+import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
 simplify1 :: forall a. (a -> Set V) -> Formula a -> Formula a
@@ -54,7 +47,7 @@ test01 = TestCase $ assertEqual "simplify (p. 140)" expected input
     where p = "P"
           q = "Q"
           input = simplify fvFOLEQ fm
-          expected = (for_all "x" (pApp p [vt "x"])) .=>. (pApp q []) :: Formula (FOLEQ Function)
+          expected = (for_all "x" (pApp p [vt "x"])) .=>. (pApp q []) :: Formula (FOLEQ FName)
           fm :: Formula (FOLEQ function)
           fm = (for_all "x" (for_all "y" (pApp p [vt "x"] .|. (pApp p [vt "y"] .&. false)))) .=>. exists "z" (pApp q [])
 
@@ -86,7 +79,7 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
           expected = exists "x" ((.~.)(pApp p [vt "x"])) .|.
                      ((exists "y" (pApp q [vt "y"]) .&. exists "z" ((pApp p [vt "z"]) .&. (pApp q [vt "z"]))) .|.
                       (for_all "y" ((.~.)(pApp q [vt "y"])) .&.
-                       for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: Formula (FOLEQ Function))
+                       for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: Formula (FOLEQ FName))
           fm :: Formula (FOLEQ function)
           fm = (for_all "x" (pApp p [vt "x"])) .=>. ((exists "y" (pApp q [vt "y"])) .<=>. exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"]))
 
@@ -150,7 +143,7 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" expected input
                                  ((((.~.)(pApp p [vt "x"])) .&. ((.~.)(pApp r [vt "y"]))) .|.
                                   ((pApp q [vt "x"]) .|.
                                    (((.~.)(pApp p [vt "z"])) .|.
-                                    ((.~.)(pApp q [vt "z"])))))) :: Formula (FOLEQ Function)
+                                    ((.~.)(pApp q [vt "z"])))))) :: Formula (FOLEQ FName)
           fm :: Formula (FOLEQ function)
           fm = (for_all "x" (pApp p [vt "x"]) .|. (pApp r [vt "y"])) .=>.
                exists "y" (exists "z" ((pApp q [vt "y"]) .|. ((.~.)(exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"])))))
@@ -225,6 +218,11 @@ type SkolemM v term = StateT SkolemState Identity
 runSkolemT :: Monad m => SkolemT m a -> m a
 runSkolemT action = (runStateT action) newSkolemState >>= return . fst
 
+-- | Class of functions that include embedded Skolem functions
+class Skolem function var where
+    toSkolem :: var -> function
+    fromSkolem :: function -> Maybe var
+
 -- | Core Skolemization function.
 --
 -- Skolemize the formula by removing the existential quantifiers and
@@ -288,6 +286,28 @@ skolemize :: (Monad m, Skolem function V) =>
           -> Formula atom
           -> SkolemT m (Formula atom)
 skolemize fva mapTerms _ca fm = (specialize . pnf fva mapTerms) <$> askolemize fva mapTerms fm
+
+-- | A function type that is an instance of Skolem
+data Function
+    = Fn String
+    | Skolem V
+    deriving (Eq, Ord)
+
+instance IsString Function where
+    fromString = Fn
+
+instance Show Function where
+    show (Fn s) = show s
+    show (Skolem v) = "(toSkolem " ++ show v ++ ")"
+
+instance Pretty Function where
+    pPrint (Fn s) = text s
+    pPrint (Skolem v) = text "sK" <> pPrint v
+
+instance Skolem Function V where
+    toSkolem = Skolem
+    fromSkolem (Skolem v) = Just v
+    fromSkolem _ = Nothing
 
 -- Example.
 
