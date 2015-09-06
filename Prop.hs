@@ -160,8 +160,8 @@ test09 = TestCase $
 eval :: Formula atom -> (atom -> Bool) -> Bool
 eval fm v =
     case fm of
-      False' -> False
-      True' -> True
+      F -> False
+      T -> True
       Atom x -> v x
       Not p -> not (eval p v)
       And p q -> (eval p v) && (eval q v)
@@ -277,8 +277,8 @@ test21 = TestCase $ assertEqual "Equivalences (p. 47)" expected input
 dual :: Formula atom -> Formula atom
 dual fm =
   case fm of
-    False' -> True'
-    True' -> False'
+    F -> T
+    T -> F
     Atom _p -> fm
     Not p -> Not (dual p)
     And p q ->  Or (dual p) (dual q)
@@ -295,25 +295,25 @@ test22 = TestCase $ assertEqual "Dual (p. 49)" expected input
 psimplify1 :: Formula atom -> Formula atom
 psimplify1 fm =
   case fm of
-    Not False' -> True'
-    Not True' -> False'
+    Not F -> T
+    Not T -> F
     Not (Not p) -> p
-    And _p False' -> False'
-    And False' _p -> False'
-    And p True' -> p
-    And True' p -> p
-    Or p False' -> p
-    Or False' p -> p
-    Or _p True' -> True'
-    Or True' _p -> True'
-    Imp False' _p -> True'
-    Imp _p True' -> True'
-    Imp True' p -> p
-    Imp p False' -> Not p
-    Iff p True' -> p
-    Iff True' p -> p
-    Iff p False' -> Not p
-    Iff False' p -> Not p
+    And _p F -> F
+    And F _p -> F
+    And p T -> p
+    And T p -> p
+    Or p F -> p
+    Or F p -> p
+    Or _p T -> T
+    Or T _p -> T
+    Imp F _p -> T
+    Imp _p T -> T
+    Imp T p -> p
+    Imp p F -> Not p
+    Iff p T -> p
+    Iff T p -> p
+    Iff p F -> Not p
+    Iff F p -> Not p
     _ -> fm
 
 psimplify :: Formula atom -> Formula atom
@@ -589,7 +589,7 @@ test33 = TestCase $ assertEqual "trivial" expected input
 -- | With subsumption checking, done very naively (quadratic).
 simpdnf :: Ord atom => Formula atom -> Set (Set (Formula atom))
 simpdnf fm =
-  if fm == False' then Set.empty else if fm == True' then singleton Set.empty else
+  if fm == F then Set.empty else if fm == T then singleton Set.empty else
   let djs = Set.filter (not . trivial) (purednf (nnf fm)) in
   Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
 
@@ -614,7 +614,7 @@ purecnf fm = Set.map (Set.map Not) (purednf (nnf (Not fm)))
 
 simpcnf :: Ord atom => Formula atom -> Set (Set (Formula atom))
 simpcnf fm =
-  if fm == False' then singleton (Set.empty) else if fm == True' then Set.empty else
+  if fm == F then singleton (Set.empty) else if fm == T then Set.empty else
   let cjs = Set.filter (not . trivial) (purecnf fm) in
   Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 

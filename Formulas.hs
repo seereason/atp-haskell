@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -Wall #-}
 module Formulas
-    ( V(V), Formula(False', True', Atom, Not, And, Or, Imp, Iff, Forall, Exists)
+    ( V(V), Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     , (.|.), (.&.), (.=>.), (.<=>.), (.~.), true, false, atomic
     , (==>), (<=>), (∧), (∨), (⇒), (⇔), (¬), (⊨), (⊭)
     , for_all, exists
@@ -18,8 +18,8 @@ instance IsString V where
     fromString = V
 
 data Formula atom
-    = False'
-    | True'
+    = F
+    | T
     | Atom atom
     | Not (Formula atom)
     | And (Formula atom) (Formula atom)
@@ -29,18 +29,6 @@ data Formula atom
     | Forall V (Formula atom)
     | Exists V (Formula atom)
     deriving (Eq, Ord, Read)
-
-instance Show atom => Show (Formula atom) where
-    show False' = "false"
-    show True' = "true"
-    show (Atom atom) = "atomic (" ++ show atom ++ ")"
-    show (Not f) = "(.~.) (" ++ show f ++ ")"
-    show (And f g) = "(" ++ show f ++ ") .&. (" ++ show g ++ ")"
-    show (Or f g) = "(" ++ show f ++ ") .|. (" ++ show g ++ ")"
-    show (Imp f g) = "(" ++ show f ++ ") .=>. (" ++ show g ++ ")"
-    show (Iff f g) = "(" ++ show f ++ ") .<=>. (" ++ show g ++ ")"
-    show (Forall v f) = "(for_all " ++ show v ++ " " ++ show f ++ ")"
-    show (Exists v f) = "(exists " ++ show v ++ " " ++ show f ++ ")"
 
 -- Infix operators
 (.|.) :: Formula atom -> Formula atom -> Formula atom
@@ -59,10 +47,10 @@ a .<=>. b = Iff a b
 (.~.) a = Not a
 
 true :: Formula atom
-true = True'
+true = T
 
 false :: Formula atom
-false = False'
+false = F
 
 atomic :: atom -> Formula atom
 atomic = Atom
@@ -99,6 +87,19 @@ infixl 1  .<=>. , ⇔, <=>
 infixr 2  .=>., ⇒, ==>
 infixr 3  .|., ∨
 infixl 4  .&., ∧
+
+-- Display formulas using infix notation
+instance Show atom => Show (Formula atom) where
+    show F = "false"
+    show T = "true"
+    show (Atom atom) = "atomic (" ++ show atom ++ ")"
+    show (Not f) = "(.~.) (" ++ show f ++ ")"
+    show (And f g) = "(" ++ show f ++ ") .&. (" ++ show g ++ ")"
+    show (Or f g) = "(" ++ show f ++ ") .|. (" ++ show g ++ ")"
+    show (Imp f g) = "(" ++ show f ++ ") .=>. (" ++ show g ++ ")"
+    show (Iff f g) = "(" ++ show f ++ ") .<=>. (" ++ show g ++ ")"
+    show (Forall v f) = "(for_all " ++ show v ++ " " ++ show f ++ ")"
+    show (Exists v f) = "(exists " ++ show v ++ " " ++ show f ++ ")"
 
 -- | Apply a function to the atoms, otherwise keeping structure.
 onatoms :: (atom -> Formula atom) -> Formula atom -> Formula atom

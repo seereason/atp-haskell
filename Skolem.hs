@@ -169,8 +169,8 @@ functions fa fm =
       Iff p q -> functions fa p <> functions fa q
       Forall _ p -> functions fa p
       Exists _ p -> functions fa p
-      False' -> mempty
-      True' -> mempty
+      F -> mempty
+      T -> mempty
 
 -- -------------------------------------------------------------------------
 -- State monad for generating Skolem functions and constants.
@@ -239,8 +239,8 @@ skolem :: (Monad m) => (atom -> Set V) -> ((Term -> Term) -> atom -> atom) -> Fo
 skolem fva mapTerms fm =
     case fm of
       Atom a -> return $ atomic a
-      True' -> return $ True'
-      False' -> return $ False'
+      T -> return true
+      F -> return false
       -- foldFirstOrder qu co (return . fromBool) (return . atomic) fm
       -- We encountered an existentially quantified variable y,
       -- allocate a new skolem function fx and do a substitution to

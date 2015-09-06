@@ -254,8 +254,8 @@ termval m@(_domain,func,_pred) v tm =
 holds :: ([a], Function -> [a] -> a, String -> [a] -> Bool) -> Map V a -> Formula FOLEQ -> Bool
 holds m@(domain,_func,pred) v fm =
   case fm of
-    False' -> False
-    True' -> True
+    F -> False
+    T -> True
     Atom (R' r args) -> pred r (map (termval m v) args)
     Atom (a :=: b) -> pred "=" (map (termval m v) [a, b])
     Not p -> not  (holds m v p)
@@ -354,8 +354,8 @@ fvt tm =
 var :: Formula FOL -> Set V
 var fm =
    case fm of
-    False' -> Set.empty
-    True' -> Set.empty
+    F -> Set.empty
+    T -> Set.empty
     Atom (R _p args) -> unions (map fvt args)
     Not p -> var p
     And p q -> union (var p) (var q)
@@ -375,8 +375,8 @@ fvFOLEQ (a :=: b) = union (fvt a) (fvt b)
 fv :: (a -> Set V) -> Formula a -> Set V
 fv fva fm =
   case fm of
-    False' -> Set.empty
-    True' -> Set.empty
+    F -> Set.empty
+    T -> Set.empty
     Atom a -> fva a
     Not p -> fv fva p
     And p q -> union (fv fva p) (fv fva q)
@@ -426,8 +426,8 @@ mapTermsFOLEQ f (a :=: b) = (f a :=: f b)
 subst :: (a -> Set V) -> ((Term -> Term) -> a -> a) -> Map V Term -> Formula a -> Formula a
 subst fva mapTerms subfn fm =
   case fm of
-    False' -> False'
-    True' -> True'
+    F -> F
+    T -> T
     Atom a -> Atom (mapTerms (tsubst subfn) a)
     Not(p) -> Not (subst fva mapTerms subfn p)
     And p q -> And (subst fva mapTerms subfn p) (subst fva mapTerms subfn q)
