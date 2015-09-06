@@ -39,14 +39,15 @@ simplify fva fm =
 
 -- Example.
 
-pApp :: predicate -> [Term function] -> Formula (FOLEQ predicate function)
-pApp p args = Atom $ R' p args
+-- | Use a predicate to combine some terms into a formula.
+pApp :: HasEquality predicate => predicate -> [Term function] -> Formula (FOL predicate function)
+pApp p args = Atom $ R p args
 
 test01 :: Test
 test01 = TestCase $ assertEqual "simplify (p. 140)" expected input
     where input = simplify fvFOLEQ fm
-          expected = (for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: Formula (FOLEQ String FName)
-          fm :: Formula (FOLEQ String function)
+          expected = (for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: Formula (FOL Predicate FName)
+          fm :: Formula (FOL Predicate function)
           fm = (for_all "x" (for_all "y" (pApp "P" [vt "x"] .|. (pApp "P" [vt "y"] .&. false)))) .=>. exists "z" (pApp "Q" [])
 
 -- | Negation normal form.
@@ -77,8 +78,8 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
           expected = exists "x" ((.~.)(pApp p [vt "x"])) .|.
                      ((exists "y" (pApp q [vt "y"]) .&. exists "z" ((pApp p [vt "z"]) .&. (pApp q [vt "z"]))) .|.
                       (for_all "y" ((.~.)(pApp q [vt "y"])) .&.
-                       for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: Formula (FOLEQ String FName))
-          fm :: Formula (FOLEQ String function)
+                       for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: Formula (FOL Predicate FName))
+          fm :: Formula (FOL Predicate function)
           fm = (for_all "x" (pApp p [vt "x"])) .=>. ((exists "y" (pApp q [vt "y"])) .<=>. exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"]))
 
 -- | Prenex normal form.
@@ -141,8 +142,8 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" expected input
                                  ((((.~.)(pApp p [vt "x"])) .&. ((.~.)(pApp r [vt "y"]))) .|.
                                   ((pApp q [vt "x"]) .|.
                                    (((.~.)(pApp p [vt "z"])) .|.
-                                    ((.~.)(pApp q [vt "z"])))))) :: Formula (FOLEQ String FName)
-          fm :: Formula (FOLEQ String function)
+                                    ((.~.)(pApp q [vt "z"])))))) :: Formula (FOL Predicate FName)
+          fm :: Formula (FOL Predicate function)
           fm = (for_all "x" (pApp p [vt "x"]) .|. (pApp r [vt "y"])) .=>.
                exists "y" (exists "z" ((pApp q [vt "y"]) .|. ((.~.)(exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"])))))
 
@@ -311,8 +312,8 @@ instance Skolem Function V where
 
 test04 :: Test
 test04 = TestCase $ assertEqual "skolemize 1 (p. 150)" expected input
-    where input = runSkolem (skolemize fvFOLEQ mapTermsFOLEQ id fm) :: Formula (FOLEQ String Function)
-          fm :: Formula (FOLEQ String Function)
+    where input = runSkolem (skolemize fvFOLEQ mapTermsFOLEQ id fm) :: Formula (FOL Predicate Function)
+          fm :: Formula (FOL Predicate Function)
           fm = exists "y" (pApp ("<") [vt "x", vt "y"] .=>.
                            for_all "u" (exists "v" (pApp ("<") [fApp "*" [vt "x", vt "u"],  fApp "*" [vt "y", vt "v"]])))
           expected = ((.~.)(pApp ("<") [vt "x",fApp (Skolem "y") [vt "x"]])) .|.
@@ -322,8 +323,8 @@ test05 :: Test
 test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
     where p = "P"
           q = "Q"
-          input = runSkolem (skolemize fvFOLEQ mapTermsFOLEQ id fm) :: Formula (FOLEQ String Function)
-          fm :: Formula (FOLEQ String Function)
+          input = runSkolem (skolemize fvFOLEQ mapTermsFOLEQ id fm) :: Formula (FOL Predicate Function)
+          fm :: Formula (FOL Predicate Function)
           fm = for_all "x" ((pApp p [vt "x"]) .=>.
                             (exists "y" (exists "z" ((pApp q [vt "y"]) .|.
                                                      ((.~.)(exists "z" ((pApp p [vt "z"]) .&. (pApp q [vt "z"]))))))))
