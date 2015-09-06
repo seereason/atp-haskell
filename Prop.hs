@@ -359,18 +359,6 @@ test24 = TestCase $ assertEqual "psimplify 2 (p. 51)" expected input
           x = Atom (P "x")
           y = Atom (P "y")
 
--- | Some operations on literals.
-negative :: Formula atom -> Bool
-negative (Not _) = True
-negative _ = False
-
-positive :: Formula atom -> Bool
-positive = not . negative
-
-negate :: Formula atom -> Formula atom
-negate (Not p) = p
-negate p = Not p
-
 -- | Negation normal form.
 
 nnf' :: Formula atom -> Formula atom

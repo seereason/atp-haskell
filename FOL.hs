@@ -2,7 +2,7 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP, GADTs, OverloadedStrings #-}
+{-# LANGUAGE GADTs, OverloadedStrings #-}
 module FOL
     ( -- * Terms
       Term(Var, FApply), vt, fApp
@@ -22,7 +22,6 @@ module FOL
     , fv
     , generalize
     -- * Substitution
-    , variant
     , subst, substq
     -- * Tests
     , tests
@@ -405,11 +404,6 @@ tsubst sfn tm =
   case tm of
     Var x -> fromMaybe tm (Map.lookup x sfn)
     FApply f args -> FApply f (map (tsubst sfn) args)
-
--- | Variant function and examples.
-variant :: V -> Set V -> V
-variant x@(V s) vars =
-    if Set.member x vars then variant (V (s ++ "'")) vars else x
 
 test07 :: Test
 test07 = TestCase $ assertEqual "variant 1 (p. 133)" expected input

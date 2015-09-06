@@ -1,22 +1,168 @@
+-- | Polymorphic type of formulas
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# OPTIONS_GHC -Wall #-}
 module Formulas
-    ( V(V), Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
-    , (.|.), (.&.), (.=>.), (.<=>.), (.~.), true, false, atomic
-    , (==>), (<=>), (∧), (∨), (⇒), (⇔), (¬), (⊨), (⊭)
+    ( -- * True and False
+      Constants(asBool, fromBool), prettyBool
+    , true, false, (⊨), (⊭)
+    -- * Negation
+    , Negatable((.~.), foldNegation), (¬), negate, negated, negative, positive
+    -- * Combinable
+    , Combinable((.|.), (.&.), (.<=>.), (.=>.), (.<=.), (.<~>.), (.~|.), (.~&.))
+    , (==>), (<=>), (∧), (∨), (⇒), (⇔)
+    -- * Variables
+    , Variable(variant, prefix, prettyVariable), variants, showVariable
+    -- * Formulas
+    , V(V), Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
+    , atomic
     , for_all, exists
     , onatoms
     , overatoms
     , atom_union
     ) where
 
+import Data.Data (Data)
 import Data.Monoid ((<>))
-import Data.Set as Set (Set, empty, union)
+import Data.Set as Set (Set, empty, insert, member, union)
 import Data.String (IsString(fromString))
+import Data.Typeable (Typeable)
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixL, InfixR, InfixN))
 import Lib.Pretty (HasFixity(fixity), topFixity)
+import Prelude hiding (negate)
 import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), text)
 
-newtype V = V String deriving (Eq, Ord, Read)
+-- |Types that need to have True and False elements.
+class Constants p where
+    asBool :: p -> Maybe Bool
+    fromBool :: Bool -> p
+
+true :: Constants p => p
+true = fromBool True
+
+false :: Constants p => p
+false = fromBool False
+
+(⊨) :: Constants p => p
+(⊨) = true
+
+(⊭) :: Constants p => p
+(⊭) = false
+
+prettyBool :: Bool -> Doc
+prettyBool True = text "⊨"
+prettyBool False = text "⊭"
+
+-- |The class of formulas that can be negated.  There are some types
+-- that can be negated but do not support the other Boolean Logic
+-- operators, such as the 'Literal' class.
+class Negatable formula where
+    -- | Negate a formula
+    (.~.) :: formula -> formula
+    -- | Test whether a formula is negated or normal
+    foldNegation :: (formula -> r) -- ^ called for normal formulas
+                 -> (formula -> r) -- ^ called for negated formulas
+                 -> formula -> r
+-- | Is this formula negated at the top level?
+negated :: Negatable formula => formula -> Bool
+negated = foldNegation (const False) (not . negated)
+
+(¬) :: Negatable formula => formula -> formula
+(¬) = (.~.)
+
+negate :: Negatable formula => formula -> formula
+negate = (.~.)
+
+-- | Some operations on Negatable formulas
+negative :: Negatable formula => formula -> Bool
+negative = negated
+
+positive :: Negatable formula => formula -> Bool
+positive = not . negative
+
+infix 5 .~., ¬
+
+-- | A type class for combining logical formulas.  Minimal implementation:
+-- @
+--  (.|.)
+-- @
+class (Negatable formula) => Combinable formula where
+    -- | Disjunction/OR
+    (.|.) :: formula -> formula -> formula
+
+    -- | Derived formula combinators.  These could (and should!) be
+    -- overridden with expressions native to the instance.
+    --
+    -- | Conjunction/AND
+    (.&.) :: formula -> formula -> formula
+    x .&. y = (.~.) ((.~.) x .|. (.~.) y)
+    -- | Formula combinators: Equivalence
+    (.<=>.) :: formula -> formula -> formula
+    x .<=>. y = (x .=>. y) .&. (y .=>. x)
+    -- | Implication
+    (.=>.) :: formula -> formula -> formula
+    x .=>. y = ((.~.) x .|. y)
+    -- | Reverse implication:
+    (.<=.) :: formula -> formula -> formula
+    x .<=. y = y .=>. x
+    -- | Exclusive or
+    (.<~>.) :: formula -> formula -> formula
+    x .<~>. y = ((.~.) x .&. y) .|. (x .&. (.~.) y)
+    -- | Nor
+    (.~|.) :: formula -> formula -> formula
+    x .~|. y = (.~.) (x .|. y)
+    -- | Nand
+    (.~&.) :: formula -> formula -> formula
+    x .~&. y = (.~.) (x .&. y)
+
+infixl 1  .<=>. ,  .<~>., ⇔, <=>
+infixr 2  .=>., ⇒, ==>
+infixr 3  .|., ∨
+infixl 4  .&., ∧
+
+(==>) :: Combinable formula => formula -> formula -> formula
+(==>) = (.=>.)
+(<=>) :: Combinable formula => formula -> formula -> formula
+(<=>) = (.<=>.)
+
+(∧) :: Combinable formula => formula -> formula -> formula
+(∧) = (.&.)
+(∨) :: Combinable formula => formula -> formula -> formula
+(∨) = (.|.)
+
+-- | ⇒ can't be a function when -XUnicodeSyntax is enabled - it
+-- becomes a special character used in type signatures.
+(⇒) :: Combinable formula => formula -> formula -> formula
+(⇒) = (.=>.)
+(⇔) :: Combinable formula => formula -> formula -> formula
+(⇔) = (.<=>.)
+
+class (Ord v, IsString v, Data v, Pretty v) => Variable v where
+    variant :: v -> Set.Set v -> v
+    -- ^ Return a variable based on v but different from any set
+    -- element.  The result may be v itself if v is not a member of
+    -- the set.
+    prefix :: String -> v -> v
+    -- ^ Modify a variable by adding a prefix.  This unfortunately
+    -- assumes that v is "string-like" but at least one algorithm in
+    -- Harrison currently requires this.
+    prettyVariable :: v -> Doc
+    -- ^ Pretty print a variable
+
+-- | Return an infinite list of variations on v
+variants :: Variable v => v -> [v]
+variants v0 =
+    iter' Set.empty v0
+    where iter' s v = let v' = variant v s in v' : iter' (Set.insert v s) v'
+
+showVariable :: Variable v => v -> String
+showVariable v = "(fromString (" ++ show (show (prettyVariable v)) ++ "))"
+
+newtype V = V String deriving (Eq, Ord, Read, Data, Typeable)
+
+instance Variable V where
+    variant v@(V s) vs = if Set.member v vs then variant (V (s ++ "'")) vs else v
+    prefix pre (V s) = V (pre ++ s)
+    prettyVariable (V s) = text s
 
 instance IsString V where
     fromString = V
@@ -40,58 +186,34 @@ data Formula atom
     | Exists V (Formula atom)
     deriving (Eq, Ord, Read)
 
--- Infix operators
-(.|.) :: Formula atom -> Formula atom -> Formula atom
-a .|. b = Or a b
+instance Constants (Formula atom) where
+    asBool T = Just True
+    asBool F = Just False
+    asBool _ = Nothing
+    fromBool True = T
+    fromBool False = F
 
-(.&.) :: Formula atom -> Formula atom -> Formula atom
-a .&. b = And a b
+instance Negatable (Formula atom) where
+    (.~.) = Not
+    foldNegation normal inverted (Not x) = foldNegation inverted normal x
+    foldNegation normal _ x = normal x
 
-(.=>.) :: Formula atom -> Formula atom -> Formula atom
-a .=>. b = Imp a b
-
-(.<=>.) :: Formula atom -> Formula atom -> Formula atom
-a .<=>. b = Iff a b
-
-(.~.) :: Formula atom -> Formula atom
-(.~.) a = Not a
-
-true :: Formula atom
-true = T
-
-false :: Formula atom
-false = F
+instance Combinable (Formula atom) where
+    (.|.) = Or
+    (.&.) = And
+    (.=>.) = Imp
+    (.<=>.) = Iff
 
 atomic :: atom -> Formula atom
 atomic = Atom
-
-(==>) :: Formula atom -> Formula atom -> Formula atom
-(==>) = (.=>.)
-(<=>) :: Formula atom -> Formula atom -> Formula atom
-(<=>) = (.<=>.)
-
-(∧) :: Formula atom -> Formula atom -> Formula atom
-(∧) = (.&.)
-(∨) :: Formula atom -> Formula atom -> Formula atom
-(∨) = (.|.)
--- | ⇒ can't be a function when -XUnicodeSyntax is enabled - it
--- becomes a special character used in type signatures.
-(⇒) :: Formula atom -> Formula atom -> Formula atom
-(⇒) = (.=>.)
-(⇔) :: Formula atom -> Formula atom -> Formula atom
-(⇔) = (.<=>.)
-(¬) :: Formula atom -> Formula atom
-(¬) = (.~.)
-(⊨) :: Formula atom
-(⊨) = true
-(⊭) :: Formula atom
-(⊭) = false
 
 for_all :: V -> Formula atom -> Formula atom
 for_all = Forall
 
 exists :: V -> Formula atom -> Formula atom
 exists = Exists
+
+-- infixr 9 !, ?, ∀, ∃
 
 -- Display formulas using infix notation
 instance Show atom => Show (Formula atom) where
@@ -105,12 +227,6 @@ instance Show atom => Show (Formula atom) where
     show (Iff f g) = "(" ++ show f ++ ") .<=>. (" ++ show g ++ ")"
     show (Forall v f) = "(for_all " ++ show v ++ " " ++ show f ++ ")"
     show (Exists v f) = "(exists " ++ show v ++ " " ++ show f ++ ")"
-
-infixl 1  .<=>. , ⇔, <=>
-infixr 2  .=>., ⇒, ==>
-infixr 3  .|., ∨
-infixl 4  .&., ∧
--- infixr 9 !, ?, ∀, ∃
 
 instance HasFixity atom => HasFixity (Formula atom) where
     fixity T = Fixity 10 InfixN
