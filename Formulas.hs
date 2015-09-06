@@ -17,23 +17,23 @@ newtype V = V String deriving (Eq, Ord, Read, Show)
 instance IsString V where
     fromString = V
 
-data Formula a
+data Formula atom
     = False'
     | True'
-    | Atom a
-    | Not (Formula a)
-    | And (Formula a) (Formula a)
-    | Or (Formula a) (Formula a)
-    | Imp (Formula a) (Formula a)
-    | Iff (Formula a) (Formula a)
-    | Forall V (Formula a)
-    | Exists V (Formula a)
+    | Atom atom
+    | Not (Formula atom)
+    | And (Formula atom) (Formula atom)
+    | Or (Formula atom) (Formula atom)
+    | Imp (Formula atom) (Formula atom)
+    | Iff (Formula atom) (Formula atom)
+    | Forall V (Formula atom)
+    | Exists V (Formula atom)
     deriving (Eq, Ord, Read)
 
-instance Show a => Show (Formula a) where
+instance Show atom => Show (Formula atom) where
     show False' = "false"
     show True' = "true"
-    show (Atom a) = show a
+    show (Atom atom) = show atom
     show (Not f) = "(.~.) (" ++ show f ++ ")"
     show (And f g) = "(" ++ show f ++ ") .&. (" ++ show g ++ ")"
     show (Or f g) = "(" ++ show f ++ ") .|. (" ++ show g ++ ")"
@@ -43,56 +43,56 @@ instance Show a => Show (Formula a) where
     show (Exists v f) = "(exists " ++ show v ++ " " ++ show f ++ ")"
 
 -- Infix operators
-(.|.) :: Formula a -> Formula a -> Formula a
+(.|.) :: Formula atom -> Formula atom -> Formula atom
 a .|. b = Or a b
 
-(.&.) :: Formula a -> Formula a -> Formula a
+(.&.) :: Formula atom -> Formula atom -> Formula atom
 a .&. b = And a b
 
-(.=>.) :: Formula a -> Formula a -> Formula a
+(.=>.) :: Formula atom -> Formula atom -> Formula atom
 a .=>. b = Imp a b
 
-(.<=>.) :: Formula a -> Formula a -> Formula a
+(.<=>.) :: Formula atom -> Formula atom -> Formula atom
 a .<=>. b = Iff a b
 
-(.~.) :: Formula a -> Formula a
+(.~.) :: Formula atom -> Formula atom
 (.~.) a = Not a
 
-true :: Formula a
+true :: Formula atom
 true = True'
 
-false :: Formula a
+false :: Formula atom
 false = False'
 
-atomic :: a -> Formula a
+atomic :: atom -> Formula atom
 atomic = Atom
 
-(==>) :: Formula a -> Formula a -> Formula a
+(==>) :: Formula atom -> Formula atom -> Formula atom
 (==>) = (.=>.)
-(<=>) :: Formula a -> Formula a -> Formula a
+(<=>) :: Formula atom -> Formula atom -> Formula atom
 (<=>) = (.<=>.)
 
-(∧) :: Formula a -> Formula a -> Formula a
+(∧) :: Formula atom -> Formula atom -> Formula atom
 (∧) = (.&.)
-(∨) :: Formula a -> Formula a -> Formula a
+(∨) :: Formula atom -> Formula atom -> Formula atom
 (∨) = (.|.)
 -- | ⇒ can't be a function when -XUnicodeSyntax is enabled - it
 -- becomes a special character used in type signatures.
-(⇒) :: Formula a -> Formula a -> Formula a
+(⇒) :: Formula atom -> Formula atom -> Formula atom
 (⇒) = (.=>.)
-(⇔) :: Formula a -> Formula a -> Formula a
+(⇔) :: Formula atom -> Formula atom -> Formula atom
 (⇔) = (.<=>.)
-(¬) :: Formula a -> Formula a
+(¬) :: Formula atom -> Formula atom
 (¬) = (.~.)
-(⊨) :: Formula a
+(⊨) :: Formula atom
 (⊨) = true
-(⊭) :: Formula a
+(⊭) :: Formula atom
 (⊭) = false
 
-for_all :: V -> Formula a -> Formula a
+for_all :: V -> Formula atom -> Formula atom
 for_all = Forall
 
-exists :: V -> Formula a -> Formula a
+exists :: V -> Formula atom -> Formula atom
 exists = Exists
 
 infixl 1  .<=>. , ⇔, <=>
@@ -101,7 +101,7 @@ infixr 3  .|., ∨
 infixl 4  .&., ∧
 
 -- | Apply a function to the atoms, otherwise keeping structure.
-onatoms :: (a -> Formula a) -> Formula a -> Formula a
+onatoms :: (atom -> Formula atom) -> Formula atom -> Formula atom
 onatoms f fm =
     case fm of
       Atom a -> f a
@@ -115,7 +115,7 @@ onatoms f fm =
       _ -> fm
 
 -- | Formula analog of list iterator "itlist".
-overatoms :: (a -> r -> r) -> Formula a -> r -> r
+overatoms :: (atom -> r -> r) -> Formula atom -> r -> r
 overatoms f fm b =
   case fm of
     Atom a -> f a b
@@ -129,5 +129,5 @@ overatoms f fm b =
     _ -> b
 
 -- | Special case of a union of the results of a function over the atoms.
-atom_union :: Ord a => (t -> Set a) -> Formula t -> Set a
+atom_union :: Ord a => (atom -> Set a) -> Formula atom -> Set a
 atom_union f fm = overatoms (\h t -> Set.union (f h) t) fm Set.empty

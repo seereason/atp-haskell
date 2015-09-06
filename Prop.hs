@@ -1,7 +1,36 @@
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Prop where
+module Prop
+    ( Prop(P, pname)
+    , TruthTable(TruthTable)
+    , eval
+    , atoms
+    , onallvaluations
+    , truthTable
+    , tautology
+    , unsatisfiable
+    , satisfiable
+    , psubst
+    , dual
+    , psimplify
+    , psimplify1
+    , negative, positive, negate
+    , nnf
+    , nenf
+    , list_conj
+    , list_disj
+    , mk_lits
+    , allsatvaluations
+    , dnf1
+    , purednf
+    , dnf2
+    , purecnf
+    , simpcnf
+    , cnf
+    , trivial
+    , tests
+    ) where
 
 import Data.List as List (map)
 import Data.Map as Map (Map)
@@ -9,7 +38,8 @@ import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fold, fromList, intersection, isProperSubsetOf, map, minView, null, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
 import Formulas
-import Lib
+import Lib (fpf, (|=>), allpairs, setAny)
+import Prelude hiding (negate)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 
 data Prop = P {pname :: String} deriving (Eq, Ord)
@@ -20,6 +50,9 @@ instance Show Prop where
 -- Allows us to say "q" instead of P "q" or P {pname = "q"}
 instance IsString Prop where
     fromString = P
+
+data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
+type TruthTableRow = ([Bool], Bool)
 
 test36 :: Test
 test36 = TestCase $ assertEqual "show propositional formula 1" expected input
@@ -121,7 +154,7 @@ test09 = TestCase $
               p = Atom (P "p")
 
 -- | Interpretation of formulas.
-eval :: Formula a -> (a -> Bool) -> Bool
+eval :: Formula atom -> (atom -> Bool) -> Bool
 eval fm v =
     case fm of
       False' -> False
@@ -136,7 +169,7 @@ eval fm v =
       Exists _x _p -> error "Exists in prop formula"
 
 -- | Return the set of propositional variables in a formula.
-atoms :: Ord a => Formula a -> Set a
+atoms :: Ord atom => Formula atom -> Set atom
 atoms fm = atom_union singleton fm
 
 -- | Code to print out truth tables.
@@ -148,20 +181,17 @@ onallvaluations combine subfn v ats =
           let v' t q = (if q == p then t else v q) in
           combine (onallvaluations combine subfn (v' False) ps) (onallvaluations combine subfn (v' True) ps)
 
-data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
-type TruthTableRow = ([Bool], Bool)
-
-truthTable :: forall a. Ord a => Formula a -> TruthTable a
+truthTable :: forall atom. Ord atom => Formula atom -> TruthTable atom
 truthTable fm =
     TruthTable atl (onallvaluations (<>) mkRow (const False) ats)
     where
       ats = atoms fm
-      mkRow :: (a -> Bool) -> [TruthTableRow]
+      mkRow :: (atom -> Bool) -> [TruthTableRow]
       mkRow v = [(List.map v atl, eval fm v)]
       atl = Set.toAscList ats
 
 -- | Recognizing tautologies.
-tautology :: Ord a => Formula a -> Bool
+tautology :: Ord atom => Formula atom -> Bool
 tautology fm = onallvaluations (&&) (eval fm) (\_s -> False) (atoms fm)
 
 -- Examples.
@@ -176,13 +206,13 @@ test13 :: Test
 test13 = TestCase $ assertEqual "tautology 4 (p. 41)" True (tautology $ (p .|. q) .&. ((.~.)(p .&. q)) .=>. ((.~.)p .<=>. q)) where (p, q) = (Atom (P "p"), Atom (P "q"))
 
 -- | Related concepts.
-unsatisfiable :: Ord a => Formula a -> Bool
+unsatisfiable :: Ord atom => Formula atom -> Bool
 unsatisfiable = tautology . Not
-satisfiable :: Ord a => Formula a -> Bool
+satisfiable :: Ord atom => Formula atom -> Bool
 satisfiable = not . unsatisfiable
 
 -- | Substitution operation.
-psubst :: Ord a => Map a (Formula a) -> Formula a -> Formula a
+psubst :: Ord atom => Map atom (Formula atom) -> Formula atom -> Formula atom
 psubst subfn fm = onatoms (\ p -> maybe (Atom p) id (fpf subfn p)) fm
 
 -- Example
@@ -241,7 +271,7 @@ test21 = TestCase $ assertEqual "Equivalences (p. 47)" expected input
           (p, q) = (Atom (P "p"), Atom (P "q"))
 
 -- | Dualization.
-dual :: Formula a -> Formula a
+dual :: Formula atom -> Formula atom
 dual fm =
   case fm of
     False' -> True'
@@ -259,7 +289,7 @@ test22 = TestCase $ assertEqual "Dual (p. 49)" expected input
           expected = And (Atom (P {pname = "p"})) (Not (Atom (P {pname = "p"})))
 
 -- | Routine simplification.
-psimplify1 :: Formula a -> Formula a
+psimplify1 :: Formula atom -> Formula atom
 psimplify1 fm =
   case fm of
     Not False' -> True'
@@ -283,7 +313,7 @@ psimplify1 fm =
     Iff False' p -> Not p
     _ -> fm
 
-psimplify :: Formula a -> Formula a
+psimplify :: Formula atom -> Formula atom
 psimplify fm =
   case fm of
     Not p -> psimplify1 (Not(psimplify p))
@@ -310,20 +340,20 @@ test24 = TestCase $ assertEqual "psimplify 2 (p. 51)" expected input
           y = Atom (P "y")
 
 -- | Some operations on literals.
-negative :: Formula a -> Bool
+negative :: Formula atom -> Bool
 negative (Not _) = True
 negative _ = False
 
-positive :: Formula a -> Bool
+positive :: Formula atom -> Bool
 positive = not . negative
 
-negate :: Formula a -> Formula a
+negate :: Formula atom -> Formula atom
 negate (Not p) = p
 negate p = Not p
 
 -- | Negation normal form.
 
-nnf' :: Formula a -> Formula a
+nnf' :: Formula atom -> Formula atom
 nnf' fm =
   case fm of
     And p q -> And (nnf p) (nnf q)
@@ -338,7 +368,7 @@ nnf' fm =
     _ -> fm
 
 -- | Roll in simplification.
-nnf :: Formula a -> Formula a
+nnf :: Formula atom -> Formula atom
 nnf = nnf' . psimplify
 
 -- Example of NNF function in action.
@@ -367,7 +397,7 @@ test26 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           s = Atom (P "s")
 
 -- | Simple negation-pushing when we don't care to distinguish occurrences.
-nenf' :: Formula a -> Formula a
+nenf' :: Formula atom -> Formula atom
 nenf' fm =
   case fm of
     Not (Not p) -> nenf p
@@ -381,7 +411,7 @@ nenf' fm =
     Iff p q -> Iff (nenf p) (nenf q)
     _ -> fm
 
-nenf :: Formula a -> Formula a
+nenf :: Formula atom -> Formula atom
 nenf = nenf' . psimplify
 
 -- Some tautologies remarked on.
@@ -404,13 +434,13 @@ test28 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           q' = Atom (P "q'")
 
 -- | Disjunctive normal form (DNF) via truth tables.
-list_conj :: Set (Formula a) -> Formula a
+list_conj :: Set (Formula atom) -> Formula atom
 list_conj l = maybe true (\ (x, xs) -> Set.fold (.&.) x xs) (Set.minView l)
 
-list_disj :: Set (Formula a) -> Formula a
+list_disj :: Set (Formula atom) -> Formula atom
 list_disj l = maybe false (\ (x, xs) -> Set.fold (.|.) x xs) (Set.minView l)
 
-mk_lits :: Ord a => Set (Formula a) -> (a -> Bool) -> Formula a
+mk_lits :: Ord atom => Set (Formula atom) -> (atom -> Bool) -> Formula atom
 mk_lits pvs v = list_conj (Set.map (\ p -> if eval p v then p else Not p) pvs)
 
 allsatvaluations :: Eq a => ((a -> Bool) -> Bool) -> (a -> Bool) -> Set a -> [a -> Bool]
@@ -420,7 +450,7 @@ allsatvaluations subfn v pvs =
       Just (p, ps) -> (allsatvaluations subfn (\a -> if a == p then False else v a) ps) ++
                       (allsatvaluations subfn (\a -> if a == p then True else v a) ps)
 
-dnf1 :: Ord a => Formula a -> Formula a
+dnf1 :: Ord atom => Formula atom -> Formula atom
 dnf1 fm =
     list_disj (Set.fromList (List.map (mk_lits (Set.map atomic pvs)) satvals))
     where
@@ -485,14 +515,14 @@ test30 = TestCase $ assertEqual "dnf 2 (p. 56)" expected input
           [p, q, r, s, t, u, v] = List.map (Atom . P) ["p", "q", "r", "s", "t", "u", "v"]
 
 -- | DNF via distribution.
-distrib1 :: Formula a -> Formula a
+distrib1 :: Formula atom -> Formula atom
 distrib1 fm =
   case fm of
     And p (Or q r) -> Or (distrib1 (And p q)) (distrib1 (And p r))
     And (Or p q) r -> Or (distrib1 (And p r)) (distrib1 (And q r))
     _ -> fm
 
-rawdnf :: Formula a -> Formula a
+rawdnf :: Formula atom -> Formula atom
 rawdnf fm =
   case fm of
     And p q -> distrib1 (And (rawdnf p) (rawdnf q))
@@ -514,7 +544,7 @@ test31 = TestCase $ assertEqual "rawdnf (p. 58)" expected input
 distrib2 :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
 distrib2 s1 s2 = allpairs union s1 s2
 
-purednf :: Ord a => Formula a -> Set (Set (Formula a))
+purednf :: Ord atom => Formula atom -> Set (Set (Formula atom))
 purednf fm =
     case fm of
       And p q -> distrib2 (purednf p) (purednf q)
@@ -535,7 +565,7 @@ test32 = TestCase $ assertEqual "purednf (p. 58)" expected input
           r = Atom (P "r")
 
 -- | Filtering out trivial disjuncts (in this guise, contradictory).
-trivial :: Ord a => Set (Formula a) -> Bool
+trivial :: Ord atom => Set (Formula atom) -> Bool
 trivial lits =
     not . Set.null $ Set.intersection neg (Set.map Not pos)
     where (pos, neg) = Set.partition positive lits
@@ -552,14 +582,14 @@ test33 = TestCase $ assertEqual "trivial" expected input
           r = Atom (P "r")
 
 -- | With subsumption checking, done very naively (quadratic).
-simpdnf :: Ord a => Formula a -> Set (Set (Formula a))
+simpdnf :: Ord atom => Formula atom -> Set (Set (Formula atom))
 simpdnf fm =
   if fm == False' then Set.empty else if fm == True' then singleton Set.empty else
   let djs = Set.filter (not . trivial) (purednf (nnf fm)) in
   Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
 
 -- | Mapping back to a formula.
-dnf2 :: Ord a => Formula a -> Formula a
+dnf2 :: Ord atom => Formula atom -> Formula atom
 dnf2 fm = list_disj (Set.map list_conj (simpdnf fm))
 
 -- Example.
@@ -574,16 +604,16 @@ test34 = TestCase $ assertEqual "dnf" expected input
           r = Atom (P "r")
 
 -- | Conjunctive normal form (CNF) by essentially the same code.
-purecnf :: Ord a => Formula a -> Set (Set (Formula a))
+purecnf :: Ord atom => Formula atom -> Set (Set (Formula atom))
 purecnf fm = Set.map (Set.map Not) (purednf (nnf (Not fm)))
 
-simpcnf :: Ord a => Formula a -> Set (Set (Formula a))
+simpcnf :: Ord atom => Formula atom -> Set (Set (Formula atom))
 simpcnf fm =
   if fm == False' then singleton (Set.empty) else if fm == True' then Set.empty else
   let cjs = Set.filter (not . trivial) (purecnf fm) in
   Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
-cnf :: Ord a => Formula a -> Formula a
+cnf :: Ord atom => Formula atom -> Formula atom
 cnf fm = list_conj (Set.map list_disj (simpcnf fm))
 
 -- Example.

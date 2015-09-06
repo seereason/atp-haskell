@@ -1,8 +1,25 @@
 {-# LANGUAGE GADTs, OverloadedStrings #-}
-module FOL where
+module FOL
+    ( Term(Var, FApply), vt, fApp
+    , Function(Fn, Skolem)
+    , FOL(R), FOLEQ(R', (:=:)), (.=.)
+    , onformula
+    , termval
+    , holds
+    , bool_interp
+    , mod_interp
+    , var
+    , fv
+    , fvFOL, fvFOLEQ
+    , generalize
+    , variant
+    , mapTermsFOL, mapTermsFOLEQ
+    , subst, substq
+    , tests
+    ) where
 
 import Formulas
-import Lib
+import Lib (setAny, tryApplyD, undefine, (|->))
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
@@ -10,35 +27,34 @@ import Data.String (IsString(fromString))
 import Prelude hiding (pred)
 import Test.HUnit
 
-{-
-(* ========================================================================= *)
-(* Basic stuff for first order logic.                                        *)
-(*                                                                           *)
-(* Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)  *)
-(* ========================================================================= *)
--}
+-- =========================================================================
+-- Basic stuff for first order logic.
+--
+-- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
+-- =========================================================================
 
 -- | Terms.
 data Term
     = Var V
-    | Function AtomicFunction [Term]
-    deriving (Eq, Show)
+    | FApply Function [Term]
+    deriving (Eq, Ord, Show)
 
 vt :: V -> Term
 vt = Var
 
 -- | Things that can have argument terms applied, the first argument of fApp.
 -- Use of the Skolem constructor will be developed later.
-data AtomicFunction
+data Function
     = Fn String
     | Skolem V
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
-instance IsString AtomicFunction where
+instance IsString Function where
     fromString = Fn
 
-fApp :: AtomicFunction -> [Term] -> Term
-fApp = Function
+-- | Build a new term by applying some terms to a function.
+fApp :: Function -> [Term] -> Term
+fApp = FApply
 
 {-
 (* ------------------------------------------------------------------------- *)
@@ -52,25 +68,21 @@ Fn("sqrt",[Fn("-",[Fn("1",[]);
 END_INTERACTIVE;;
 -}
 
-{-
-class FirstOrderFormula fol where
-    pApp :: String -> [Term] -> fol
-    foldFirstOrderFormula :: (String -> [Term] -> r) -> fol -> r
--}
+test00 :: Test
+test00 = TestCase $ assertEqual "print an expression"
+                                "FApply (Fn \"sqrt\") [FApply (Fn \"-\") [FApply (Fn \"1\") [],FApply (Fn \"cos\") [FApply (Fn \"power\") [FApply (Fn \"+\") [Var (V \"x\"),Var (V \"y\")],FApply (Fn \"2\") []]]]]"
+                                (show $ FApply (Fn "sqrt") [FApply (Fn "-") [FApply (Fn "1") [],
+                                                           FApply (Fn "cos") [FApply (Fn "power") [FApply (Fn "+") [Var "x", Var "y"],
+                                                                                 FApply (Fn "2") []]]]])
 
--- | Abbreviation for FOL formula.
-data FOL = R String [Term] deriving (Eq, Show)
+-- | First order logic formula atom type.
+data FOL = R String [Term] deriving (Eq, Ord, Show)
 
-{-
-instance FirstOrderFormula FOL where
-    pApp = R
-    foldFirstOrderFormula r (R s ts) = r s ts
--}
-
+-- | First order logic formula atom type with equality.
 data FOLEQ
     = R' String [Term]
     | Term :=: Term
-    deriving (Eq, Show)
+    deriving (Eq, Ord, Show)
 
 (.=.) :: Term -> Term -> Formula FOLEQ
 a .=. b = Atom (a :=: b)
@@ -233,13 +245,13 @@ END_INTERACTIVE;;
 -}
 
 -- | Semantics, implemented of course for finite domains only.
-termval :: ([a], AtomicFunction -> [a] -> a, p -> [a] -> Bool) -> Map V a -> Term -> a
+termval :: ([a], Function -> [a] -> a, p -> [a] -> Bool) -> Map V a -> Term -> a
 termval m@(_domain,func,_pred) v tm =
   case tm of
     Var x -> fromMaybe (error $ "Undefined variable: " ++ show x) (Map.lookup x v)
-    Function f args -> func f $ map (termval m v) args
+    FApply f args -> func f $ map (termval m v) args
 
-holds :: ([a], AtomicFunction -> [a] -> a, String -> [a] -> Bool) -> Map V a -> Formula FOLEQ -> Bool
+holds :: ([a], Function -> [a] -> a, String -> [a] -> Bool) -> Map V a -> Formula FOLEQ -> Bool
 holds m@(domain,_func,pred) v fm =
   case fm of
     False' -> False
@@ -255,7 +267,7 @@ holds m@(domain,_func,pred) v fm =
     Exists x p -> or (map (\a -> holds m (Map.insert x a v) p) domain) -- return . all (== True)?
 
 -- | Examples of particular interpretations.
-bool_interp :: Eq a => ([Bool], AtomicFunction -> [Bool] -> Bool, String -> [a] -> Bool)
+bool_interp :: Eq a => ([Bool], Function -> [Bool] -> Bool, String -> [a] -> Bool)
 bool_interp =
   ([False, True],func,pred)
     where
@@ -271,7 +283,7 @@ bool_interp =
               ("=",[x,y]) -> x == y
               _ -> error "uninterpreted predicate"
 
-mod_interp :: Int -> ([Int], AtomicFunction -> [Int] -> Int, String -> [Int] -> Bool)
+mod_interp :: Int -> ([Int], Function -> [Int] -> Int, String -> [Int] -> Bool)
 mod_interp n =
   ([0..(n-1)],func,pred)
     where
@@ -337,7 +349,7 @@ fvt :: Term -> Set V
 fvt tm =
   case tm of
     Var x -> singleton x
-    Function _f args -> unions (map fvt args)
+    FApply _f args -> unions (map fvt args)
 
 var :: Formula FOL -> Set V
 var fm =
@@ -383,7 +395,7 @@ tsubst :: Map V Term -> Term -> Term
 tsubst sfn tm =
   case tm of
     Var x -> fromMaybe tm (Map.lookup x sfn)
-    Function f args -> Function f (map (tsubst sfn) args)
+    FApply f args -> FApply f (map (tsubst sfn) args)
 
 -- | Variant function and examples.
 variant :: V -> Set V -> V
@@ -457,15 +469,8 @@ test11 = TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x x'. x = 
                                        (Map.fromList [("y", Var "x")])
                                        (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))))
 
-{-
-test12 :: Test
-test12 =
-    let fm = (let (x, y) = (vt "x" :: Term, vt "y" :: Term) in ((for_all "x" ((x .=. x))) .=>. (for_all "x" (exists "y" ((x .=. y))))) :: Formula FOLEQ) in
-    TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y" (holds fm) True
--}
-
 tests :: Test
 tests = TestLabel "FOL" $
-        TestList [test01, test02, test03, test04, test05,
-                  test06, test07, test08, test09, test10,
-                  test11 {-, test12-}]
+        TestList [test00, test01, test02, test03, test04,
+                  test05, test06, test07, test08, test09,
+                  test10, test11]

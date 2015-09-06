@@ -1,5 +1,5 @@
 {-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables #-}
--- | Prenex and Skolem normal forms.                                           *)
+-- | Prenex and Skolem normal forms.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 module Skolem where
@@ -19,7 +19,7 @@ class Skolem fun var where
     toSkolem :: var -> fun
     fromSkolem :: fun -> Maybe var
 
-instance Skolem AtomicFunction V where
+instance Skolem Function V where
     toSkolem = Skolem
     fromSkolem (Skolem v) = Just v
     fromSkolem _ = Nothing
@@ -137,7 +137,7 @@ prenex fva mapTerms fm =
 
 pnf :: forall a. (a -> Set V) -> ((Term -> Term) -> a -> a) -> Formula a -> Formula a
 pnf fva mapTerms fm = prenex fva mapTerms (nnf (simplify fva fm))
--- pnf' fm = prenex fvFOLEQ mapTermsFOLEQ (nnf (simplify fvFOLEQ fm))
+    where
 
 -- Example.
 
@@ -262,12 +262,7 @@ skolem2 fva mapTerms cons p q =
     skolem fva mapTerms q >>= \ q' ->
     return (cons p' q')
 
--- ------------------------------------------------------------------------- 
--- Overall Skolemization function.                                           
--- ------------------------------------------------------------------------- 
-
--- |I need to consult the Harrison book for the reasons why we don't
--- |just Skolemize the result of prenexNormalForm.
+-- | Overall Skolemization function.
 askolemize :: (Monad m) =>
               (atom -> Set V)
            -> ((Term -> Term) -> atom -> atom)
@@ -319,3 +314,6 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
                      ((pApp q [fApp (Skolem "y") []]) .|.
                       (((.~.)(pApp p [vt "z"])) .|.
                        ((.~.)(pApp q [vt "z"]))))
+
+tests :: Test
+tests = TestList [test01, test02, test03, test04, test05]
