@@ -175,7 +175,7 @@ instance Ord atom => FirstOrderFormula (Formula atom) atom V where
           _ -> foldPropositional co tf at fm
 
 -- | Special case of applying a subfunction to the top *terms*.
-onformula :: (term ~ Term function v) => (term -> term) -> Formula (FOL predicate term) -> Formula (FOL predicate term)
+onformula :: (formula ~ Formula atom, atom ~ FOL predicate term) => (term -> term) -> formula -> formula
 onformula f = onatoms (\(R p a) -> Atom (R p (map f a)))
 
 {-
@@ -338,7 +338,7 @@ termval m v tm =
     Var x -> fromMaybe (error ("Undefined variable: " ++ show x)) (Map.lookup x v)
     FApply f args -> funcApply m f (map (termval m v) args)
 
-holds :: (term ~ Term function v, FirstOrderFormula (Formula (FOL predicate term)) (FOL predicate term) v, Show v) => Interp function predicate d -> Map v d -> Formula (FOL predicate term) -> Bool
+holds :: (atom ~ FOL predicate term, term ~ Term function v, Show v, FirstOrderFormula formula atom v) => Interp function predicate d -> Map v d -> formula -> Bool
 holds m v fm =
     foldFirstOrder qu co tf at fm
     where
@@ -434,7 +434,7 @@ fvt tm =
     FApply _f args -> unions (map fvt args)
 
 -- | Find the variables in a formula.
-var :: (atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula (Formula atom) atom v) => Formula atom -> Set v
+var :: (atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v) => formula -> Set v
 var fm =
     foldFirstOrder qu co tf at fm
     where
@@ -445,7 +445,7 @@ var fm =
       at (R _ args) = unions (map fvt args)
 
 -- | Find the free variables in a formula.
-fv :: (atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula (Formula atom) atom v) => Formula atom -> Set v
+fv :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v) => formula -> Set v
 fv fm =
     foldFirstOrder qu co tf at fm
     where
@@ -456,7 +456,7 @@ fv fm =
       at (R _ args) = unions (map fvt args)
 
 -- | Universal closure of a formula.
-generalize :: (atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula (Formula atom) atom v) => Formula atom -> Formula atom
+generalize :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v) => formula -> formula
 generalize fm = Set.fold for_all fm (fv fm)
 
 -- | Substitution within terms.
@@ -480,8 +480,8 @@ test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
           expected = "x''"
 
 -- | Substitution in formulas, with variable renaming.
-subst :: (atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula (Formula atom) atom v) =>
-         Map v (Term function v) -> Formula atom -> Formula atom
+subst :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v) =>
+         Map v (Term function v) -> formula -> formula
 subst subfn fm =
     foldFirstOrder qu co tf at fm
     where
@@ -496,12 +496,12 @@ subst subfn fm =
       tf True = true
       at (R p args) = Atom (R p (map (tsubst subfn) args))
 
-substq :: (Ord v, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula (Formula atom) atom v) =>
+substq :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v, Ord v) =>
           Map v (Term function v)
-       -> (v -> Formula atom -> Formula atom)
+       -> (v -> formula -> formula)
        -> v
-       -> Formula atom
-       -> Formula atom
+       -> formula
+       -> formula
 substq subfn qu x p =
   let x' = if setAny (\y -> Set.member x (fvt(tryApplyD subfn y (Var y))))
                      (difference (fv p) (singleton x))
