@@ -37,14 +37,18 @@ import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
-simplify1 :: (atom ~ FOL predicate formula) => Formula atom -> Formula atom
+simplify1 :: (atom ~ FOL predicate formula, Ord predicate, Ord formula) => Formula atom -> Formula atom
 simplify1 fm =
   case fm of
     Forall x p -> if member x (fv p) then fm else p
     Exists x p -> if member x (fv p) then fm else p
+    -- If psimplify1 sees a negation it looks at its argument, so here we
+    -- make sure that argument isn't a quantifier which would cause an error.
+    Not (Forall _ _) -> fm
+    Not (Exists _ _) -> fm
     _ -> psimplify1 fm
 
-simplify :: (atom ~ FOL predicate formula) => Formula atom -> Formula atom
+simplify :: (atom ~ FOL predicate formula, Ord predicate, Ord formula) => Formula atom -> Formula atom
 simplify fm =
   case fm of
     Not p -> simplify1 (Not (simplify p))
@@ -144,7 +148,7 @@ prenex fm =
     Or (p) (q) -> pullquants (Or (prenex p) (prenex q))
     _ -> fm
 
-pnf :: (atom ~ FOL predicate function) => Formula atom -> Formula atom
+pnf :: (atom ~ FOL predicate function, Ord predicate, Ord function) => Formula atom -> Formula atom
 pnf fm = prenex (nnf (simplify fm))
 
 -- Example.
@@ -279,7 +283,7 @@ skolem2 cons p q =
     return (cons p' q')
 
 -- | Overall Skolemization function.
-askolemize :: (Monad m, Skolem function V, atom ~ FOL predicate function) =>
+askolemize :: (Monad m, Skolem function V, atom ~ FOL predicate function, Ord predicate, Ord function) =>
               Formula atom -> SkolemT m (Formula atom)
 askolemize = skolem . nnf . simplify
 
@@ -295,7 +299,7 @@ specialize f =
 
 -- | Skolemize and then specialize.  Because we know all quantifiers
 -- are gone we can convert to any instance of PropositionalFormula.
-skolemize :: (Monad m, Skolem function V, atom ~ FOL predicate function) =>
+skolemize :: (Monad m, Skolem function V, atom ~ FOL predicate function, Ord predicate, Ord function) =>
              Formula atom
           -> SkolemT m (Formula atom)
 skolemize fm = (specialize . pnf) <$> askolemize fm

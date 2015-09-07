@@ -336,6 +336,5 @@ onatoms :: Formulae formula atom => (atom -> formula) -> formula -> formula
 onatoms = mapAtoms
 
 -- | Special case of a union of the results of a function over the atoms.
--- atom_union :: Ord a => (atom -> Set a) -> Formula atom -> Set a
-atom_union :: (Ord a, Formulae formula atom) => (atom -> Set a) -> formula -> Set a
+atom_union :: (Formulae formula atom, Ord r) => (atom -> Set r) -> formula -> Set r
 atom_union f fm = foldAtoms (\h t -> Set.union (f h) t) fm Set.empty

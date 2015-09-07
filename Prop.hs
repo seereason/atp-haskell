@@ -26,8 +26,6 @@ module Prop
     -- * Simplification
     , psimplify
     , psimplify1
-    -- * Operations on literals
-    , negative, positive, negate
     -- * Normal forms
     , nnf
     , nenf
@@ -52,7 +50,13 @@ import Data.Map as Map (Map)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map, minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
-import Formulas
+import Formulas (atom_union,
+                 Constants(fromBool, asBool), true, false,
+                 Negatable((.~.)), positive,
+                 Combinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
+                 Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
+                 Formulae(atomic), onatoms,
+                 Formula(T, F, Atom, Not, And, Or, Imp, Iff, Forall, Exists))
 import Lib (fpf, (|=>), allpairs, setAny)
 import Lib.Pretty (HasFixity(fixity), botFixity)
 import Prelude hiding (negate, null)
@@ -74,8 +78,11 @@ import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 -- without.  It is less obvious whether Constants is always required,
 -- but the implementation of functions like simplify would be more
 -- elaborate if we didn't have it, so we will require it.
-class (Ord formula, Negatable formula, Combinable formula, Constants formula,
-       Pretty formula, HasFixity formula, Formulae formula atom
+class (Formulae formula atom,
+       Negatable formula,
+       Combinable formula,
+       Constants formula,
+       Ord atom, Ord formula
       ) => PropositionalFormula formula atom | formula -> atom where
     -- | Build an atomic formula from the atom type.
     -- | A fold function that distributes different sorts of formula
@@ -104,7 +111,7 @@ instance Pretty Prop where
 instance HasFixity Prop where
     fixity _ = botFixity
 
-instance (Ord a, Pretty a, HasFixity a) => PropositionalFormula (Formula a) a where
+instance Ord atom => PropositionalFormula (Formula atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -115,8 +122,12 @@ instance (Ord a, Pretty a, HasFixity a) => PropositionalFormula (Formula a) a wh
           Or p q -> co (BinOp p (:|:) q)
           Imp p q -> co (BinOp p (:=>:) q)
           Iff p q -> co (BinOp p (:<=>:) q)
-          Forall _ _ -> error "quantifier in PropositionalFormula"
-          Exists _ _ -> error "quantifier in PropositionalFormula"
+          -- Although every instance of FirstOrderFormula is also an
+          -- instance of PropositionalFormula, we see here that it is
+          -- an error to use foldPropositional (PropositionalFormula's
+          -- only method) on a Formula that has quantifiers.
+          Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier"
+          Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier"
 
 data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
 type TruthTableRow = ([Bool], Bool)
@@ -219,7 +230,6 @@ test09 = TestCase $
               p = Atom (P "p")
 
 -- | Interpretation of formulas.
--- eval :: Formula atom -> (atom -> Bool) -> Bool
 eval :: PropositionalFormula formula atom => formula -> (atom -> Bool) -> Bool
 eval fm v =
     foldPropositional co tf at fm
@@ -233,7 +243,7 @@ eval fm v =
       at = v
 
 -- | Return the set of propositional variables in a formula.
-atoms :: Ord atom => Formula atom -> Set atom
+atoms :: (Ord atom, Formulae formula atom) => formula -> Set atom
 atoms fm = atom_union singleton fm
 
 -- | Code to print out truth tables.
@@ -245,17 +255,16 @@ onallvaluations cmb subfn v ats =
           let v' t q = (if q == p then t else v q) in
           cmb (onallvaluations cmb subfn (v' False) ps) (onallvaluations cmb subfn (v' True) ps)
 
-truthTable :: forall atom. (Ord atom, Pretty atom, HasFixity atom) => Formula atom -> TruthTable atom
+truthTable :: PropositionalFormula formula atom => formula -> TruthTable atom
 truthTable fm =
     TruthTable atl (onallvaluations (<>) mkRow (const False) ats)
     where
       ats = atoms fm
-      mkRow :: (atom -> Bool) -> [TruthTableRow]
       mkRow v = [(List.map v atl, eval fm v)]
       atl = Set.toAscList ats
 
 -- | Recognizing tautologies.
-tautology :: (Ord atom, Pretty atom, HasFixity atom) => Formula atom -> Bool
+tautology :: PropositionalFormula formula atom => formula -> Bool
 tautology fm = onallvaluations (&&) (eval fm) (\_s -> False) (atoms fm)
 
 -- Examples.
@@ -270,14 +279,14 @@ test13 :: Test
 test13 = TestCase $ assertEqual "tautology 4 (p. 41)" True (tautology $ (p .|. q) .&. ((.~.)(p .&. q)) .=>. ((.~.)p .<=>. q)) where (p, q) = (Atom (P "p"), Atom (P "q"))
 
 -- | Related concepts.
-unsatisfiable :: (Ord atom, Pretty atom, HasFixity atom) => Formula atom -> Bool
-unsatisfiable = tautology . Not
-satisfiable :: (Ord atom, Pretty atom, HasFixity atom)  => Formula atom -> Bool
+unsatisfiable :: PropositionalFormula formula atom => formula -> Bool
+unsatisfiable = tautology . (.~.)
+satisfiable :: PropositionalFormula formula atom  => formula -> Bool
 satisfiable = not . unsatisfiable
 
 -- | Substitution operation.
-psubst :: Ord atom => Map atom (Formula atom) -> Formula atom -> Formula atom
-psubst subfn fm = onatoms (\ p -> maybe (Atom p) id (fpf subfn p)) fm
+psubst :: PropositionalFormula formula atom => Map atom formula -> formula -> formula
+psubst subfn fm = onatoms (\ p -> maybe (atomic p) id (fpf subfn p)) fm
 
 -- Example
 test14 :: Test
@@ -335,16 +344,16 @@ test21 = TestCase $ assertEqual "Equivalences (p. 47)" expected input
           (p, q) = (Atom (P "p"), Atom (P "q"))
 
 -- | Dualization.
-dual :: Formula atom -> Formula atom
+dual :: PropositionalFormula formula atom => formula -> formula
 dual fm =
-  case fm of
-    F -> T
-    T -> F
-    Atom _p -> fm
-    Not p -> Not (dual p)
-    And p q ->  Or (dual p) (dual q)
-    Or p q -> And (dual p) (dual q)
-    _ -> error"Formula involves connectives ==> or <=>"
+    foldPropositional co tf (\_ -> fm) fm
+    where
+      tf True = false
+      tf False = true
+      co ((:~:) p) = (.~.) (dual p)
+      co (BinOp p (:&:) q) = dual p .|. dual q
+      co (BinOp p (:|:) q) = dual p .&. dual q
+      co _ = error "Formula involves connectives .=>. or .<=>."
 
 -- Example.
 test22 :: Test
@@ -353,39 +362,46 @@ test22 = TestCase $ assertEqual "Dual (p. 49)" expected input
           expected = And (Atom (P {pname = "p"})) (Not (Atom (P {pname = "p"})))
 
 -- | Routine simplification.
-psimplify1 :: Formula atom -> Formula atom
+psimplify1 :: PropositionalFormula formula atom => formula -> formula
 psimplify1 fm =
-  case fm of
-    Not F -> T
-    Not T -> F
-    Not (Not p) -> p
-    And _p F -> F
-    And F _p -> F
-    And p T -> p
-    And T p -> p
-    Or p F -> p
-    Or F p -> p
-    Or _p T -> T
-    Or T _p -> T
-    Imp F _p -> T
-    Imp _p T -> T
-    Imp T p -> p
-    Imp p F -> Not p
-    Iff p T -> p
-    Iff T p -> p
-    Iff p F -> Not p
-    Iff F p -> Not p
-    _ -> fm
+    foldPropositional simplifyCombine (\_ -> fm) (\_ -> fm) fm
+    where
+      simplifyCombine ((:~:) p) = foldPropositional simplifyNotCombine (fromBool . not) simplifyNotAtom p
+      simplifyCombine (BinOp l op r) =
+          case (asBool l, op , asBool r) of
+            (Just True,  (:&:), _)            -> r
+            (Just False, (:&:), _)            -> fromBool False
+            (_,          (:&:), Just True)    -> l
+            (_,          (:&:), Just False)   -> fromBool False
+            (Just True,  (:|:), _)            -> fromBool True
+            (Just False, (:|:), _)            -> r
+            (_,          (:|:), Just True)    -> fromBool True
+            (_,          (:|:), Just False)   -> l
+            (Just True,  (:=>:), _)           -> r
+            (Just False, (:=>:), _)           -> fromBool True
+            (_,          (:=>:), Just True)   -> fromBool True
+            (_,          (:=>:), Just False)  -> (.~.) l
+            (Just False, (:<=>:), Just False) -> fromBool True
+            (Just True,  (:<=>:), _)          -> r
+            (Just False, (:<=>:), _)          -> (.~.) r
+            (_,          (:<=>:), Just True)  -> l
+            (_,          (:<=>:), Just False) -> (.~.) l
+            _                                 -> fm
+      simplifyNotCombine ((:~:) f) = f
+      simplifyNotCombine _ = fm
+      simplifyNotAtom x = (.~.) (atomic x)
 
-psimplify :: Formula atom -> Formula atom
+psimplify :: PropositionalFormula formula atom => formula -> formula
 psimplify fm =
-  case fm of
-    Not p -> psimplify1 (Not(psimplify p))
-    And p q -> psimplify1 (And (psimplify p) (psimplify q))
-    Or p q -> psimplify1 (Or (psimplify p) (psimplify q))
-    Imp p q -> psimplify1 (Imp (psimplify p) (psimplify q))
-    Iff p q -> psimplify1 (Iff (psimplify p) (psimplify q))
-    _ -> fm
+    foldPropositional co tf at fm
+    where
+      co ((:~:) p) = psimplify1 ((.~.) (psimplify p))
+      co (BinOp p (:&:) q) = psimplify1 ((psimplify p) .&. (psimplify q))
+      co (BinOp p (:|:) q) = psimplify1 ((psimplify p) .|. (psimplify q))
+      co (BinOp p (:=>:) q) = psimplify1 ((psimplify p) .=>. (psimplify q))
+      co (BinOp p (:<=>:) q) = psimplify1 ((psimplify p) .<=>. (psimplify q))
+      tf _ = fm
+      at _ = fm
 
 -- Example.
 test23 :: Test
@@ -405,23 +421,22 @@ test24 = TestCase $ assertEqual "psimplify 2 (p. 51)" expected input
 
 -- | Negation normal form.
 
-nnf' :: Formula atom -> Formula atom
-nnf' fm =
-  case fm of
-    And p q -> And (nnf p) (nnf q)
-    Or p q -> Or (nnf p) (nnf q)
-    Imp p q -> Or (nnf(Not p)) (nnf q)
-    Iff p q -> Or (And(nnf p) (nnf q)) (And(nnf(Not p)) (nnf(Not q)))
-    Not(Not p) -> nnf p
-    Not(And p q) -> Or (nnf(Not p)) (nnf(Not q))
-    Not(Or p q) -> And (nnf(Not p)) (nnf(Not q))
-    Not(Imp p q) -> And (nnf p) (nnf(Not q))
-    Not(Iff p q) -> Or (And (nnf p) (nnf (Not q))) (And (nnf (Not p)) (nnf q))
-    _ -> fm
+nnf :: PropositionalFormula formula atom => formula -> formula
+nnf fm = foldPropositional nnfCombine fromBool (\ _ -> fm) fm
+    where
+      -- nnfCombine :: (PropositionalFormula formula atom) => formula -> Combination formula -> formula
+      nnfCombine ((:~:) p) = foldPropositional nnfNotCombine (fromBool . not) (\ _ -> fm) p
+      nnfCombine (BinOp p (:=>:) q) = nnf ((.~.) p) .|. (nnf q)
+      nnfCombine (BinOp p (:<=>:) q) =  (nnf p .&. nnf q) .|. (nnf ((.~.) p) .&. nnf ((.~.) q))
+      nnfCombine (BinOp p (:&:) q) = nnf p .&. nnf q
+      nnfCombine (BinOp p (:|:) q) = nnf p .|. nnf q
 
--- | Roll in simplification.
-nnf :: Formula atom -> Formula atom
-nnf = nnf' . psimplify
+      -- nnfNotCombine :: (PropositionalFormula formula atom) => Combination formula -> formula
+      nnfNotCombine ((:~:) p) = nnf p
+      nnfNotCombine (BinOp p (:&:) q) = nnf ((.~.) p) .|. nnf ((.~.) q)
+      nnfNotCombine (BinOp p (:|:) q) = nnf ((.~.) p) .&. nnf ((.~.) q)
+      nnfNotCombine (BinOp p (:=>:) q) = nnf p .&. nnf ((.~.) q)
+      nnfNotCombine (BinOp p (:<=>:) q) = (nnf p .&. nnf ((.~.) q)) .|. nnf ((.~.) p) .&. nnf q
 
 -- Example of NNF function in action.
 
@@ -449,7 +464,26 @@ test26 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           s = Atom (P "s")
 
 -- | Simple negation-pushing when we don't care to distinguish occurrences.
-nenf' :: Formula atom -> Formula atom
+-- (FIXME: no unit tests)
+nenf' :: PropositionalFormula formula atom => formula -> formula
+nenf' fm =
+    foldPropositional co (\_ -> fm) (\_ -> fm) fm
+    where
+      co ((:~:) p) = foldPropositional co' (\_ -> p) (\_ -> p) p
+      co (BinOp p (:&:) q) = nenf p .&. nenf q
+      co (BinOp p (:|:) q) = nenf p .&. nenf q
+      co (BinOp p (:=>:) q) = nenf p .=>. nenf q
+      co (BinOp p (:<=>:) q) = nenf p .<=>. nenf q
+      co' ((:~:) p) = nenf p
+      co' (BinOp p (:&:) q) = nenf ((.~.) p) .|. nenf ((.~.) q)
+      co' (BinOp p (:|:) q) = nenf ((.~.) p) .&. nenf ((.~.) q)
+      co' (BinOp p (:=>:) q) = nenf p .&. nenf ((.~.) q)
+      co' (BinOp p (:<=>:) q) = nenf p .<=>. nenf ((.~.) q) -- ?
+
+nenf :: PropositionalFormula formula atom => formula -> formula
+nenf = nenf' . psimplify
+{-
+nenf' :: Ord atom => Formula atom -> Formula atom
 nenf' fm =
   case fm of
     Not (Not p) -> nenf p
@@ -463,9 +497,9 @@ nenf' fm =
     Iff p q -> Iff (nenf p) (nenf q)
     _ -> fm
 
-nenf :: Formula atom -> Formula atom
+nenf :: Ord atom => Formula atom -> Formula atom
 nenf = nenf' . psimplify
-
+-}
 -- Some tautologies remarked on.
 
 test27 :: Test
@@ -486,15 +520,15 @@ test28 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           q' = Atom (P "q'")
 
 -- | Disjunctive normal form (DNF) via truth tables.
-list_conj :: Foldable t => t (Formula atom) -> Formula atom
+list_conj :: (Foldable t, Constants formula, Combinable formula) => t formula -> formula
 list_conj l | null l = true
 list_conj l = foldl1 (.&.) l
 
-list_disj :: Foldable t => t (Formula atom) -> Formula atom
+list_disj :: (Foldable t, Constants formula, Combinable formula) => t formula -> formula
 list_disj l | null l = false
 list_disj l = foldl1 (.|.) l
 
-mk_lits :: (Ord atom, Pretty atom, HasFixity atom) => [Formula atom] -> (atom -> Bool) -> Formula atom
+mk_lits :: PropositionalFormula formula atom => [formula] -> (atom -> Bool) -> formula
 mk_lits pvs v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs)
 
 allsatvaluations :: Eq a => ((a -> Bool) -> Bool) -> (a -> Bool) -> Set a -> [a -> Bool]
@@ -504,7 +538,7 @@ allsatvaluations subfn v pvs =
       Just (p, ps) -> (allsatvaluations subfn (\a -> if a == p then False else v a) ps) ++
                       (allsatvaluations subfn (\a -> if a == p then True else v a) ps)
 
-dnfList :: (Ord atom, Pretty atom, HasFixity atom) => Formula atom -> Formula atom
+dnfList :: PropositionalFormula formula atom => formula-> formula
 dnfList fm =
     list_disj (List.map (mk_lits (Set.toAscList (Set.map atomic pvs))) satvals)
     where
@@ -569,20 +603,40 @@ test30 = TestCase $ assertEqual "dnf 2 (p. 56)" expected input
           [p, q, r, s, t, u, v] = List.map (Atom . P) ["p", "q", "r", "s", "t", "u", "v"]
 
 -- | DNF via distribution.
+distrib1 :: PropositionalFormula formula atom => formula -> formula
+distrib1 fm =
+    foldPropositional co (\_ -> fm) (\_ -> fm) fm
+    where
+      co (BinOp p (:&:) r) = foldPropositional (co' p r) (\_ -> fm) (\_ -> fm) r
+      co _ = fm
+      co' p _ (BinOp q (:|:) r) = distrib1 (p .&. q) .|. distrib1 (p .&. r) -- And p (Or q r)
+      co' pq r _ = foldPropositional (co'' r) (\_ -> fm) (\_ -> fm) pq
+      co'' r (BinOp p (:|:) q) = distrib1 (p .&. r) .|. distrib1 (q .&. r) -- And (Or p q) r
+      co'' _ _ = fm
+{-
 distrib1 :: Formula atom -> Formula atom
 distrib1 fm =
   case fm of
     And p (Or q r) -> Or (distrib1 (And p q)) (distrib1 (And p r))
     And (Or p q) r -> Or (distrib1 (And p r)) (distrib1 (And q r))
     _ -> fm
+-}
 
-rawdnf :: Formula atom -> Formula atom
+rawdnf :: PropositionalFormula formula atom => formula -> formula
+rawdnf fm =
+    foldPropositional co (\_ -> fm) (\_ -> fm) fm
+    where
+      co (BinOp p (:&:) q) = distrib1 (rawdnf p .&. rawdnf q)
+      co (BinOp p (:|:) q) = (rawdnf p .|. rawdnf q)
+      co _ = fm
+{-
+rawdnf :: Ord atom => Formula atom -> Formula atom
 rawdnf fm =
   case fm of
     And p q -> distrib1 (And (rawdnf p) (rawdnf q))
     Or p q -> Or (rawdnf p) (rawdnf q)
     _ -> fm
-
+-}
 -- Example.
 
 test31 :: Test
@@ -598,12 +652,21 @@ test31 = TestCase $ assertEqual "rawdnf (p. 58)" expected input
 distrib2 :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
 distrib2 s1 s2 = allpairs union s1 s2
 
+purednf :: PropositionalFormula formula atom => formula -> Set (Set formula)
+purednf fm =
+    foldPropositional co (\_ -> singleton (singleton fm)) (\_ -> singleton (singleton fm)) fm
+    where
+      co (BinOp p (:&:) q) = distrib2 (purednf p) (purednf q)
+      co (BinOp p (:|:) q) = union (purednf p) (purednf q)
+      co _ = singleton (singleton fm)
+{-
 purednf :: Ord atom => Formula atom -> Set (Set (Formula atom))
 purednf fm =
     case fm of
       And p q -> distrib2 (purednf p) (purednf q)
       Or p q -> union (purednf p) (purednf q)
       _ -> singleton (singleton fm)
+-}
 
 -- Example.
 
@@ -619,9 +682,9 @@ test32 = TestCase $ assertEqual "purednf (p. 58)" expected input
           r = Atom (P "r")
 
 -- | Filtering out trivial disjuncts (in this guise, contradictory).
-trivial :: Ord atom => Set (Formula atom) -> Bool
+trivial :: PropositionalFormula formula atom => Set formula -> Bool
 trivial lits =
-    not . null $ Set.intersection neg (Set.map Not pos)
+    not . null $ Set.intersection neg (Set.map (.~.) pos)
     where (pos, neg) = Set.partition positive lits
 
 -- Example.
@@ -636,14 +699,14 @@ test33 = TestCase $ assertEqual "trivial" expected input
           r = Atom (P "r")
 
 -- | With subsumption checking, done very naively (quadratic).
-simpdnf :: Ord atom => Formula atom -> Set (Set (Formula atom))
+simpdnf :: PropositionalFormula formula atom => formula -> Set (Set formula)
 simpdnf fm =
-  if fm == F then Set.empty else if fm == T then singleton Set.empty else
+  if fm == false then Set.empty else if fm == true then singleton Set.empty else
   let djs = Set.filter (not . trivial) (purednf (nnf fm)) in
   Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
 
 -- | Mapping back to a formula.
-dnf :: Ord atom => Formula atom -> Formula atom
+dnf :: PropositionalFormula formula atom => formula -> formula
 dnf fm = list_disj (Set.toAscList (Set.map list_conj (simpdnf fm)))
 
 -- Example.
@@ -658,16 +721,16 @@ test34 = TestCase $ assertEqual "dnf" expected input
           r = Atom (P "r")
 
 -- | Conjunctive normal form (CNF) by essentially the same code.
-purecnf :: Ord atom => Formula atom -> Set (Set (Formula atom))
-purecnf fm = Set.map (Set.map Not) (purednf (nnf (Not fm)))
+purecnf :: PropositionalFormula formula atom => formula -> Set (Set formula)
+purecnf fm = Set.map (Set.map (.~.)) (purednf (nnf ((.~.) fm)))
 
-simpcnf :: Ord atom => Formula atom -> Set (Set (Formula atom))
+simpcnf :: PropositionalFormula formula atom => formula -> Set (Set formula)
 simpcnf fm =
-  if fm == F then singleton (Set.empty) else if fm == T then Set.empty else
+  if fm == false then singleton (Set.empty) else if fm == true then Set.empty else
   let cjs = Set.filter (not . trivial) (purecnf fm) in
   Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
-cnf :: Ord atom => Formula atom -> Formula atom
+cnf :: PropositionalFormula formula atom => formula -> formula
 cnf fm = list_conj (Set.map list_disj (simpcnf fm))
 
 -- Example.
