@@ -157,7 +157,7 @@ prenex fm =
       co (BinOp l (:|:) r) = pullquants (prenex l .|. prenex r)
       co _ = fm
 
-pnf :: (atom ~ FOL predicate function v, Ord predicate, Ord function, v ~ V, function ~ Function, predicate ~ Predicate) => Formula atom -> Formula atom
+pnf :: (atom ~ FOL predicate function v, FirstOrderFormula (Formula atom) atom v, Ord predicate, Ord function) => Formula atom -> Formula atom
 pnf fm = prenex (nnf (simplify fm))
 
 -- Example.
@@ -262,29 +262,23 @@ class Skolem function var where
 -- are applied to the list of variables which are universally
 -- quantified in the context where the existential quantifier
 -- appeared.
-skolem :: (Monad m, Ord function, Skolem function v, atom ~ FOL predicate function v, v ~ V, function ~ Function, predicate ~ Predicate) =>
+skolem :: (Monad m, Ord function, Skolem function v, atom ~ FOL predicate function v, FirstOrderFormula (Formula atom) atom v) =>
           Formula atom -> SkolemT m (Formula atom)
 skolem fm =
-    case fm of
-      Atom a -> return $ atomic a
-      T -> return true
-      F -> return false
-      -- foldFirstOrder qu co (return . fromBool) (return . atomic) fm
-      -- We encountered an existentially quantified variable y,
-      -- allocate a new skolem function fx and do a substitution to
-      -- replace occurrences of y with fx.  The value of the Skolem
-      -- function is assumed to equal the value of y which satisfies
-      -- the formula.
-      Exists y p ->
+    foldFirstOrder qu co tf (return . atomic) fm
+    where
+      qu (:?:) y p =
           do let xs = fv fm
              let fx = fApp (toSkolem y) (map vt (Set.toAscList xs))
              skolem (subst (Map.singleton y fx) p)
-      Forall x p -> skolem p >>= return . for_all x
-      And l r -> skolem2 (.&.) l r
-      Or l r -> skolem2 (.|.) l r
-      _ -> return fm
+      qu (:!:) x p = skolem p >>= return . for_all x
+      co (BinOp l (:&:) r) = skolem2 (.&.) l r
+      co (BinOp l (:|:) r) = skolem2 (.|.) l r
+      co _ = return fm
+      tf True = return true
+      tf False = return false
 
-skolem2 :: (Monad m, Ord function, Skolem function v, atom ~ FOL predicate function v, v ~ V, function ~ Function, predicate ~ Predicate) =>
+skolem2 :: (Monad m, Ord function, Skolem function v, atom ~ FOL predicate function v, FirstOrderFormula (Formula atom) atom v) =>
            (Formula atom -> Formula atom -> Formula atom) -> Formula atom -> Formula atom -> SkolemT m (Formula atom)
 skolem2 cons p q =
     skolem p >>= \ p' ->
@@ -292,7 +286,7 @@ skolem2 cons p q =
     return (cons p' q')
 
 -- | Overall Skolemization function.
-askolemize :: (Monad m, Skolem function v, atom ~ FOL predicate function v, Ord predicate, Ord function, v ~ V, function ~ Function, predicate ~ Predicate) =>
+askolemize :: (Monad m, Skolem function v, atom ~ FOL predicate function v, FirstOrderFormula (Formula atom) atom v, Ord predicate, Ord function) =>
               Formula atom -> SkolemT m (Formula atom)
 askolemize = skolem . nnf . simplify
 
@@ -308,7 +302,7 @@ specialize f =
 
 -- | Skolemize and then specialize.  Because we know all quantifiers
 -- are gone we can convert to any instance of PropositionalFormula.
-skolemize :: (Monad m, Skolem function v, atom ~ FOL predicate function v, Ord predicate, Ord function, v ~ V, function ~ Function, predicate ~ Predicate) =>
+skolemize :: (Monad m, Skolem function v, atom ~ FOL predicate function v, FirstOrderFormula (Formula atom) atom v, Ord predicate, Ord function) =>
              Formula atom
           -> SkolemT m (Formula atom)
 skolemize fm = (specialize . pnf) <$> askolemize fm
