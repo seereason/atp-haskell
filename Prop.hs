@@ -1,6 +1,9 @@
 -- | Basic stuff for propositional logic: datatype, parsing and printing.
 {-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Prop
@@ -56,6 +59,34 @@ import Prelude hiding (negate, null)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
+-- |A type class for propositional logic.  If the type we are writing
+-- an instance for is a zero-order (aka propositional) logic type
+-- there will generally by a type or a type parameter corresponding to
+-- atom.  For first order or predicate logic types, it is generally
+-- easiest to just use the formula type itself as the atom type, and
+-- raise errors in the implementation if a non-atomic formula somehow
+-- appears where an atomic formula is expected (i.e. as an argument to
+-- atomic or to the third argument of foldPropositional.)
+-- 
+-- The Ord superclass is required so we can put formulas in sets
+-- during the normal form computations.  Negatable and Combinable are
+-- also considered basic operations that we can't build this package
+-- without.  It is less obvious whether Constants is always required,
+-- but the implementation of functions like simplify would be more
+-- elaborate if we didn't have it, so we will require it.
+class (Ord formula, Negatable formula, Combinable formula, Constants formula,
+       Pretty formula, HasFixity formula, Formulae formula atom
+      ) => PropositionalFormula formula atom | formula -> atom where
+    -- | Build an atomic formula from the atom type.
+    -- | A fold function that distributes different sorts of formula
+    -- to its parameter functions, one to handle binary operators, one
+    -- for negations, and one for atomic formulas.  See examples of its
+    -- use to implement the polymorphic functions below.
+    foldPropositional :: (Combination formula -> r)
+                      -> (Bool -> r)
+                      -> (atom -> r)
+                      -> formula -> r
+
 data Prop = P {pname :: String} deriving (Eq, Ord)
 
 -- Allows us to say "q" instead of P "q" or P {pname = "q"}
@@ -72,6 +103,20 @@ instance Pretty Prop where
 
 instance HasFixity Prop where
     fixity _ = botFixity
+
+instance (Ord a, Pretty a, HasFixity a) => PropositionalFormula (Formula a) a where
+    foldPropositional co tf at fm =
+        case fm of
+          T -> tf True
+          F -> tf False
+          Atom a -> at a
+          Not p -> co ((:~:) p)
+          And p q -> co (BinOp p (:&:) q)
+          Or p q -> co (BinOp p (:|:) q)
+          Imp p q -> co (BinOp p (:=>:) q)
+          Iff p q -> co (BinOp p (:<=>:) q)
+          Forall _ _ -> error "quantifier in PropositionalFormula"
+          Exists _ _ -> error "quantifier in PropositionalFormula"
 
 data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
 type TruthTableRow = ([Bool], Bool)
@@ -174,19 +219,18 @@ test09 = TestCase $
               p = Atom (P "p")
 
 -- | Interpretation of formulas.
-eval :: Formula atom -> (atom -> Bool) -> Bool
+-- eval :: Formula atom -> (atom -> Bool) -> Bool
+eval :: PropositionalFormula formula atom => formula -> (atom -> Bool) -> Bool
 eval fm v =
-    case fm of
-      F -> False
-      T -> True
-      Atom x -> v x
-      Not p -> not (eval p v)
-      And p q -> (eval p v) && (eval q v)
-      Or p q -> (eval p v) || (eval q v)
-      Imp p q -> not (eval p v) || (eval q v)
-      Iff p q -> (eval p v) == (eval q v)
-      Forall _x _p -> error "Forall in prop formula"
-      Exists _x _p -> error "Exists in prop formula"
+    foldPropositional co tf at fm
+    where
+      tf = id
+      co ((:~:) p) = not (eval p v)
+      co (BinOp p (:&:) q) = (eval p v) && (eval q v)
+      co (BinOp p (:|:) q) = (eval p v) || (eval q v)
+      co (BinOp p (:=>:) q) = not (eval p v) || (eval q v)
+      co (BinOp p (:<=>:) q) = (eval p v) == (eval q v)
+      at = v
 
 -- | Return the set of propositional variables in a formula.
 atoms :: Ord atom => Formula atom -> Set atom
@@ -194,14 +238,14 @@ atoms fm = atom_union singleton fm
 
 -- | Code to print out truth tables.
 onallvaluations :: (Eq a, Ord a) => (r -> r -> r) -> ((a -> Bool) -> r) -> (a -> Bool) -> Set a -> r
-onallvaluations combine subfn v ats =
+onallvaluations cmb subfn v ats =
     case minView ats of
       Nothing -> subfn v
       Just (p, ps) ->
           let v' t q = (if q == p then t else v q) in
-          combine (onallvaluations combine subfn (v' False) ps) (onallvaluations combine subfn (v' True) ps)
+          cmb (onallvaluations cmb subfn (v' False) ps) (onallvaluations cmb subfn (v' True) ps)
 
-truthTable :: forall atom. Ord atom => Formula atom -> TruthTable atom
+truthTable :: forall atom. (Ord atom, Pretty atom, HasFixity atom) => Formula atom -> TruthTable atom
 truthTable fm =
     TruthTable atl (onallvaluations (<>) mkRow (const False) ats)
     where
@@ -211,7 +255,7 @@ truthTable fm =
       atl = Set.toAscList ats
 
 -- | Recognizing tautologies.
-tautology :: Ord atom => Formula atom -> Bool
+tautology :: (Ord atom, Pretty atom, HasFixity atom) => Formula atom -> Bool
 tautology fm = onallvaluations (&&) (eval fm) (\_s -> False) (atoms fm)
 
 -- Examples.
@@ -226,9 +270,9 @@ test13 :: Test
 test13 = TestCase $ assertEqual "tautology 4 (p. 41)" True (tautology $ (p .|. q) .&. ((.~.)(p .&. q)) .=>. ((.~.)p .<=>. q)) where (p, q) = (Atom (P "p"), Atom (P "q"))
 
 -- | Related concepts.
-unsatisfiable :: Ord atom => Formula atom -> Bool
+unsatisfiable :: (Ord atom, Pretty atom, HasFixity atom) => Formula atom -> Bool
 unsatisfiable = tautology . Not
-satisfiable :: Ord atom => Formula atom -> Bool
+satisfiable :: (Ord atom, Pretty atom, HasFixity atom)  => Formula atom -> Bool
 satisfiable = not . unsatisfiable
 
 -- | Substitution operation.
@@ -450,7 +494,7 @@ list_disj :: Foldable t => t (Formula atom) -> Formula atom
 list_disj l | null l = false
 list_disj l = foldl1 (.|.) l
 
-mk_lits :: Ord atom => [Formula atom] -> (atom -> Bool) -> Formula atom
+mk_lits :: (Ord atom, Pretty atom, HasFixity atom) => [Formula atom] -> (atom -> Bool) -> Formula atom
 mk_lits pvs v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs)
 
 allsatvaluations :: Eq a => ((a -> Bool) -> Bool) -> (a -> Bool) -> Set a -> [a -> Bool]
@@ -460,7 +504,7 @@ allsatvaluations subfn v pvs =
       Just (p, ps) -> (allsatvaluations subfn (\a -> if a == p then False else v a) ps) ++
                       (allsatvaluations subfn (\a -> if a == p then True else v a) ps)
 
-dnfList :: Ord atom => Formula atom -> Formula atom
+dnfList :: (Ord atom, Pretty atom, HasFixity atom) => Formula atom -> Formula atom
 dnfList fm =
     list_disj (List.map (mk_lits (Set.toAscList (Set.map atomic pvs))) satvals)
     where

@@ -70,6 +70,9 @@ topFixity = TH.Fixity 0 TH.InfixN
 botFixity :: TH.Fixity
 botFixity = TH.Fixity 10 TH.InfixN
 
+instance HasFixity String where
+    fixity _ = botFixity
+
 -- | Wrapper to indicate we want show to render the expression using
 -- class methods to build a value, not the show derived for the
 -- specific instance.

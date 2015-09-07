@@ -13,6 +13,7 @@ module Formulas
     -- * Combinable
     , Combinable((.|.), (.&.), (.<=>.), (.=>.), (.<=.), (.<~>.), (.~|.), (.~&.))
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
+    , Combination(..), BinOp(..), combine, binop
     -- * Variables
     , Variable(variant, prefix, prettyVariable), variants, showVariable, V(V)
     -- * Formulas
@@ -137,6 +138,41 @@ infixl 4  .&., ∧
 (⇒) = (.=>.)
 (⇔) :: Combinable formula => formula -> formula -> formula
 (⇔) = (.<=>.)
+
+-- |The 'Combination' and 'BinOp' types can either be used as helper
+-- types for writing folds, or they can be embedded in a concrete type
+-- intended to be a Combinable instance.
+data Combination formula
+    = BinOp formula BinOp formula
+    | (:~:) formula
+    deriving (Eq, Ord, Data, Typeable)
+
+-- | Represents the boolean logic binary operations, used in the
+-- Combination type above.
+data BinOp
+    = (:<=>:)  -- ^ Equivalence
+    |  (:=>:)  -- ^ Implication
+    |  (:&:)  -- ^ AND
+    |  (:|:)  -- ^ OR
+    deriving (Eq, Ord, Data, Typeable, Enum, Bounded)
+
+-- | A helper function for building folds:
+-- @
+--   foldPropositional combine atomic
+-- @
+-- is a no-op.
+combine :: Combinable formula => Combination formula -> formula
+combine (BinOp f1 (:<=>:) f2) = f1 .<=>. f2
+combine (BinOp f1 (:=>:) f2) = f1 .=>. f2
+combine (BinOp f1 (:&:) f2) = f1 .&. f2
+combine (BinOp f1 (:|:) f2) = f1 .|. f2
+combine ((:~:) f) = (.~.) f
+
+binop :: Combinable formula => formula -> BinOp -> formula -> formula
+binop a (:&:) b = a .&. b
+binop a (:|:) b = a .|. b
+binop a (:=>:) b = a .=>. b
+binop a (:<=>:) b = a .<=>. b
 
 class (Ord v, IsString v, Data v, Pretty v) => Variable v where
     variant :: v -> Set.Set v -> v

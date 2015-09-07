@@ -32,12 +32,14 @@ module FOL
 
 import Formulas
 import Lib (setAny, tryApplyD, undefine, (|->))
+import Lib.Pretty (HasFixity(fixity))
 import Data.List (intersperse)
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
+import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixL, InfixR, InfixN))
 import Prelude hiding (pred)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
@@ -101,6 +103,23 @@ data Predicate
 
 instance IsString Predicate where
     fromString = NamedPredicate
+
+instance Pretty Predicate where
+    pPrint Equals = text "="
+    pPrint (NamedPredicate "=") = error "Use of = as a predicate name is prohibited"
+    pPrint (NamedPredicate s) = text s
+
+instance HasFixity (FOL predicate function) where
+    fixity _ = Fixity 6 InfixN
+
+-- | The type of the predicate determines how this atom is pretty
+-- printed - specifically, whether it is an instance of HasEquality.
+-- So we need to do some gymnastics to make this happen.
+instance (Eq predicate, Pretty function, Pretty predicate) => Pretty (FOL predicate function) where
+    pPrint (R p ts) = if pPrint p == text "=" then undefined else pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
+    -- pPrint (R p [a, b]) | p == equals = pPrint a <> text "=" <> pPrint b
+    -- pPrint (R p _) | p == equals = error "Wrong number of arguments to ="
+    -- pPrint (R p ts) = pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
 
 -- | Apply the equals predicate to two terms and build a formula.
 (.=.) :: HasEquality predicate => (Term function) -> Term function -> Formula (FOL predicate function)
@@ -442,7 +461,7 @@ subst subfn fm =
     Forall x p -> substq subfn Forall x p
     Exists x p -> substq subfn Exists x p
 
-substq :: (atom ~ FOL predicate function) => 
+substq :: (atom ~ FOL predicate function) =>
           Map V (Term function)
        -> (V -> Formula atom -> Formula atom)
        -> V
