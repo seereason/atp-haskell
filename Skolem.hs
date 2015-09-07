@@ -70,7 +70,7 @@ test01 :: Test
 test01 = TestCase $ assertEqual "simplify (p. 140)" expected input
     where input = simplify fm
           expected = (for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: Formula (FOL Predicate FName)
-          fm :: Formula (FOL Predicate function)
+          fm :: Ord function => Formula (FOL Predicate function)
           fm = (for_all "x" (for_all "y" (pApp "P" [vt "x"] .|. (pApp "P" [vt "y"] .&. false)))) .=>. exists "z" (pApp "Q" [])
 
 -- | Negation normal form.
@@ -102,7 +102,7 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
                      ((exists "y" (pApp q [vt "y"]) .&. exists "z" ((pApp p [vt "z"]) .&. (pApp q [vt "z"]))) .|.
                       (for_all "y" ((.~.)(pApp q [vt "y"])) .&.
                        for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: Formula (FOL Predicate FName))
-          fm :: Formula (FOL Predicate function)
+          fm :: Ord function => Formula (FOL Predicate function)
           fm = (for_all "x" (pApp p [vt "x"])) .=>. ((exists "y" (pApp q [vt "y"])) .<=>. exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"]))
 
 -- | Prenex normal form.
@@ -164,7 +164,7 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" expected input
                                   ((pApp q [vt "x"]) .|.
                                    (((.~.)(pApp p [vt "z"])) .|.
                                     ((.~.)(pApp q [vt "z"])))))) :: Formula (FOL Predicate FName)
-          fm :: Formula (FOL Predicate function)
+          fm :: Ord function => Formula (FOL Predicate function)
           fm = (for_all "x" (pApp p [vt "x"]) .|. (pApp r [vt "y"])) .=>.
                exists "y" (exists "z" ((pApp q [vt "y"]) .|. ((.~.)(exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"])))))
 
@@ -253,7 +253,7 @@ class Skolem function var where
 -- are applied to the list of variables which are universally
 -- quantified in the context where the existential quantifier
 -- appeared.
-skolem :: (Monad m, Skolem function V, atom ~ FOL predicate function) =>
+skolem :: (Monad m, Ord function, Skolem function V, atom ~ FOL predicate function) =>
           Formula atom -> SkolemT m (Formula atom)
 skolem fm =
     case fm of
@@ -275,7 +275,7 @@ skolem fm =
       Or l r -> skolem2 (.|.) l r
       _ -> return fm
 
-skolem2 :: (Monad m, Skolem function V, atom ~ FOL predicate function) =>
+skolem2 :: (Monad m, Ord function, Skolem function V, atom ~ FOL predicate function) =>
            (Formula atom -> Formula atom -> Formula atom) -> Formula atom -> Formula atom -> SkolemT m (Formula atom)
 skolem2 cons p q =
     skolem p >>= \ p' ->

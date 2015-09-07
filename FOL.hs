@@ -2,10 +2,11 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE GADTs, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, FunctionalDependencies, GADTs, MultiParamTypeClasses, OverloadedStrings #-}
 module FOL
     ( -- * Terms
-      Term(Var, FApply), vt, fApp
+      Terms(vt, fApp, foldTerm, zipTerms)
+    , Term(Var, FApply)
     , FName(FName)
     , FOL(R)
     , HasEquality(equals)
@@ -39,10 +40,51 @@ import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
-import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixL, InfixR, InfixN))
+import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
 import Prelude hiding (pred)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
+
+class (Ord term,  -- For implementing Ord in Literal
+       Variable v,
+       Eq function, Ord function
+      ) => Terms term v function | term -> v function where
+    vt :: v -> term
+    -- ^ Build a term which is a variable reference.
+    fApp :: function -> [term] -> term
+    -- ^ Build a term by applying terms to an atomic function.  @f@
+    -- (atomic function) is one of the type parameters, this package
+    -- is mostly indifferent to its internal structure.
+    foldTerm :: (v -> r) -> (function -> [term] -> r) -> term -> r
+    -- ^ A fold for the term data type, which understands terms built
+    -- from a variable and a term built from the application of a
+    -- primitive function to other terms.
+    zipTerms :: (v -> v -> Maybe r) -> (function -> [term] -> function -> [term] -> Maybe r) -> term -> term -> Maybe r
+    -- ^ Combine two terms if they are similar (i.e. two variables or
+    -- two function applications.)
+
+instance Ord function => Terms (Term function) V function where
+    vt = Var
+    fApp = FApply
+    foldTerm vf fn t =
+        case t of
+          Var v -> vf v
+          FApply f ts -> fn f ts
+    zipTerms v f t1 t2 =
+        case (t1, t2) of
+          (Var v1, Var v2) -> v v1 v2
+          (FApply f1 ts1, FApply f2 ts2) -> f f1 ts1 f2 ts2
+          _ -> Nothing
+
+{-
+-- | Build a term from a variable.
+vt :: V -> Term function
+vt = Var
+
+-- | Build a new term by applying some terms to a function.
+fApp :: function -> [Term function] -> Term function
+fApp = FApply
+-}
 
 -- | Terms are combined by predicates to build the atoms of a formula.
 data Term function
@@ -65,14 +107,6 @@ instance IsString FName where fromString = FName
 instance Show FName where show (FName s) = s
 
 instance Pretty FName where pPrint (FName s) = text s
-
--- | Build a term from a variable.
-vt :: V -> Term function
-vt = Var
-
--- | Build a new term by applying some terms to a function.
-fApp :: function -> [Term function] -> Term function
-fApp = FApply
 
 -- Example.
 test00 :: Test
@@ -122,8 +156,8 @@ instance (Eq predicate, Pretty function, Pretty predicate) => Pretty (FOL predic
     -- pPrint (R p ts) = pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
 
 -- | Apply the equals predicate to two terms and build a formula.
-(.=.) :: HasEquality predicate => (Term function) -> Term function -> Formula (FOL predicate function)
-a .=. b = Atom (R equals [a, b])
+(.=.) :: (Formulae formula (FOL predicate function), HasEquality predicate) => Term function -> Term function -> formula
+a .=. b = atomic (R equals [a, b])
 
 infix 5 .=. -- , .!=., ≡, ≢
 
