@@ -7,12 +7,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Prop
-    ( Prop(P, pname)
-    , TruthTable(TruthTable)
+    ( PropositionalFormula(foldPropositional)
+    -- * Atom
+    , Prop(P, pname)
     -- * Interpretation of formulas.
     , eval
     , atoms
     -- * Truth Tables
+    , TruthTable(TruthTable)
     , onallvaluations
     , truthTable
     -- * Tautologies and related concepts

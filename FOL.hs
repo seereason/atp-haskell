@@ -13,7 +13,7 @@ module FOL
     , Predicate(NamedPredicate, Equals)
     -- Formulae
     , (.=.)
-    , for_all, exists
+    , FirstOrderFormula(quant, foldFirstOrder), for_all, exists
     , onformula
     -- * Semantics
     , Interp
@@ -41,6 +41,7 @@ import Data.Monoid ((<>))
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
+import Prop (PropositionalFormula(foldPropositional))
 import Prelude hiding (pred)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
@@ -63,7 +64,7 @@ class (Ord term,  -- For implementing Ord in Literal
     -- ^ Combine two terms if they are similar (i.e. two variables or
     -- two function applications.)
 
-instance Ord function => Terms (Term function) V function where
+instance (Ord function, Variable v) => Terms (Term function v) v function where
     vt = Var
     fApp = FApply
     foldTerm vf fn t =
@@ -76,23 +77,13 @@ instance Ord function => Terms (Term function) V function where
           (FApply f1 ts1, FApply f2 ts2) -> f f1 ts1 f2 ts2
           _ -> Nothing
 
-{-
--- | Build a term from a variable.
-vt :: V -> Term function
-vt = Var
-
--- | Build a new term by applying some terms to a function.
-fApp :: function -> [Term function] -> Term function
-fApp = FApply
--}
-
 -- | Terms are combined by predicates to build the atoms of a formula.
-data Term function
-    = Var V
-    | FApply function [Term function]
+data Term function v
+    = Var v
+    | FApply function [Term function v]
     deriving (Eq, Ord, Show)
 
-instance Pretty function => Pretty (Term function) where
+instance (Pretty function, Pretty v) => Pretty (Term function v) where
     pPrint (Var v) = pPrint v
     pPrint (FApply fn []) = pPrint fn
     pPrint (FApply fn args) = pPrint fn <> text " [" <> mconcat (intersperse (text ", ") (map pPrint args)) <> "]"
@@ -114,7 +105,7 @@ test00 = TestCase $ assertEqual "print an expression"
                                 "sqrt [- [1, cos [power [+ [x, y], 2]]]]"
                                 (prettyShow (fApp "sqrt" [fApp "-" [fApp "1" [],
                                                                      fApp "cos" [fApp "power" [fApp "+" [Var "x", Var "y"],
-                                                                                               fApp "2" []]]]] :: Term FName))
+                                                                                               fApp "2" []]]]] :: Term FName V))
 
 -- | Class of predicates that have an equality predicate.
 class HasEquality predicate where
@@ -126,7 +117,7 @@ instance HasEquality Predicate where
     equals = Equals
 
 -- | First order logic formula atom type.
-data FOL predicate function = R predicate [Term function] deriving (Eq, Ord, Show)
+data FOL predicate function v = R predicate [Term function v] deriving (Eq, Ord, Show)
 
 -- | This Predicate type includes an distinct Equals constructor, so
 -- that we can build a HasEquality instance for it.
@@ -143,32 +134,48 @@ instance Pretty Predicate where
     pPrint (NamedPredicate "=") = error "Use of = as a predicate name is prohibited"
     pPrint (NamedPredicate s) = text s
 
-instance HasFixity (FOL predicate function) where
+instance HasFixity (FOL predicate function v) where
     fixity _ = Fixity 6 InfixN
 
 -- | The type of the predicate determines how this atom is pretty
 -- printed - specifically, whether it is an instance of HasEquality.
 -- So we need to do some gymnastics to make this happen.
-instance (Eq predicate, Pretty function, Pretty predicate) => Pretty (FOL predicate function) where
+instance (Eq predicate, Pretty function, Pretty predicate, Pretty v) => Pretty (FOL predicate function v) where
     pPrint (R p ts) = if pPrint p == text "=" then undefined else pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
     -- pPrint (R p [a, b]) | p == equals = pPrint a <> text "=" <> pPrint b
     -- pPrint (R p _) | p == equals = error "Wrong number of arguments to ="
     -- pPrint (R p ts) = pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
 
 -- | Apply the equals predicate to two terms and build a formula.
-(.=.) :: (Formulae formula (FOL predicate function), HasEquality predicate) => Term function -> Term function -> formula
+(.=.) :: (Formulae formula (FOL predicate function v), HasEquality predicate) => Term function v -> Term function v -> formula
 a .=. b = atomic (R equals [a, b])
 
 infix 5 .=. -- , .!=., ≡, ≢
 
-for_all :: V -> Formula atom -> Formula atom
-for_all = Forall
+class (PropositionalFormula formula atom, Variable v) => FirstOrderFormula formula atom v | formula -> atom, formula -> v where
+    quant :: Quant -> v -> formula -> formula
+    foldFirstOrder :: (Quant -> v -> formula -> r)
+                   -> (Combination formula -> r)
+                   -> (Bool -> r)
+                   -> (atom -> r)
+                   -> formula -> r
 
-exists :: V -> Formula atom -> Formula atom
-exists = Exists
+for_all :: FirstOrderFormula formula atom v => v -> formula -> formula
+for_all = quant (:!:)
+exists :: FirstOrderFormula formula atom v => v -> formula -> formula
+exists = quant (:?:)
+
+instance Ord atom => FirstOrderFormula (Formula atom) atom V where
+    quant (:!:) = Forall
+    quant (:?:) = Exists
+    foldFirstOrder qu co tf at fm =
+        case fm of
+          Forall v p -> qu (:!:) v p
+          Exists v p -> qu (:?:) v p
+          _ -> foldPropositional co tf at fm
 
 -- | Special case of applying a subfunction to the top *terms*.
-onformula :: (Term function -> Term function) -> Formula (FOL predicate function) -> Formula (FOL predicate function)
+onformula :: (Term function v -> Term function v) -> Formula (FOL predicate function v) -> Formula (FOL predicate function v)
 onformula f = onatoms (\(R p a) -> Atom (R p (map f a)))
 
 {-
@@ -325,25 +332,25 @@ data Interp function predicate d
              , predApply :: predicate -> [d] -> Bool }
 
 -- | Semantics, implemented of course for finite domains only.
-termval :: Interp function predicate a -> Map V a -> Term function -> a
+termval :: (Show v, Ord v) => Interp function predicate a -> Map v a -> Term function v -> a
 termval m v tm =
   case tm of
     Var x -> fromMaybe (error ("Undefined variable: " ++ show x)) (Map.lookup x v)
     FApply f args -> funcApply m f (map (termval m v) args)
 
-holds :: IsString predicate => Interp function predicate d -> Map V d -> Formula (FOL predicate function) -> Bool
+holds :: (FirstOrderFormula (Formula (FOL predicate function v)) (FOL predicate function v) v, Show v) => Interp function predicate d -> Map v d -> Formula (FOL predicate function v) -> Bool
 holds m v fm =
-  case fm of
-    F -> False
-    T -> True
-    Atom (R r args) -> predApply m r (map (termval m v) args)
-    Not p -> not  (holds m v p)
-    And p q -> (holds m v p) && (holds m v q)
-    Or p q -> (holds m v p) || (holds m v q)
-    Imp p q -> (not (holds m v p)) || (holds m v q)
-    Iff p q -> (holds m v p) == (holds m v q)
-    Forall x p -> and (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- >>= return . any (== True)
-    Exists x p -> or (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- return . all (== True)?
+    foldFirstOrder qu co tf at fm
+    where
+      qu (:!:) x p = and (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- >>= return . any (== True)
+      qu (:?:) x p = or (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- return . all (== True)?
+      co ((:~:) p) = not (holds m v p)
+      co (BinOp p (:&:) q) = (holds m v p) && (holds m v q)
+      co (BinOp p (:|:) q) = (holds m v p) || (holds m v q)
+      co (BinOp p (:=>:) q) = not (holds m v p) || (holds m v q)
+      co (BinOp p (:<=>:) q) = (holds m v p) == (holds m v q)
+      tf x = x
+      at (R r args) = predApply m r (map (termval m v) args)
 
 -- | Examples of particular interpretations.
 bool_interp :: (Eq function, Show function, IsString function, Eq predicate, Show predicate, IsString predicate, HasEquality predicate) =>
@@ -391,77 +398,69 @@ END_INTERACTIVE;;
 
 test01 :: Test
 test01 = TestCase $ assertEqual "holds bool test (p. 126)" expected input
-    where input = holds bool_interp Map.empty (for_all  "x" (vt "x" .=. fApp "False" [] .|. vt "x" .=. fApp "True" []) :: Formula (FOL Predicate FName))
+    where input = holds bool_interp Map.empty (for_all  "x" (vt "x" .=. fApp "False" [] .|. vt "x" .=. fApp "True" []) :: Formula (FOL Predicate FName V))
           expected = True
 test02 :: Test
 test02 = TestCase $ assertEqual "holds mod test 1 (p. 126)" expected input
-    where input =  holds (mod_interp 2) Map.empty (for_all "x" (vt "x" .=. (fApp "0" []) .|. vt "x" .=. (fApp "1" [])) :: Formula (FOL Predicate FName))
+    where input =  holds (mod_interp 2) Map.empty (for_all "x" (vt "x" .=. (fApp "0" []) .|. vt "x" .=. (fApp "1" [])) :: Formula (FOL Predicate FName V))
           expected = True
 test03 :: Test
 test03 = TestCase $ assertEqual "holds mod test 2 (p. 126)" expected input
-    where input =  holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .|. vt "x" .=. fApp "1" []) :: Formula (FOL Predicate FName))
+    where input =  holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .|. vt "x" .=. fApp "1" []) :: Formula (FOL Predicate FName V))
           expected = False
 
 test04 :: Test
 test04 = TestCase $ assertEqual "holds mod test 3 (p. 126)" expected input
     where input = filter (\ n -> holds (mod_interp n) Map.empty fm) [1..45]
-                  where fm = for_all "x" ((.~.) (vt "x" .=. fApp "0" []) .=>. exists "y" (fApp "*" [vt "x", vt "y"] .=. fApp "1" [])) :: Formula (FOL Predicate FName)
+                  where fm = for_all "x" ((.~.) (vt "x" .=. fApp "0" []) .=>. exists "y" (fApp "*" [vt "x", vt "y"] .=. fApp "1" [])) :: Formula (FOL Predicate FName V)
           expected = [1,2,3,5,7,11,13,17,19,23,29,31,37,41,43]
 
 test05 :: Test
 test05 = TestCase $ assertEqual "holds mod test 4 (p. 129)" expected input
-    where input = holds (mod_interp 3) Map.empty ((for_all "x" (vt "x" .=. fApp "0" [])) .=>. fApp "1" [] .=. fApp "0" [] :: Formula (FOL Predicate FName))
+    where input = holds (mod_interp 3) Map.empty ((for_all "x" (vt "x" .=. fApp "0" [])) .=>. fApp "1" [] .=. fApp "0" [] :: Formula (FOL Predicate FName V))
           expected = True
 test06 :: Test
 test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
-    where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: Formula (FOL Predicate FName))
+    where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: Formula (FOL Predicate FName V))
           expected = False
 
 -- Free variables in terms and formulas.
 
 -- | Find the variables in a 'Term'.
-fvt :: Term function -> Set V
+fvt :: Ord v => Term function v -> Set v
 fvt tm =
   case tm of
     Var x -> singleton x
     FApply _f args -> unions (map fvt args)
 
 -- | Find the variables in a formula.
-var :: Formula (FOL predicate function) -> Set V
+var :: (atom ~ FOL predicate formula v, FirstOrderFormula (Formula atom) atom v) => Formula atom -> Set v
 var fm =
-   case fm of
-    F -> Set.empty
-    T -> Set.empty
-    Atom (R _p args) -> unions (map fvt args)
-    Not p -> var p
-    And p q -> union (var p) (var q)
-    Or p q -> union (var p) (var q)
-    Imp p q -> union (var p) (var q)
-    Iff p q -> union (var p) (var q)
-    Forall x p -> Set.insert x (var p)
-    Exists x p -> Set.insert x (var p)
+    foldFirstOrder qu co tf at fm
+    where
+      qu _ x p = Set.insert x (var p)
+      co ((:~:) p) = var p
+      co (BinOp p _ q) = union (var p) (var q)
+      tf _ = Set.empty
+      at (R _ args) = unions (map fvt args)
 
 -- | Find the free variables in a formula.
-fv :: (atom ~ FOL predicate formula) => Formula atom -> Set V
+fv :: (atom ~ FOL predicate formula v, FirstOrderFormula (Formula atom) atom v) => Formula atom -> Set v
 fv fm =
-  case fm of
-    F -> Set.empty
-    T -> Set.empty
-    Atom (R _p args) -> unions (map fvt args)
-    Not p -> fv p
-    And p q -> union (fv p) (fv q)
-    Or p q -> union (fv p) (fv q)
-    Imp p q -> union (fv p) (fv q)
-    Iff p q -> union (fv p) (fv q)
-    Forall x p -> difference (fv p) (singleton x)
-    Exists x p -> difference (fv p) (singleton x)
+    foldFirstOrder qu co tf at fm
+    where
+      qu _ x p = difference (fv p) (singleton x)
+      co ((:~:) p) = fv p
+      co (BinOp p _ q) = union (fv p) (fv q)
+      tf _ = Set.empty
+      at (R _ args) = unions (map fvt args)
 
 -- | Universal closure of a formula.
-generalize :: Formula (FOL predicate function) -> Formula (FOL predicate function)
-generalize fm = Set.fold Forall fm (fv fm)
+generalize :: (atom ~ FOL predicate formula v, FirstOrderFormula (Formula atom) atom v) => Formula atom -> Formula atom
+generalize fm = Set.fold for_all fm (fv fm)
 
 -- | Substitution within terms.
-tsubst :: Map V (Term function) -> Term function -> Term function
+tsubst :: Ord v => Map v (Term function v) -> Term function v -> Term function v
 tsubst sfn tm =
   case tm of
     Var x -> fromMaybe tm (Map.lookup x sfn)
@@ -481,31 +480,33 @@ test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
           expected = "x''"
 
 -- | Substitution in formulas, with variable renaming.
-subst :: (atom ~ FOL predicate function) => Map V (Term function) -> Formula atom -> Formula atom
+subst :: (atom ~ FOL predicate function v, FirstOrderFormula (Formula atom) atom v) =>
+         Map v (Term function v) -> Formula atom -> Formula atom
 subst subfn fm =
-  case fm of
-    F -> F
-    T -> T
-    Atom (R p args) -> Atom (R p (map (tsubst subfn) args))
-    Not(p) -> Not (subst subfn p)
-    And p q -> And (subst subfn p) (subst subfn q)
-    Or p q -> Or (subst subfn p) (subst subfn q)
-    Imp p q -> Imp (subst subfn p) (subst subfn q)
-    Iff p q -> Iff (subst subfn p) (subst subfn q)
-    Forall x p -> substq subfn Forall x p
-    Exists x p -> substq subfn Exists x p
+    foldFirstOrder qu co tf at fm
+    where
+      qu (:!:) x p = substq subfn for_all x p
+      qu (:?:) x p = substq subfn exists x p
+      co ((:~:) p) = (.~.) (subst subfn p)
+      co (BinOp p (:&:) q) = (subst subfn p) .&. (subst subfn q)
+      co (BinOp p (:|:) q) = (subst subfn p) .|. (subst subfn q)
+      co (BinOp p (:=>:) q) = (subst subfn p) .=>. (subst subfn q)
+      co (BinOp p (:<=>:) q) = (subst subfn p) .<=>. (subst subfn q)
+      tf False = false
+      tf True = true
+      at (R p args) = Atom (R p (map (tsubst subfn) args))
 
-substq :: (atom ~ FOL predicate function) =>
-          Map V (Term function)
-       -> (V -> Formula atom -> Formula atom)
-       -> V
+substq :: (Ord v, atom ~ FOL predicate function v, FirstOrderFormula (Formula atom) atom v) =>
+          Map v (Term function v)
+       -> (v -> Formula atom -> Formula atom)
+       -> v
        -> Formula atom
        -> Formula atom
-substq subfn quant x p =
+substq subfn qu x p =
   let x' = if setAny (\y -> Set.member x (fvt(tryApplyD subfn y (Var y))))
                      (difference (fv p) (singleton x))
            then variant x (fv (subst (undefine x subfn) p)) else x in
-  quant x' (subst ((x |-> Var x') subfn) p)
+  qu x' (subst ((x |-> Var x') subfn) p)
 
 
 -- Examples.
@@ -514,7 +515,7 @@ test10 :: Test
 test10 =
     let [x, x', y] = [vt "x", vt "x'", vt "y"] in
     TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x. x = y>>;;"
-                           (for_all "x'" (x' .=. x) :: Formula (FOL Predicate FName))
+                           (for_all "x'" (x' .=. x) :: Formula (FOL Predicate FName V))
                            (subst (Map.fromList [("y", x)])
                                   (for_all "x" ((x .=. y))))
 
@@ -522,7 +523,7 @@ test11 :: Test
 test11 =
     let [x, x', x'', y] = [vt "x", vt "x'", vt "x''", vt "y"] in
     TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x x'. x = y ==> x = x'>>;;"
-                           (for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: Formula (FOL Predicate FName))
+                           (for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: Formula (FOL Predicate FName V))
                            (subst (Map.fromList [("y", x)])
                                   (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))))
 

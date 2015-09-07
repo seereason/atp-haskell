@@ -16,6 +16,8 @@ module Formulas
     , Combination(..), BinOp(..), combine, binop
     -- * Variables
     , Variable(variant, prefix, prettyVariable), variants, showVariable, V(V)
+    -- * Quantifiers
+    , Quant((:!:), (:?:))
     -- * Formulas
     , Formulae(atomic, foldAtoms, mapAtoms)
     , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
@@ -210,6 +212,11 @@ instance Show V where
 
 instance Pretty V where
     pPrint (V s) = text s
+
+data Quant
+    = (:!:) -- ^ for_all
+    | (:?:) -- ^ exists
+    deriving (Eq, Ord, Data, Typeable)
 
 data Formula atom
     = F

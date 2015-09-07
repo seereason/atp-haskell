@@ -12,19 +12,19 @@ tests = TestList [test06]
 
 test06 :: Test
 test06 =
-    let fm = (.~.) (for_all "x" (vt "x" .=. vt "x") .=>. for_all "x" (exists "y" (vt "x" .=. vt "y"))) :: Formula (FOL Predicate Function)
-        expected = (vt "x" .=. vt "x") .&. ((.~.) (fApp (Skolem (V "x")) [] .=. vt "x")) :: Formula (FOL Predicate Function)
-        sk = runSkolem (skolemize fm) :: Formula (FOL Predicate Function)
-        table = truthTable expected :: TruthTable (FOL Predicate Function) in
+    let fm = (.~.) (for_all "x" (vt "x" .=. vt "x") .=>. for_all "x" (exists "y" (vt "x" .=. vt "y"))) :: Formula (FOL Predicate Function V)
+        expected = (vt "x" .=. vt "x") .&. ((.~.) (fApp (Skolem (V "x")) [] .=. vt "x")) :: Formula (FOL Predicate Function V)
+        sk = runSkolem (skolemize fm) :: Formula (FOL Predicate Function V)
+        table = truthTable expected :: TruthTable (FOL Predicate Function V) in
     TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y"
-                           (expected :: Formula (FOL Predicate Function),
+                           (expected :: Formula (FOL Predicate Function V),
                             TruthTable
                               [R equals [vt "x", fApp (Skolem (V "y")) [vt "x"]],
                                R equals [fApp (Skolem (V "x")) [], fApp (Skolem (V "x")) []]]
                               [([False,False],True),
                                ([False,True],False),
                                ([True,False],True),
-                               ([True,True],True)] :: TruthTable (FOL Predicate Function))
+                               ([True,True],True)] :: TruthTable (FOL Predicate Function V))
                            (sk, table)
 
 {-
