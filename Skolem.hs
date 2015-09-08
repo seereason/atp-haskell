@@ -37,7 +37,8 @@ import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
-simplify1 :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v, Ord predicate, Ord formula) =>
+simplify1 :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, v ~ V,
+              FirstOrderFormula formula atom v, Terms term v function, Ord predicate, Ord function) =>
              formula -> formula
 simplify1 fm =
     foldFirstOrder qu co (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) fm
@@ -48,7 +49,8 @@ simplify1 fm =
       co ((:~:) p) = foldFirstOrder (\_ _ _ -> fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) p
       co _ = psimplify1 fm
 
-simplify :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v, Ord predicate, Ord formula, Ord v) =>
+simplify :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, v ~ V,
+             FirstOrderFormula formula atom v, Ord predicate, Ord function, Ord v) =>
             formula -> formula
 simplify fm =
     foldFirstOrder qu co (\_ -> fm) (\_ -> fm) fm
@@ -64,8 +66,8 @@ simplify fm =
 -- Example.
 
 -- | Use a predicate to combine some terms into a formula.
-pApp :: (formula ~ Formula atom, atom ~ (FOL predicate term), term ~ Term function v) => predicate -> [term] -> formula
-pApp p args = Atom $ R p args
+pApp :: (Formulae formula r, Atoms r predicate term) => predicate -> [term] -> formula
+pApp p args = atomic $ appAtom p args
 
 test01 :: Test
 test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ prettyShow fm) expected input
@@ -106,7 +108,7 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
                      ((exists "y" (pApp q [vt "y"]) .&. exists "z" ((pApp p [vt "z"]) .&. (pApp q [vt "z"]))) .|.
                       (for_all "y" ((.~.)(pApp q [vt "y"])) .&.
                        for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: Formula (FOL Predicate (Term FName V)))
-          fm :: Ord function => Formula (FOL Predicate (Term function V))
+          fm :: Formula (FOL Predicate (Term FName V))
           fm = (for_all "x" (pApp p [vt "x"])) .=>. ((exists "y" (pApp q [vt "y"])) .<=>. exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"]))
 
 -- | Prenex normal form.
@@ -164,7 +166,8 @@ prenex fm =
       co (BinOp l (:|:) r) = pullquants (prenex l .|. prenex r)
       co _ = fm
 
-pnf :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v, Ord predicate, Ord function) => formula -> formula
+pnf :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, v ~ V,
+        FirstOrderFormula formula atom v, Ord predicate, Ord function) => formula -> formula
 pnf fm = prenex (nnf (simplify fm))
 
 -- Example.
@@ -269,7 +272,8 @@ class Skolem function var where
 -- are applied to the list of variables which are universally
 -- quantified in the context where the existential quantifier
 -- appeared.
-skolem :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, Monad m, Ord function, Skolem function v, FirstOrderFormula formula atom v) =>
+skolem :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, v ~ V,
+           FirstOrderFormula formula atom v, Terms term v function, Monad m, Ord function, Skolem function v) =>
           formula -> SkolemT m formula
 skolem fm =
     foldFirstOrder qu co tf (return . atomic) fm
@@ -285,7 +289,8 @@ skolem fm =
       tf True = return true
       tf False = return false
 
-skolem2 :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v, Monad m, Ord function, Skolem function v) =>
+skolem2 :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, v ~ V,
+            FirstOrderFormula formula atom v, Monad m, Ord function, Skolem function v) =>
            (formula -> formula -> formula) -> formula -> formula -> SkolemT m formula
 skolem2 cons p q =
     skolem p >>= \ p' ->
@@ -293,7 +298,8 @@ skolem2 cons p q =
     return (cons p' q')
 
 -- | Overall Skolemization function.
-askolemize :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v, Monad m, Skolem function v, Ord predicate, Ord function) =>
+askolemize :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, v ~ V,
+               FirstOrderFormula formula atom v, Monad m, Skolem function v, Ord predicate, Ord function) =>
               formula -> SkolemT m formula
 askolemize = skolem . nnf . simplify
 
@@ -309,7 +315,8 @@ specialize f =
 
 -- | Skolemize and then specialize.  Because we know all quantifiers
 -- are gone we can convert to any instance of PropositionalFormula.
-skolemize :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, FirstOrderFormula formula atom v, Monad m, Skolem function v, Ord predicate, Ord function) =>
+skolemize :: (formula ~ Formula atom, atom ~ FOL predicate term, term ~ Term function v, v ~ V,
+              FirstOrderFormula formula atom v, Monad m, Skolem function v, Ord predicate, Ord function) =>
              formula -> SkolemT m formula
 skolemize fm = (specialize . pnf) <$> askolemize fm
 
