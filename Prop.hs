@@ -73,7 +73,7 @@ import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 -- raise errors in the implementation if a non-atomic formula somehow
 -- appears where an atomic formula is expected (i.e. as an argument to
 -- atomic or to the third argument of foldPropositional.)
--- 
+--
 -- The Ord superclass is required so we can put formulas in sets
 -- during the normal form computations.  Negatable and Combinable are
 -- also considered basic operations that we can't build this package

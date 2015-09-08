@@ -23,6 +23,8 @@ Library
     Prop
     FOL
     Skolem
+    PropExamples
+    DefCNF
 
 Test-Suite atp-haskell-tests
   Type: exitcode-stdio-1.0
