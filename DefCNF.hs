@@ -88,7 +88,7 @@ foldAtomsLiteral f i lit = foldLiteral (foldAtomsLiteral f i) (const i) (f i) li
 -- | Example (p. 74)
 test01 :: Test
 test01 = TestCase $ assertEqual "cnf test (p. 74)"
-                                "(¬p[]∨¬q[]∨r[])∧(¬p[]∨¬r[]∨q[])∧(¬q[]∨¬r[]∨p[])∧(p[]∨q[]∨r[])"
+                                "(p[]∨q[]∨r[])∧(p[]∨¬q[]∨¬r[])∧(q[]∨¬p[]∨¬r[])∧(r[]∨¬p[]∨¬q[])"
                                 (let (p, q, r) = (pApp "p" [], pApp "q" [], pApp "r" []) in
                                  prettyShow (cnf (p .<=>. (q .<=>. r)) :: MyFormula))
 

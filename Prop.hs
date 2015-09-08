@@ -54,7 +54,7 @@ import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf,
 import Data.String (IsString(fromString))
 import Formulas (atom_union,
                  Constants(fromBool, asBool), true, false,
-                 Negatable((.~.)), positive,
+                 Negatable((.~.)), positive, negate,
                  Combinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  Formulae(atomic), onatoms,
@@ -726,20 +726,17 @@ simpdnf fm =
 dnf :: PropositionalFormula formula atom => formula -> formula
 dnf fm = list_disj (Set.toAscList (Set.map list_conj (simpdnf fm)))
 
--- Example.
-
+-- Example. (p. 56)
 test34 :: Test
-test34 = TestCase $ assertEqual "dnf" expected input
-    where input = (dnf fm, tautology (Iff fm (dnf fm)))
-          expected = ((p .&. ((.~.) r)) .|. ((q .&. r) .&. ((.~.) p)),True)
-          fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
-          p = Atom (P "p")
-          q = Atom (P "q")
-          r = Atom (P "r")
+test34 = TestCase $ assertEqual "dnf (p. 56)" expected input
+    where input = (prettyShow (dnf fm), tautology (Iff fm (dnf fm)))
+          expected = ("p∧¬r∨q∧r∧¬p",True)
+          fm = let (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r")) in
+               (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
 
 -- | Conjunctive normal form (CNF) by essentially the same code. (p. 60)
 purecnf :: PropositionalFormula formula atom => formula -> Set (Set formula)
-purecnf fm = Set.map (Set.map (.~.)) (purednf (nnf ((.~.) fm)))
+purecnf fm = Set.map (Set.map negate) (purednf (nnf ((.~.) fm)))
 
 simpcnf :: PropositionalFormula formula atom => formula -> Set (Set formula)
 simpcnf fm =
@@ -751,20 +748,10 @@ cnf :: PropositionalFormula formula atom => formula -> formula
 cnf fm = list_conj (Set.map list_disj (simpcnf fm))
 
 -- Example. (p. 61)
-
 test35 :: Test
 test35 = TestCase $ assertEqual "cnf (p. 61)" expected input
-    where input = (cnf fm, tautology (Iff fm (cnf fm)))
-{-
-          expected = ( (((.~.) ((.~.) (atomic (P "q")))) .|. ((.~.) ((.~.) (atomic (P "p")))))         .&.
-                      ((((.~.) ((.~.) (atomic (P "r")))) .|. ((.~.) ((.~.) (atomic (P "p")))))        .&.
-                              (((.~.) (atomic (P "r")))  .|. ((.~.) (atomic (P "p"))))),
-                      True)
--}
-          expected = ((       (((.~.) (atomic (P "p"))) .|. ((.~.) (atomic (P "r")))) .&.
-                       (((.~.) ((.~.) (atomic (P "p")))) .|. ((.~.) ((.~.) (atomic (P "q")))))) .&.
-                      (((.~.) ((.~.) (atomic (P "p")))) .|. ((.~.) ((.~.) (atomic (P "r"))))),
-                      True)
+    where input = (prettyShow (cnf fm), tautology (Iff fm (cnf fm)))
+          expected = ("(p∨q)∧(p∨r)∧(¬p∨¬r)", True)
           fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
           p = Atom (P "p")
           q = Atom (P "q")

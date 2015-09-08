@@ -74,8 +74,10 @@ negated = foldNegation (const False) (not . negated)
 (¬) :: Negatable formula => formula -> formula
 (¬) = (.~.)
 
+-- | Return the formula negated, eliminating double negations at the
+-- top level.
 negate :: Negatable formula => formula -> formula
-negate = (.~.)
+negate = foldNegation (.~.) id
 
 -- | Some operations on Negatable formulas
 negative :: Negatable formula => formula -> Bool
