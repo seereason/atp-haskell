@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 module FOL
     ( -- * Terms
@@ -15,7 +16,7 @@ module FOL
     , FOL(R)
     , HasEquality(equals)
     , Predicate(NamedPredicate, Equals)
-    -- Formulae
+    -- First Order Formulae
     , Atoms(appAtom, foldAtom)
     , (.=.)
     , FirstOrderFormula(quant, foldFirstOrder), for_all, exists
@@ -491,7 +492,7 @@ test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
           expected = "x''"
 
 -- | Substitution in formulas, with variable renaming.
-subst :: (FirstOrderFormula formula atom v, Atoms atom predicate term, Terms term v function, Ord function) =>
+subst :: (FirstOrderFormula formula atom v, Atoms atom predicate term, Terms term v function) =>
          Map v term -> formula -> formula
 subst subfn fm =
     foldFirstOrder qu co tf at fm
@@ -507,7 +508,7 @@ subst subfn fm =
       tf True = true
       at = foldAtom (\p args -> atomic (appAtom p (map (tsubst subfn) args)))
 
-substq :: (FirstOrderFormula formula atom v, Atoms atom predicate term, Terms term v function, Ord v, Ord function) =>
+substq :: (FirstOrderFormula formula atom v, Atoms atom predicate term, Terms term v function) =>
           Map v term
        -> (v -> formula -> formula)
        -> v
