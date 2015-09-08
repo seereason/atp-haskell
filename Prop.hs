@@ -8,8 +8,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Prop
     ( PropositionalFormula(foldPropositional)
-    -- * Atom
-    , Prop(P, pname)
+    , convertPropositional
     -- * Interpretation of formulas.
     , eval
     , atoms
@@ -37,6 +36,7 @@ module Prop
     , allsatvaluations
     , dnfList
     , purednf
+    , simpdnf
     , dnf
     , purecnf
     , simpcnf
@@ -95,6 +95,21 @@ class (Formulae formula atom,
                       -> (Bool -> r)
                       -> (atom -> r)
                       -> formula -> r
+
+-- | Use foldPropositional to convert any instance of
+-- PropositionalFormula to any other by specifying the result type.
+convertPropositional :: forall f1 a1 f2 a2. (PropositionalFormula f1 a1, PropositionalFormula f2 a2) => (a1 -> a2) -> f1 -> f2
+convertPropositional ca f1 =
+    foldPropositional co tf (atomic . ca) f1
+    where
+      co :: Combination f1 -> f2
+      co ((:~:) p) = (.~.) (convertPropositional ca p)
+      co (BinOp p (:&:) q) = (convertPropositional ca p) .&. (convertPropositional ca q)
+      co (BinOp p (:|:) q) = (convertPropositional ca p) .|. (convertPropositional ca q)
+      co (BinOp p (:=>:) q) = (convertPropositional ca p) .=>. (convertPropositional ca q)
+      co (BinOp p (:<=>:) q) = (convertPropositional ca p) .<=>. (convertPropositional ca q)
+      tf :: Bool -> f2
+      tf = fromBool
 
 data Prop = P {pname :: String} deriving (Eq, Ord)
 
@@ -684,7 +699,7 @@ test32 = TestCase $ assertEqual "purednf (p. 58)" expected input
           r = Atom (P "r")
 
 -- | Filtering out trivial disjuncts (in this guise, contradictory).
-trivial :: PropositionalFormula formula atom => Set formula -> Bool
+trivial :: (Ord a, Negatable a) => Set a -> Bool
 trivial lits =
     not . null $ Set.intersection neg (Set.map (.~.) pos)
     where (pos, neg) = Set.partition positive lits
@@ -722,7 +737,7 @@ test34 = TestCase $ assertEqual "dnf" expected input
           q = Atom (P "q")
           r = Atom (P "r")
 
--- | Conjunctive normal form (CNF) by essentially the same code.
+-- | Conjunctive normal form (CNF) by essentially the same code. (p. 60)
 purecnf :: PropositionalFormula formula atom => formula -> Set (Set formula)
 purecnf fm = Set.map (Set.map (.~.)) (purednf (nnf ((.~.) fm)))
 
@@ -735,10 +750,10 @@ simpcnf fm =
 cnf :: PropositionalFormula formula atom => formula -> formula
 cnf fm = list_conj (Set.map list_disj (simpcnf fm))
 
--- Example.
+-- Example. (p. 61)
 
 test35 :: Test
-test35 = TestCase $ assertEqual "cnf" expected input
+test35 = TestCase $ assertEqual "cnf (p. 61)" expected input
     where input = (cnf fm, tautology (Iff fm (cnf fm)))
 {-
           expected = ( (((.~.) ((.~.) (atomic (P "q")))) .|. ((.~.) ((.~.) (atomic (P "p")))))         .&.

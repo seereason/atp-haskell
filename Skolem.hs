@@ -62,11 +62,6 @@ simplify fm =
       co (BinOp p (:<=>:) q) = simplify1 (simplify p .<=>. simplify q)
 
 -- Example.
-
--- | Use a predicate to combine some terms into a formula.
-pApp :: (Formulae formula atom, Atoms atom predicate term) => predicate -> [term] -> formula
-pApp p args = atomic $ appAtom p args
-
 test01 :: Test
 test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ prettyShow fm) expected input
     where input = prettyShow (simplify fm)
