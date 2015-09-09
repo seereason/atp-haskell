@@ -18,19 +18,16 @@ module DefCNF
     ) where
 
 import Formulas
-import Lib.Pretty (HasFixity(fixity), botFixity)
-import Prop (PropositionalFormula, Literal(foldLiteral), cnf', cnf_, foldPropositional, nenf, simpcnf, list_conj, list_disj)
+import Pretty (HasFixity(fixity), botFixity)
+import Prop (PropositionalFormula, Literal(foldLiteral), cnf', cnf_, foldPropositional, nenf, simpcnf)
 -- import PropExamples (Knows(K), mk_knows, Atom(P), N)
 import FOL (pApp, MyFormula)
 import Data.Function (on)
 import Data.List as List
 import Data.Map as Map hiding (fromList)
-import Data.Monoid ((<>))
 import Data.Set as Set
-import Data.String (fromString)
-import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
 import Test.HUnit
-import Text.PrettyPrint.HughesPJClass (Doc, nest, parens, Pretty(pPrint), prettyShow, text)
+import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
 data Atom = P String Integer deriving (Eq, Ord, Show)
 

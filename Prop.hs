@@ -66,7 +66,7 @@ import Formulas (atom_union,
                  Formula(T, F, Atom, Not, And, Or, Imp, Iff, Forall, Exists))
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
 import Lib (fpf, (|=>), allpairs, setAny)
-import Lib.Pretty (HasFixity(fixity), botFixity)
+import Pretty (HasFixity(fixity), botFixity)
 import Prelude hiding (negate, null)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 import Text.PrettyPrint.HughesPJClass (Doc, nest, parens, Pretty(pPrint), prettyShow, text)

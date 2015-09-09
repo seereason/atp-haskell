@@ -18,7 +18,7 @@ Library
   GHC-options: -Wall -O2
   Exposed-Modules:
     Lib
-    Lib.Pretty
+    Pretty
     Formulas
     Prop
     FOL

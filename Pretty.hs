@@ -1,40 +1,19 @@
 {-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, TypeSynonymInstances #-}
-module Lib.Pretty
-    ( Logic(Logic, unLogic)
-    , Precedence(Prec)
-    , Pretty(pPrint)
+module Pretty
+    ( Pretty(pPrint)
+    , module Text.PrettyPrint.HughesPJClass
     , HasFixity(fixity)
     , TH.Fixity(..)
     , TH.FixityDirection(..)
     , topFixity
     , botFixity
-    , Classy(Classy, deClassy)
     ) where
 
 import qualified Language.Haskell.TH.Syntax as TH
-import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text, (<>))
-import Data.List as List (intercalate, intersperse, map, sort)
+import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), nest, parens, prettyShow, text, (<>))
+import Data.List as List (intercalate, map, sort)
 import Data.Map as Map (Map, map, mapKeys)
 import Data.Set as Set (Set, map, toAscList)
-{-
-import Text.PrettyPrint (Doc, text)
-
--- | The intent of this class is to be similar to Show, but only one
--- way, with no corresponding Read class.  It doesn't really belong
--- here in logic-classes.  To put something in a pretty printing class
--- implies that there is only one way to pretty print it, which is not
--- an assumption made by Text.PrettyPrint.  But in practice this is
--- often good enough.
-class Pretty x where
-    pretty :: x -> Doc
-
-instance Pretty String where
-    pPrint = text
--}
-
-newtype Logic a = Logic {unLogic :: a}
-
-newtype Precedence = Prec Int deriving (Eq, Ord, Show)
 
 -- | A class used to do proper parenthesization of formulas.  If we
 -- nest a higher precedence formula inside a lower one parentheses can

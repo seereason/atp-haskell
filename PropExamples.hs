@@ -12,7 +12,7 @@ module PropExamples
 
 import Formulas
 import Lib (allsets)
-import Lib.Pretty (HasFixity(fixity), botFixity)
+import Pretty (HasFixity(fixity), botFixity)
 import Prop hiding (tests)
 import Data.Bits (Bits, shiftR)
 import qualified Data.Set as Set

@@ -32,7 +32,7 @@ import Data.Set as Set (Set, empty, insert, member, union)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixL, InfixR, InfixN))
-import Lib.Pretty (HasFixity(fixity), topFixity)
+import Pretty (HasFixity(fixity), topFixity)
 import Prelude hiding (negate)
 import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), text)
 

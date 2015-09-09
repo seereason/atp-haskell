@@ -7,7 +7,6 @@ module Lib.Failing
 
 import Control.Applicative.Error
 import Data.Generics
-import Lib.Pretty (Classy(..))
 
 failing :: ([String] -> b) -> (a -> b) -> Failing a -> b
 failing f _ (Failure errs) = f errs
@@ -26,7 +25,3 @@ deriving instance Data a => Data (Failing a)
 deriving instance Read a => Read (Failing a)
 deriving instance Eq a => Eq (Failing a)
 deriving instance Ord a => Ord (Failing a)
-
-instance Show (Classy a) => Show (Classy (Failing a)) where
-    show (Classy (Failure errs)) = "Failure " ++ show errs
-    show (Classy (Success a)) = show (Success (Classy a))

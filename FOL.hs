@@ -41,7 +41,7 @@ module FOL
 
 import Formulas
 import Lib (setAny, tryApplyD, undefine, (|->))
-import Lib.Pretty (HasFixity(fixity))
+import Pretty (HasFixity(fixity))
 import Data.List (intersperse)
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
