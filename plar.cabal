@@ -25,6 +25,7 @@ Library
     Skolem
     PropExamples
     DefCNF
+    DP
 
 Test-Suite atp-haskell-tests
   Type: exitcode-stdio-1.0
