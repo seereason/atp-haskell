@@ -481,42 +481,24 @@ test26 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           s = Atom (P "s")
 
 -- | Simple negation-pushing when we don't care to distinguish occurrences.
--- (FIXME: no unit tests)
 nenf' :: PropositionalFormula formula atom => formula -> formula
 nenf' fm =
-    foldPropositional co (\_ -> fm) (\_ -> fm) fm
+    foldPropositional co (\ _ -> fm) (\ _ -> fm) fm
     where
-      co ((:~:) p) = foldPropositional co' (\_ -> p) (\_ -> p) p
-      co (BinOp p (:&:) q) = nenf p .&. nenf q
-      co (BinOp p (:|:) q) = nenf p .&. nenf q
-      co (BinOp p (:=>:) q) = nenf p .=>. nenf q
-      co (BinOp p (:<=>:) q) = nenf p .<=>. nenf q
-      co' ((:~:) p) = nenf p
-      co' (BinOp p (:&:) q) = nenf ((.~.) p) .|. nenf ((.~.) q)
-      co' (BinOp p (:|:) q) = nenf ((.~.) p) .&. nenf ((.~.) q)
-      co' (BinOp p (:=>:) q) = nenf p .&. nenf ((.~.) q)
-      co' (BinOp p (:<=>:) q) = nenf p .<=>. nenf ((.~.) q) -- ?
+      co ((:~:) p) = foldPropositional co' (\ _ -> fm) (\ _ -> fm) p
+      co (BinOp p (:&:) q) = nenf' p .&. nenf' q
+      co (BinOp p (:|:) q) = nenf' p .|. nenf' q
+      co (BinOp p (:=>:) q) = nenf' ((.~.) p) .|. nenf' q
+      co (BinOp p (:<=>:) q) = nenf' p .<=>. nenf' q
+      co' ((:~:) p) = p
+      co' (BinOp p (:&:) q) = nenf' ((.~.) p) .|. nenf' ((.~.) q)
+      co' (BinOp p (:|:) q) = nenf' ((.~.) p) .&. nenf' ((.~.) q)
+      co' (BinOp p (:=>:) q) = nenf' p .&. nenf' ((.~.) q)
+      co' (BinOp p (:<=>:) q) = nenf' p .<=>. nenf' ((.~.) q) -- really?  how is this asymmetrical?
 
 nenf :: PropositionalFormula formula atom => formula -> formula
 nenf = nenf' . psimplify
-{-
-nenf' :: Ord atom => Formula atom -> Formula atom
-nenf' fm =
-  case fm of
-    Not (Not p) -> nenf p
-    Not (And p q) -> Or (nenf (Not p)) (nenf (Not q))
-    Not (Or p q) -> And (nenf (Not p)) (nenf (Not q))
-    Not (Imp p q) -> And (nenf p) (nenf (Not q))
-    Not (Iff p q) -> Iff (nenf p) (nenf (Not q))
-    And p q -> And (nenf p) (nenf q)
-    Or p q -> Or (nenf p) (nenf q)
-    Imp p q -> Or (nenf (Not p)) (nenf q)
-    Iff p q -> Iff (nenf p) (nenf q)
-    _ -> fm
 
-nenf :: Ord atom => Formula atom -> Formula atom
-nenf = nenf' . psimplify
--}
 -- Some tautologies remarked on.
 
 test27 :: Test
