@@ -63,7 +63,7 @@ import Formulas (atom_union,
                  Combinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  Formulae(atomic), onatoms,
-                 Formula(T, F, Atom, Not, And, Or, Imp, Iff, Forall, Exists))
+                 PFormula(T, F, Atom, Not, And, Or, Imp, Iff))
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
 import Lib (fpf, (|=>), allpairs, setAny)
 import Pretty (HasFixity(fixity), botFixity)
@@ -134,7 +134,7 @@ instance Pretty Prop where
 instance HasFixity Prop where
     fixity _ = botFixity
 
-instance Ord atom => PropositionalFormula (Formula atom) atom where
+instance Ord atom => PropositionalFormula (PFormula atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -145,12 +145,6 @@ instance Ord atom => PropositionalFormula (Formula atom) atom where
           Or p q -> co (BinOp p (:|:) q)
           Imp p q -> co (BinOp p (:=>:) q)
           Iff p q -> co (BinOp p (:<=>:) q)
-          -- Although every instance of FirstOrderFormula is also an
-          -- instance of PropositionalFormula, we see here that it is
-          -- an error to use foldPropositional (PropositionalFormula's
-          -- only method) on a Formula that has quantifiers.
-          Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier"
-          Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier"
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- |forms.  They support negation and must include True and False elements.
@@ -213,7 +207,7 @@ test36 = TestCase $ assertEqual "show propositional formula 1" expected input
           expected = ["p∧q∨r",
                       "p∧(q∨r)",
                       "p∧q∨r"]
-          fms :: [Formula Prop]
+          fms :: [PFormula Prop]
           fms = [p .&. q .|. r, p .&. (q .|. r), (p .&. q) .|. r]
           (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
 
@@ -221,7 +215,7 @@ test36 = TestCase $ assertEqual "show propositional formula 1" expected input
 
 test01 :: Test
 test01 =
-    let fm = atomic "p" .=>. atomic "q" .<=>. atomic "r" .&. atomic "s" .|. (atomic "t" .<=>. ((.~.) ((.~.) (atomic "u"))) .&. atomic "v") :: Formula Prop
+    let fm = atomic "p" .=>. atomic "q" .<=>. atomic "r" .&. atomic "s" .|. (atomic "t" .<=>. ((.~.) ((.~.) (atomic "u"))) .&. atomic "v") :: PFormula Prop
         input = (prettyShow fm, show fm)
         expected = (-- Pretty printed
                     "p⇒q⇔r∧s∨(t⇔u∧v)",
@@ -231,12 +225,12 @@ test01 =
 
 test02 :: Test
 test02 = TestCase $ assertEqual "Build Formula 2" expected input
-    where input = (Atom "fm" .&. Atom "fm") :: Formula Prop
+    where input = (Atom "fm" .&. Atom "fm") :: PFormula Prop
           expected = (And (Atom "fm") (Atom "fm"))
 
 test03 :: Test
 test03 = TestCase $ assertEqual "Build Formula 3"
-                                (Atom "fm" .|. Atom "fm" .&. Atom "fm" :: Formula Prop)
+                                (Atom "fm" .|. Atom "fm" .&. Atom "fm" :: PFormula Prop)
                                 (Or (Atom "fm") (And (Atom "fm") (Atom "fm")))
 
 -- Example of use.
@@ -245,7 +239,7 @@ test04 :: Test
 test04 = TestCase $ assertEqual "fixity tests" expected input
     where (input, expected) = unzip (List.map (\ (fm, flag) -> (eval fm v0, flag)) pairs)
           v0 x = error $ "v0: " ++ show x
-          pairs :: [(Formula String, Bool)]
+          pairs :: [(PFormula String, Bool)]
           pairs =
               [ ( true .&. false .=>. false .&. true,  True)
               , ( true .&. true  .=>. true  .&. false, False)
@@ -623,7 +617,7 @@ test29 = TestCase $ assertEqual "dnf 1 (p. 56)" expected input
 
 test30 :: Test
 test30 = TestCase $ assertEqual "dnf 2 (p. 56)" expected input
-    where input = dnfList (p .&. q .&. r .&. s .&. t .&. u .|. u .&. v :: Formula Prop)
+    where input = dnfList (p .&. q .&. r .&. s .&. t .&. u .|. u .&. v :: PFormula Prop)
           expected = (((((((((((((((((((((((((((((((((((((((.~.) p) .&. ((.~.) q)) .&. ((.~.) r)) .&. ((.~.) s)) .&. ((.~.) t)) .&. u) .&. v) .|.
                                                     ((((((((.~.) p) .&. ((.~.) q)) .&. ((.~.) r)) .&. ((.~.) s)) .&. t) .&. u) .&. v)) .|.
                                                    ((((((((.~.) p) .&. ((.~.) q)) .&. ((.~.) r)) .&. s) .&. ((.~.) t)) .&. u) .&. v)) .|.

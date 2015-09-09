@@ -7,10 +7,12 @@ module Pretty
     , TH.FixityDirection(..)
     , topFixity
     , botFixity
+    , (<>)
     ) where
 
+import Data.Monoid ((<>))
 import qualified Language.Haskell.TH.Syntax as TH
-import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), nest, parens, prettyShow, text, (<>))
+import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), nest, parens, prettyShow, text)
 import Data.List as List (intercalate, map, sort)
 import Data.Map as Map (Map, map, mapKeys)
 import Data.Set as Set (Set, map, toAscList)

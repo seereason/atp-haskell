@@ -14,17 +14,17 @@ module DP
     ) where
 
 import Control.Applicative.Error (Failing(..))
-import DefCNF hiding (tests)
-import Formulas
-import Lib hiding (tests)
-import Prop hiding (tests)
-import PropExamples (prime, Knows(K), Atom(P))
-import Data.Foldable as Foldable
 import Data.Map as Map
 import Data.Set as Set
+import DefCNF hiding (tests)
+import FOL (Formula)
+import Formulas
+import Lib hiding (tests)
 import Prelude hiding (negate)
+import Pretty (Pretty)
+import Prop hiding (tests)
+import PropExamples (prime, Knows(K))
 import Test.HUnit
-import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow)
 
 instance NumAtom (Knows Integer) where
     ma n = K "p" n Nothing

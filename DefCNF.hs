@@ -17,11 +17,11 @@ module DefCNF
     , tests
     ) where
 
-import Formulas
+import Formulas hiding (PFormula(..))
 import Pretty (HasFixity(fixity), botFixity)
 import Prop (PropositionalFormula, Literal(foldLiteral), cnf', cnf_, foldPropositional, nenf, simpcnf)
 -- import PropExamples (Knows(K), mk_knows, Atom(P), N)
-import FOL (pApp, MyFormula)
+import FOL (pApp, Formula(..), MyFormula)
 import Data.Function (on)
 import Data.List as List
 import Data.Map as Map hiding (fromList)

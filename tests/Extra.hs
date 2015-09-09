@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables #-}
 module Extra where
 
-import FOL (vt, FOL(R), Term, HasEquality(equals), Predicate, fApp, (.=.), for_all, exists)
+import FOL (Formula, V(V), vt, FOL(R), Term, HasEquality(equals), Predicate, fApp, (.=.), for_all, exists)
 import Formulas
 import Prop hiding (nnf)
 import Skolem

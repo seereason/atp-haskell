@@ -45,8 +45,8 @@ ramsey s t n =
 
 -- Some currently tractable examples. (p. 36)
 test01 :: Test
-test01 = TestList [TestCase (assertEqual "tautology (ramsey 3 3 5)" False (tautology (ramsey 3 3 5 :: Formula (Knows Integer)))),
-                   TestCase (assertEqual "tautology (ramsey 3 3 6)" True (tautology (ramsey 3 3 6 :: Formula (Knows Integer))))]
+test01 = TestList [TestCase (assertEqual "tautology (ramsey 3 3 5)" False (tautology (ramsey 3 3 5 :: PFormula (Knows Integer)))),
+                   TestCase (assertEqual "tautology (ramsey 3 3 6)" True (tautology (ramsey 3 3 6 :: PFormula (Knows Integer))))]
 
 -- | Half adder.  (p. 66)
 halfsum :: forall formula. Combinable formula => formula -> formula -> formula
@@ -92,13 +92,13 @@ mk_index :: forall formula a. PropositionalFormula formula (Atom a) => String ->
 mk_index x i = atomic (P i)
 
 test02 =
-    let [x, y, out, c] = map mk_knows ["X", "Y", "OUT", "C"] :: [Integer -> Formula (Knows Integer)] in
+    let [x, y, out, c] = map mk_knows ["X", "Y", "OUT", "C"] :: [Integer -> PFormula (Knows Integer)] in
     TestCase (assertEqual "ripplecarry x y c out 2"
                           (((out 0 .<=>. ((x 0 .<=>. ((.~.) (y 0))) .<=>. ((.~.) (c 0)))) .&.
                             (c 1 .<=>. ((x 0 .&. y 0) .|. ((x 0 .|. y 0) .&. c 0)))) .&.
                            ((out 1 .<=>. ((x 1 .<=>. ((.~.) (y 1))) .<=>. ((.~.) (c 1)))) .&.
                             (c 2 .<=>. ((x 1 .&. y 1) .|. ((x 1 .|. y 1) .&. c 1)))))
-                          (ripplecarry x y c out 2 :: Formula (Knows Integer)))
+                          (ripplecarry x y c out 2 :: PFormula (Knows Integer)))
 
 -- | Special case with 0 instead of c(0).
 ripplecarry0 :: forall formula atomic a. (PropositionalFormula formula atomic, Ord formula, Ord a, Num a, Enum a) =>
@@ -225,7 +225,7 @@ prime p =
 
 -- Examples. (p. 72)
 
-type F = Formula (Knows Integer)
+type F = PFormula (Knows Integer)
 
 test03 :: Test
 test03 =

@@ -14,13 +14,9 @@ module Formulas
     , Combinable((.|.), (.&.), (.<=>.), (.=>.), (.<=.), (.<~>.), (.~|.), (.~&.))
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
     , Combination(..), BinOp(..), combine, binop
-    -- * Variables
-    , Variable(variant, prefix, prettyVariable), variants, showVariable, V(V)
-    -- * Quantifiers
-    , Quant((:!:), (:?:))
     -- * Formulas
     , Formulae(atomic, foldAtoms, mapAtoms)
-    , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
+    , PFormula(F, T, Atom, Not, And, Or, Imp, Iff)
     , onatoms
     , overatoms
     , atom_union
@@ -28,8 +24,7 @@ module Formulas
 
 import Data.Data (Data)
 import Data.Monoid ((<>))
-import Data.Set as Set (Set, empty, insert, member, union)
-import Data.String (IsString(fromString))
+import Data.Set as Set (Set, empty, union)
 import Data.Typeable (Typeable)
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixL, InfixR, InfixN))
 import Pretty (HasFixity(fixity), topFixity)
@@ -182,74 +177,30 @@ binop a (:|:) b = a .|. b
 binop a (:=>:) b = a .=>. b
 binop a (:<=>:) b = a .<=>. b
 
-class (Ord v, IsString v, Data v, Pretty v) => Variable v where
-    variant :: v -> Set.Set v -> v
-    -- ^ Return a variable based on v but different from any set
-    -- element.  The result may be v itself if v is not a member of
-    -- the set.
-    prefix :: String -> v -> v
-    -- ^ Modify a variable by adding a prefix.  This unfortunately
-    -- assumes that v is "string-like" but at least one algorithm in
-    -- Harrison currently requires this.
-    prettyVariable :: v -> Doc
-    -- ^ Pretty print a variable
-
--- | Return an infinite list of variations on v
-variants :: Variable v => v -> [v]
-variants v0 =
-    iter' Set.empty v0
-    where iter' s v = let v' = variant v s in v' : iter' (Set.insert v s) v'
-
-showVariable :: Variable v => v -> String
-showVariable v = "(fromString (" ++ show (show (prettyVariable v)) ++ "))"
-
-newtype V = V String deriving (Eq, Ord, Read, Data, Typeable)
-
-instance Variable V where
-    variant v@(V s) vs = if Set.member v vs then variant (V (s ++ "'")) vs else v
-    prefix pre (V s) = V (pre ++ s)
-    prettyVariable (V s) = text s
-
-instance IsString V where
-    fromString = V
-
-instance Show V where
-    show (V s) = show s
-
-instance Pretty V where
-    pPrint (V s) = text s
-
-data Quant
-    = (:!:) -- ^ for_all
-    | (:?:) -- ^ exists
-    deriving (Eq, Ord, Data, Typeable)
-
-data Formula atom
+data PFormula atom
     = F
     | T
     | Atom atom
-    | Not (Formula atom)
-    | And (Formula atom) (Formula atom)
-    | Or (Formula atom) (Formula atom)
-    | Imp (Formula atom) (Formula atom)
-    | Iff (Formula atom) (Formula atom)
-    | Forall V (Formula atom)
-    | Exists V (Formula atom)
+    | Not (PFormula atom)
+    | And (PFormula atom) (PFormula atom)
+    | Or (PFormula atom) (PFormula atom)
+    | Imp (PFormula atom) (PFormula atom)
+    | Iff (PFormula atom) (PFormula atom)
     deriving (Eq, Ord, Read)
 
-instance Constants (Formula atom) where
+instance Constants (PFormula atom) where
     asBool T = Just True
     asBool F = Just False
     asBool _ = Nothing
     fromBool True = T
     fromBool False = F
 
-instance Negatable (Formula atom) where
+instance Negatable (PFormula atom) where
     naiveNegate = Not
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 
-instance Combinable (Formula atom) where
+instance Combinable (PFormula atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
@@ -267,7 +218,7 @@ class Formulae formula atom | formula -> atom where
 -- infixr 9 !, ?, ∀, ∃
 
 -- Display formulas using infix notation
-instance Show atom => Show (Formula atom) where
+instance Show atom => Show (PFormula atom) where
     show F = "false"
     show T = "true"
     show (Atom atom) = "atomic (" ++ show atom ++ ")"
@@ -276,10 +227,8 @@ instance Show atom => Show (Formula atom) where
     show (Or f g) = "(" ++ show f ++ ") .|. (" ++ show g ++ ")"
     show (Imp f g) = "(" ++ show f ++ ") .=>. (" ++ show g ++ ")"
     show (Iff f g) = "(" ++ show f ++ ") .<=>. (" ++ show g ++ ")"
-    show (Forall v f) = "(for_all " ++ show v ++ " " ++ show f ++ ")"
-    show (Exists v f) = "(exists " ++ show v ++ " " ++ show f ++ ")"
 
-instance HasFixity atom => HasFixity (Formula atom) where
+instance HasFixity atom => HasFixity (PFormula atom) where
     fixity T = Fixity 10 InfixN
     fixity F = Fixity 10 InfixN
     fixity (Atom a) = fixity a
@@ -288,15 +237,13 @@ instance HasFixity atom => HasFixity (Formula atom) where
     fixity (Or _ _) = Fixity 3 InfixL
     fixity (Imp _ _) = Fixity 2 InfixR
     fixity (Iff _ _) = Fixity 1 InfixL
-    fixity (Forall _ _) = Fixity 9 InfixN
-    fixity (Exists _ _) = Fixity 9 InfixN
 
 -- | Show a formula in a visually pleasing format.
 prettyFormula :: HasFixity atom =>
                  (atom -> Doc)
               -> Fixity        -- ^ The fixity of the parent formula.  If the operator being formatted here
                                -- has a lower precedence it needs to be parenthesized.
-              -> Formula atom
+              -> PFormula atom
               -> Doc
 prettyFormula prettyAtom (Fixity parentPrecidence parentDirection) fm =
     parenIf (parentPrecidence > precidence) (pp fm)
@@ -312,13 +259,11 @@ prettyFormula prettyAtom (Fixity parentPrecidence parentDirection) fm =
       pp (Or f g) = prettyFormula prettyAtom fix f <> text "∨" <> prettyFormula prettyAtom fix g
       pp (Imp f g) = prettyFormula prettyAtom fix f <> text "⇒" <> prettyFormula prettyAtom fix g
       pp (Iff f g) = prettyFormula prettyAtom fix f <> text "⇔" <> prettyFormula prettyAtom fix g
-      pp (Forall v f) = text ("∀" ++ show v ++ ". ") <> prettyFormula prettyAtom fix f
-      pp (Exists v f) = text ("∃" ++ show v ++ ". ") <> prettyFormula prettyAtom fix f
 
-instance (HasFixity atom, Pretty atom)  => Pretty (Formula atom) where
+instance (HasFixity atom, Pretty atom)  => Pretty (PFormula atom) where
     pPrint fm = prettyFormula pPrint topFixity fm
 
-instance Formulae (Formula atom) atom where
+instance Formulae (PFormula atom) atom where
     atomic = Atom
     foldAtoms f fm b =
       case fm of
@@ -328,8 +273,6 @@ instance Formulae (Formula atom) atom where
         Or p q -> foldAtoms f p (foldAtoms f q b)
         Imp p q -> foldAtoms f p (foldAtoms f q b)
         Iff p q -> foldAtoms f p (foldAtoms f q b)
-        Forall _x p -> foldAtoms f p b
-        Exists _x p -> foldAtoms f p b
         _ -> b
     mapAtoms f fm =
       case fm of
@@ -339,8 +282,6 @@ instance Formulae (Formula atom) atom where
         Or p q -> Or (mapAtoms f p) (mapAtoms f q)
         Imp p q -> Imp (mapAtoms f p) (mapAtoms f q)
         Iff p q -> Iff (mapAtoms f p) (mapAtoms f q)
-        Forall x p -> Forall x (mapAtoms f p)
-        Exists x p -> Exists x (mapAtoms f p)
         _ -> fm
 
 overatoms :: Formulae formula atom => (atom -> r -> r) -> formula -> r -> r
