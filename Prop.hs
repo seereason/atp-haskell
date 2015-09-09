@@ -322,7 +322,7 @@ atoms :: (Ord atom, Formulae formula atom) => formula -> Set atom
 atoms fm = atom_union singleton fm
 
 -- | Code to print out truth tables.
-onallvaluations :: (Eq a, Ord a) => (r -> r -> r) -> ((a -> Bool) -> r) -> (a -> Bool) -> Set a -> r
+onallvaluations :: (Eq atom, Ord atom) => (r -> r -> r) -> ((atom -> Bool) -> r) -> (atom -> Bool) -> Set atom -> r
 onallvaluations cmb subfn v ats =
     case minView ats of
       Nothing -> subfn v

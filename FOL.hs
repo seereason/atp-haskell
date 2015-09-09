@@ -54,7 +54,7 @@ import Prelude hiding (pred)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
-class (Ord term,  -- For implementing Ord in Literal
+class (Ord term,
        Variable v,
        Eq function
       ) => Terms term v function | term -> v function where

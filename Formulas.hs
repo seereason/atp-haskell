@@ -96,7 +96,7 @@ infix 5 .~., ¬
 -- @
 --  (.|.)
 -- @
-class (Negatable formula) => Combinable formula where
+class Negatable formula => Combinable formula where
     -- | Disjunction/OR
     (.|.) :: formula -> formula -> formula
 
