@@ -9,7 +9,7 @@ module Formulas
       Constants(asBool, fromBool), prettyBool
     , true, false, (⊨), (⊭)
     -- * Negation
-    , Negatable(negatePrivate, foldNegation), (.~.), (¬), negate, negated, negative, positive
+    , Negatable(naiveNegate, foldNegation), (.~.), (¬), negate, negated, negative, positive
     -- * Combinable
     , Combinable((.|.), (.&.), (.<=>.), (.=>.), (.<=.), (.<~>.), (.~|.), (.~&.))
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
@@ -63,7 +63,7 @@ prettyBool False = text "⊭"
 class Negatable formula where
     -- | Negate a formula in a naive fashion, the operators below
     -- prevent double negation.
-    negatePrivate :: formula -> formula
+    naiveNegate :: formula -> formula
     -- | Test whether a formula is negated or normal
     foldNegation :: (formula -> r) -- ^ called for normal formulas
                  -> (formula -> r) -- ^ called for negated formulas
@@ -75,7 +75,7 @@ negated = foldNegation (const False) (not . negated)
 
 -- | Negate the formula, avoiding double negation
 (.~.) :: Negatable formula => formula -> formula
-(.~.) = foldNegation negatePrivate id
+(.~.) = foldNegation naiveNegate id
 
 (¬) :: Negatable formula => formula -> formula
 (¬) = (.~.)
@@ -245,7 +245,7 @@ instance Constants (Formula atom) where
     fromBool False = F
 
 instance Negatable (Formula atom) where
-    negatePrivate = Not
+    naiveNegate = Not
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 

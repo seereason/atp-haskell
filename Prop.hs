@@ -226,7 +226,7 @@ test01 =
         expected = (-- Pretty printed
                     "p⇒q⇔r∧s∨(t⇔u∧v)",
                     -- Haskell expression
-                    "((atomic (\"p\")) .=>. (atomic (\"q\"))) .<=>. (((atomic (\"r\")) .&. (atomic (\"s\"))) .|. ((atomic (\"t\")) .<=>. (((.~.) ((.~.) (atomic (\"u\")))) .&. (atomic (\"v\")))))") in
+                    "((atomic (\"p\")) .=>. (atomic (\"q\"))) .<=>. (((atomic (\"r\")) .&. (atomic (\"s\"))) .|. ((atomic (\"t\")) .<=>. ((atomic (\"u\")) .&. (atomic (\"v\")))))") in
     TestCase $ assertEqual "Build Formula 1" expected input
 
 test02 :: Test
