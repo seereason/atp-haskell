@@ -10,23 +10,19 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 module FOL
-    ( -- * Terms
-      Terms(vt, fApp, foldTerm, zipTerms)
-    , HasEquality(equals)
-    -- * Variables
-    , Variable(variant, prefix, prettyVariable), variants, showVariable, V(V)
+    ( -- * Variables
+      Variable(variant, prefix, prettyVariable), variants, showVariable, V(V)
+    -- * Functions and Terms
+    , Terms(vt, fApp, foldTerm, zipTerms), FName(FName), Term(Var, FApply)
+    -- * Predicates
+    , HasEquality(equals), Predicate(NamedPredicate, Equals)
+    -- * Atoms
+    , Atoms(appAtom, foldAtom), pApp , (.=.), FOL(R)
     -- * Quantifiers
     , Quant((:!:), (:?:))
-    , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
-    -- * Instance
-    , Term(Var, FApply)
-    , FName(FName)
-    , Predicate(NamedPredicate, Equals)
-    , FOL(R)
-    , MyFormula
-    -- First Order Formulae
-    , Atoms(appAtom, foldAtom), pApp , (.=.)
+    -- Formula
     , FirstOrderFormula(quant, foldFirstOrder), for_all, exists
+    , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     , convertFirstOrder
     , onformula
     -- * Semantics
@@ -47,7 +43,7 @@ module FOL
 
 import Data.Bool (bool)
 import Data.Data (Data)
-import Data.List (intersperse)
+import Data.List (intercalate, intersperse)
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
@@ -59,6 +55,10 @@ import Prop (PropositionalFormula(foldPropositional))
 import Prelude hiding (pred)
 import Pretty (Doc, FixityDirection(InfixN, InfixL, InfixR), HasFixity(fixity), Fixity(Fixity), parens, Pretty(pPrint), prettyShow, text, topFixity, (<>))
 import Test.HUnit
+
+---------------
+-- VARIABLES --
+---------------
 
 class (Ord v, IsString v, Data v, Pretty v) => Variable v where
     variant :: v -> Set.Set v -> v
@@ -97,10 +97,27 @@ instance Show V where
 instance Pretty V where
     pPrint (V s) = text s
 
-class (Ord term,
-       Variable v,
-       Eq function
-      ) => Terms term v function | term -> v function where
+---------------
+-- FUNCTIONS --
+---------------
+
+-- | A simple type to use as the function parameter of Term, FOL, etc.
+-- The only reason to use this instead of String is to get nicer
+-- pretty printing.
+newtype FName = FName String deriving (Eq, Ord)
+
+instance IsString FName where fromString = FName
+
+instance Show FName where show (FName s) = s
+
+instance Pretty FName where pPrint (FName s) = text s
+
+-----------
+-- TERMS --
+-----------
+
+-- | Terms are built from variables and combined by functions to build the atoms of a formula.
+class (Ord term, Variable v, Eq function) => Terms term v function | term -> v function where
     vt :: v -> term
     -- ^ Build a term which is a variable reference.
     fApp :: function -> [term] -> term
@@ -115,6 +132,17 @@ class (Ord term,
     -- ^ Combine two terms if they are similar (i.e. two variables or
     -- two function applications.)
 
+data Term function v
+    = Var v
+    | FApply function [Term function v]
+    deriving (Eq, Ord)
+
+instance (Ord function, Show function, Variable v, Show v) => Show (Term function v) where
+    show = showTerm
+
+showTerm :: (Terms term function v, Show function, Show v) => term -> String
+showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp " ++ show fn ++ "[" ++ intercalate ", " (map showTerm ts) ++ "]")
+
 instance (Ord function, Variable v) => Terms (Term function v) v function where
     vt = Var
     fApp = FApply
@@ -128,32 +156,94 @@ instance (Ord function, Variable v) => Terms (Term function v) v function where
           (FApply f1 ts1, FApply f2 ts2) -> f f1 ts1 f2 ts2
           _ -> Nothing
 
--- | Terms are combined by predicates to build the atoms of a formula.
-data Term function v
-    = Var v
-    | FApply function [Term function v]
-    deriving (Eq, Ord, Show)
-
 instance (Pretty function, Pretty v) => Pretty (Term function v) where
     pPrint (Var v) = pPrint v
     pPrint (FApply fn []) = pPrint fn
     pPrint (FApply fn args) = pPrint fn <> text " [" <> mconcat (intersperse (text ", ") (map pPrint args)) <> "]"
 
--- | A simple type to use as the function parameter of Term, FOL, etc.
--- The only reason to use this instead of String is to get nicer
--- pretty printing.
-newtype FName = FName String deriving (Eq, Ord)
+-- Example.
+test00 :: Test
+test00 = TestCase $ assertEqual "print an expression"
+                                "sqrt [- [1, cos [power [+ [x, y], 2]]]]"
+                                (prettyShow (fApp "sqrt" [fApp "-" [fApp "1" [],
+                                                                     fApp "cos" [fApp "power" [fApp "+" [Var "x", Var "y"],
+                                                                                               fApp "2" []]]]] :: Term FName V))
 
-instance IsString FName where fromString = FName
+---------------
+-- PREDICATE --
+----------------
 
-instance Show FName where show (FName s) = s
+-- | Class of predicates that have an equality predicate.
+class HasEquality predicate where
+    equals :: predicate
 
-instance Pretty FName where pPrint (FName s) = text s
+-- | This Predicate type includes an distinct Equals constructor, so
+-- that we can build a HasEquality instance for it.
+data Predicate
+    = NamedPredicate String
+    | Equals
+    deriving (Eq, Ord, Show)
+
+-- | Predicates with a 'HasEquality' instance are needed whenever the
+-- '.=.' combiner is used.
+instance HasEquality Predicate where
+    equals = Equals
+
+instance IsString Predicate where
+    fromString = NamedPredicate
+
+instance Pretty Predicate where
+    pPrint Equals = text "="
+    pPrint (NamedPredicate "=") = error "Use of = as a predicate name is prohibited"
+    pPrint (NamedPredicate s) = text s
+
+----------
+-- ATOM --
+----------
+
+class Atoms atom predicate term | atom -> predicate term where
+    appAtom :: predicate -> [term] -> atom
+    foldAtom :: (predicate -> [term] -> r) -> atom -> r
+
+-- | First order logic formula atom type.
+data FOL predicate term = R predicate [term] deriving (Eq, Ord)
+
+instance (Pretty predicate, Show predicate, Show term) => Show (FOL predicate term) where
+    show (R p ts) = "appAtom " ++ show p ++ " [" ++ intercalate ", " (map show ts) ++ "]"
+{-
+showAtom :: (Pretty predicate, Show predicate, Show term) => Atoms atom predicate term => atom -> String
+showAtom = foldAtom showPApp
+    where
+      showPApp p [a, b] | pPrint p == text "=" = "(" ++ show a ++ ") .=. (" ++ show b ++ ")"
+      showPApp p ts = "pApp (" ++ show p ++ ") [" ++ intercalate ", " (map show ts) ++ "]"
+-}
+instance Atoms (FOL predicate term) predicate term where
+    appAtom = R
+    foldAtom f (R p ts) = f p ts
+
+-- | The type of the predicate determines how this atom is pretty
+-- printed - specifically, whether it is an instance of HasEquality.
+-- So we need to do some gymnastics to make this happen.
+instance (Pretty predicate, Pretty term) => Pretty (FOL predicate term) where
+    pPrint = foldAtom (\ p ts -> if pPrint p == text "="
+                                 then error "illegal pretty printer for predicate"
+                                 else pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]")
+
+instance HasFixity (FOL predicate term) where
+    fixity _ = Fixity 6 InfixN
+
+----------------
+-- QUANTIFIER --
+----------------
 
 data Quant
     = (:!:) -- ^ for_all
     | (:?:) -- ^ exists
     deriving (Eq, Ord, Data, Typeable)
+
+--------------
+-- FORMULAE --
+--------------
 
 data Formula atom
     = F
@@ -190,7 +280,7 @@ instance Combinable (Formula atom) where
 instance Show atom => Show (Formula atom) where
     show F = "false"
     show T = "true"
-    show (Atom atom) = "atomic (" ++ show atom ++ ")"
+    show (Atom atom) = show atom
     show (Not f) = "(.~.) (" ++ show f ++ ")"
     show (And f g) = "(" ++ show f ++ ") .&. (" ++ show g ++ ")"
     show (Or f g) = "(" ++ show f ++ ") .|. (" ++ show g ++ ")"
@@ -210,6 +300,16 @@ instance HasFixity atom => HasFixity (Formula atom) where
     fixity (Iff _ _) = Fixity 1 InfixL
     fixity (Forall _ _) = Fixity 9 InfixN
     fixity (Exists _ _) = Fixity 9 InfixN
+
+-- | Use a predicate to combine some terms into a formula.
+pApp :: (Formulae formula atom, Atoms atom predicate term) => predicate -> [term] -> formula
+pApp p args = atomic $ appAtom p args
+
+-- | Apply the equals predicate to two terms and build a formula.
+(.=.) :: (Formulae formula atom, Atoms atom predicate term, HasEquality predicate) => term -> term -> formula
+a .=. b = atomic (appAtom equals [a, b])
+
+infix 5 .=. -- , .!=., ≡, ≢
 
 --instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (Formula atom) where
 --    pPrint fm = prettyFirstOrder pPrint topFixity fm
@@ -256,70 +356,6 @@ instance Ord atom => PropositionalFormula (Formula atom) atom where
           -- only method) on a Formula that has quantifiers.
           Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier"
           Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier"
-
--- Example.
-test00 :: Test
-test00 = TestCase $ assertEqual "print an expression"
-                                "sqrt [- [1, cos [power [+ [x, y], 2]]]]"
-                                (prettyShow (fApp "sqrt" [fApp "-" [fApp "1" [],
-                                                                     fApp "cos" [fApp "power" [fApp "+" [Var "x", Var "y"],
-                                                                                               fApp "2" []]]]] :: Term FName V))
-
--- | Class of predicates that have an equality predicate.
-class HasEquality predicate where
-    equals :: predicate
-
--- | Predicates with a 'HasEquality' instance are needed whenever the
--- '.=.' combiner is used.
-instance HasEquality Predicate where
-    equals = Equals
-
-class Atoms atom predicate term | atom -> predicate term where
-    appAtom :: predicate -> [term] -> atom
-    foldAtom :: (predicate -> [term] -> r) -> atom -> r
-
--- | First order logic formula atom type.
-data FOL predicate term = R predicate [term] deriving (Eq, Ord, Show)
-
-instance Atoms (FOL predicate term) predicate term where
-    appAtom = R
-    foldAtom f (R p ts) = f p ts
-
--- | This Predicate type includes an distinct Equals constructor, so
--- that we can build a HasEquality instance for it.
-data Predicate
-    = NamedPredicate String
-    | Equals
-    deriving (Eq, Ord, Show)
-
-instance IsString Predicate where
-    fromString = NamedPredicate
-
-instance Pretty Predicate where
-    pPrint Equals = text "="
-    pPrint (NamedPredicate "=") = error "Use of = as a predicate name is prohibited"
-    pPrint (NamedPredicate s) = text s
-
-instance HasFixity (FOL predicate term) where
-    fixity _ = Fixity 6 InfixN
-
--- | The type of the predicate determines how this atom is pretty
--- printed - specifically, whether it is an instance of HasEquality.
--- So we need to do some gymnastics to make this happen.
-instance (Pretty predicate, Pretty term) => Pretty (FOL predicate term) where
-    pPrint = foldAtom (\ p ts -> if pPrint p == text "="
-                                 then error "illegal pretty printer for predicate"
-                                 else pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]")
-
--- | Use a predicate to combine some terms into a formula.
-pApp :: (Formulae formula atom, Atoms atom predicate term) => predicate -> [term] -> formula
-pApp p args = atomic $ appAtom p args
-
--- | Apply the equals predicate to two terms and build a formula.
-(.=.) :: (Formulae formula atom, Atoms atom predicate term, HasEquality predicate) => term -> term -> formula
-a .=. b = atomic (appAtom equals [a, b])
-
-infix 5 .=. -- , .!=., ≡, ≢
 
 class (PropositionalFormula formula atom, Variable v) => FirstOrderFormula formula atom v | formula -> atom, formula -> v where
     quant :: Quant -> v -> formula -> formula
@@ -605,7 +641,8 @@ holds (mod_interp 3) undefined <<forall x. x = 0 ==> 1 = 0>>;;
 END_INTERACTIVE;;
 -}
 
-type MyFormula = Formula (FOL Predicate (Term FName V))
+type MyAtom = FOL Predicate (Term FName V)
+type MyFormula = Formula MyAtom
 
 test01 :: Test
 test01 = TestCase $ assertEqual "holds bool test (p. 126)" expected input

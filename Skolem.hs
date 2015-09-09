@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, FlexibleContexts, GADTs, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables #-}
+{-# LANGUAGE CPP, FlexibleContexts, FunctionalDependencies, GADTs, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables #-}
 -- | Prenex and Skolem normal forms.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
@@ -19,6 +19,7 @@ module Skolem
     , askolemize
     , skolemize
     , Function(Fn, Skolem)
+    , MyAtom, MyFormula
     -- * Tests
     , tests
     ) where
@@ -238,7 +239,7 @@ runSkolemT action = (runStateT action) newSkolemState >>= return . fst
 -- depend on @x@ and @y@, so we make these parameters.  Thus we have
 -- eliminated existential quantifiers and obtained the formula
 -- @P[x,y,sKz[x,y]]@.
-class Skolem function var where
+class Skolem function var | function -> var where
     toSkolem :: var -> function
     fromSkolem :: function -> Maybe var
 
@@ -317,6 +318,9 @@ instance Skolem Function V where
     toSkolem = Skolem
     fromSkolem (Skolem v) = Just v
     fromSkolem _ = Nothing
+
+type MyAtom = FOL Predicate (Term Function V)
+type MyFormula = Formula MyAtom
 
 -- Example.
 

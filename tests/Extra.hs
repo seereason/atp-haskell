@@ -1,10 +1,10 @@
 {-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables #-}
 module Extra where
 
-import FOL (Formula, V(V), vt, FOL(R), Term, HasEquality(equals), Predicate, fApp, (.=.), for_all, exists)
+import FOL (vt, fApp, (.=.), for_all, exists, Atoms(appAtom), Predicate(Equals))
 import Formulas
 import Prop hiding (nnf)
-import Skolem
+import Skolem (Skolem(toSkolem), skolemize, runSkolem, MyAtom, MyFormula)
 import Test.HUnit
 
 tests :: Test
@@ -12,21 +12,23 @@ tests = TestList [test06]
 
 test06 :: Test
 test06 =
-    let fm :: Formula (FOL Predicate (Term Function V))
+    let fm :: MyFormula
         fm = (.~.) (for_all "x" (vt "x" .=. vt "x") .=>. for_all "x" (exists "y" (vt "x" .=. vt "y")))
-        expected :: Formula (FOL Predicate (Term Function V))
-        expected = (vt "x" .=. vt "x") .&. ((.~.) (fApp (Skolem (V "x")) [] .=. vt "x"))
-        sk = runSkolem (skolemize fm) :: Formula (FOL Predicate (Term Function V))
-        table = truthTable expected :: TruthTable (FOL Predicate (Term Function V)) in
+        expected :: MyFormula
+        expected = (vt "x" .=. vt "x") .&. ((.~.) (fApp (toSkolem "x") [] .=. vt "x"))
+        expected' :: MyFormula
+        expected' = (((vt "x") .=. (vt "x"))) .&. ((.~.) (((fApp (toSkolem "x")[]) .=. (vt "x"))))
+        -- atoms = [appAtom equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x")[]) .=. (vt "x")-}] :: [MyAtom]
+        sk = runSkolem (skolemize fm) :: MyFormula
+        table = truthTable expected' :: TruthTable MyAtom in
     TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y"
-                           (expected :: Formula (FOL Predicate (Term Function V)),
+                           (expected',
                             TruthTable
-                              [R equals [vt "x", fApp (Skolem (V "y")) [vt "x"]],
-                               R equals [fApp (Skolem (V "x")) [], fApp (Skolem (V "x")) []]]
-                              [([False,False],True),
+                              [appAtom Equals [vt "x", vt "x"],appAtom Equals [fApp (toSkolem "x")[], vt "x"]]
+                              [([False,False],False),
                                ([False,True],False),
                                ([True,False],True),
-                               ([True,True],True)] :: TruthTable (FOL Predicate (Term Function V)))
+                               ([True,True],False)] :: TruthTable MyAtom)
                            (sk, table)
 
 {-

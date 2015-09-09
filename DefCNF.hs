@@ -21,11 +21,12 @@ import Formulas hiding (PFormula(..))
 import Pretty (HasFixity(fixity), botFixity)
 import Prop (PropositionalFormula, Literal(foldLiteral), cnf', cnf_, foldPropositional, nenf, simpcnf)
 -- import PropExamples (Knows(K), mk_knows, Atom(P), N)
-import FOL (pApp, Formula(..), MyFormula)
+import FOL (pApp, Formula(..))
 import Data.Function (on)
 import Data.List as List
 import Data.Map as Map hiding (fromList)
 import Data.Set as Set
+import Skolem (MyFormula)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
