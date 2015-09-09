@@ -34,7 +34,7 @@ instance HasFixity (Knows Integer) where
     fixity = const botFixity
 
 ramsey :: forall formula atom.
-          (PropositionalFormula formula atom, atom ~ Knows Integer, Ord formula) =>
+          (IsPropositional formula atom, atom ~ Knows Integer, Ord formula) =>
           Integer -> Integer -> Integer -> formula
 ramsey s t n =
   let vertices = Set.fromList [1 .. n] in
@@ -49,31 +49,31 @@ test01 = TestList [TestCase (assertEqual "tautology (ramsey 3 3 5)" False (tauto
                    TestCase (assertEqual "tautology (ramsey 3 3 6)" True (tautology (ramsey 3 3 6 :: PFormula (Knows Integer))))]
 
 -- | Half adder.  (p. 66)
-halfsum :: forall formula. Combinable formula => formula -> formula -> formula
+halfsum :: forall formula. IsCombinable formula => formula -> formula -> formula
 halfsum x y = x .<=>. ((.~.) y)
 
-halfcarry :: forall formula. Combinable formula => formula -> formula -> formula
+halfcarry :: forall formula. IsCombinable formula => formula -> formula -> formula
 halfcarry x y = x .&. y
 
-ha :: forall formula. Combinable formula => formula -> formula -> formula -> formula -> formula
+ha :: forall formula. IsCombinable formula => formula -> formula -> formula -> formula -> formula
 ha x y s c = (s .<=>. halfsum x y) .&. (c .<=>. halfcarry x y)
 
 -- | Full adder.
-carry :: forall formula. Combinable formula => formula -> formula -> formula -> formula
+carry :: forall formula. IsCombinable formula => formula -> formula -> formula -> formula
 carry x y z = (x .&. y) .|. ((x .|. y) .&. z)
 
-sum :: forall formula. Combinable formula => formula -> formula -> formula -> formula
+sum :: forall formula. IsCombinable formula => formula -> formula -> formula -> formula
 sum x y z = halfsum (halfsum x y) z
 
-fa :: forall formula. Combinable formula => formula -> formula -> formula -> formula -> formula -> formula
+fa :: forall formula. IsCombinable formula => formula -> formula -> formula -> formula -> formula -> formula
 fa x y z s c = (s .<=>. sum x y z) .&. (c .<=>. carry x y z)
 
 -- | Useful idiom.
-conjoin :: forall formula atomic a. (PropositionalFormula formula atomic, Ord formula, Ord a) => (a -> formula) -> Set.Set a -> formula
+conjoin :: forall formula atomic a. (IsPropositional formula atomic, Ord formula, Ord a) => (a -> formula) -> Set.Set a -> formula
 conjoin f l = list_conj (Set.map f l)
 
 -- | n-bit ripple carry adder with carry c(0) propagated in and c(n) out.  (p. 67)
-ripplecarry :: forall formula atomic a. (PropositionalFormula formula atomic, Ord a, Ord formula, Num a, Enum a) =>
+ripplecarry :: forall formula atomic a. (IsPropositional formula atomic, Ord a, Ord formula, Num a, Enum a) =>
                (a -> formula)
             -> (a -> formula)
             -> (a -> formula)
@@ -83,12 +83,12 @@ ripplecarry x y c out n =
     conjoin (\ i -> fa (x i) (y i) (c i) (out i) (c(i + 1))) (Set.fromList [0 .. (n - 1)])
 
 -- Example.
-mk_knows :: forall formula a. PropositionalFormula formula (Knows a) => String -> a -> formula
+mk_knows :: forall formula a. IsPropositional formula (Knows a) => String -> a -> formula
 mk_knows x i = atomic (K x i Nothing)
-mk_knows2 :: forall formula a. PropositionalFormula formula (Knows a) => String -> a -> a -> formula
+mk_knows2 :: forall formula a. IsPropositional formula (Knows a) => String -> a -> a -> formula
 mk_knows2 x i j = atomic (K x i (Just j))
 
-mk_index :: forall formula a. PropositionalFormula formula (Atom a) => String -> a -> formula
+mk_index :: forall formula a. IsPropositional formula (Atom a) => String -> a -> formula
 mk_index x i = atomic (P i)
 
 test02 =
@@ -101,7 +101,7 @@ test02 =
                           (ripplecarry x y c out 2 :: PFormula (Knows Integer)))
 
 -- | Special case with 0 instead of c(0).
-ripplecarry0 :: forall formula atomic a. (PropositionalFormula formula atomic, Ord formula, Ord a, Num a, Enum a) =>
+ripplecarry0 :: forall formula atomic a. (IsPropositional formula atomic, Ord formula, Ord a, Num a, Enum a) =>
                 (a -> formula)
              -> (a -> formula)
              -> (a -> formula)
@@ -112,7 +112,7 @@ ripplecarry0 x y c out n =
    (ripplecarry x y (\ i -> if i == 0 then false else c i) out n)
 
 -- | Carry-select adder
-ripplecarry1 :: forall formula atomic a. (PropositionalFormula formula atomic, Ord formula, Ord a, Num a, Enum a) =>
+ripplecarry1 :: forall formula atomic a. (IsPropositional formula atomic, Ord formula, Ord a, Num a, Enum a) =>
                 (a -> formula)
              -> (a -> formula)
              -> (a -> formula)
@@ -122,13 +122,13 @@ ripplecarry1 x y c out n =
   psimplify
    (ripplecarry x y (\ i -> if i == 0 then true else c i) out n)
 
-mux :: forall formula. Combinable formula => formula -> formula -> formula -> formula
+mux :: forall formula. IsCombinable formula => formula -> formula -> formula -> formula
 mux sel in0 in1 = (((.~.) sel) .&. in0) .|. (sel .&. in1)
 
 offset :: forall t a. Num a => a -> (a -> t) -> a -> t
 offset n x i = x (n + i)
 
-carryselect :: forall formula atomic a. (PropositionalFormula formula atomic, Ord a, Ord formula, Num a, Enum a) =>
+carryselect :: forall formula atomic a. (IsPropositional formula atomic, Ord a, Ord formula, Num a, Enum a) =>
                (a -> formula)
             -> (a -> formula)
             -> (a -> formula)
@@ -151,7 +151,7 @@ carryselect x y c0 c1 s0 s1 c s n k =
           (n - k) k)
 
 -- | Equivalence problems for carry-select vs ripple carry adders. (p. 69)
-mk_adder_test :: forall formula atom a. (PropositionalFormula formula atom, atom ~ Knows a, Ord a, Ord formula, Num a, Enum a) =>
+mk_adder_test :: forall formula atom a. (IsPropositional formula atom, atom ~ Knows a, Ord a, Ord formula, Num a, Enum a) =>
                  a -> a -> formula
 mk_adder_test n k =
   let [x, y, c, s, c0, s0, c1, s1, c2, s2] =
@@ -170,7 +170,7 @@ mk_adder_test n k =
 --    = WWWWWWWWWWWWWWWWWWWW   (w)
 --    +                     Z  (z)
 
-rippleshift :: forall formula atomic a. (PropositionalFormula formula atomic, Ord a, Ord formula, Num a, Enum a) =>
+rippleshift :: forall formula atomic a. (IsPropositional formula atomic, Ord a, Ord formula, Num a, Enum a) =>
                (a -> formula)
             -> (a -> formula)
             -> (a -> formula)
@@ -182,7 +182,7 @@ rippleshift u v c z w n =
                    (\ i -> if i == 0 then z else w(i - 1)) n
 
 -- | Naive multiplier based on repeated ripple carry.
-multiplier :: forall formula atomic a. (PropositionalFormula formula atomic, Ord a, Ord formula, Num a, Enum a) =>
+multiplier :: forall formula atomic a. (IsPropositional formula atomic, Ord a, Ord formula, Num a, Enum a) =>
               (a -> a -> formula)
            -> (a -> a -> formula)
            -> (a -> a -> formula)
@@ -209,13 +209,13 @@ bitlength x = if x == 0 then 0 else 1 + bitlength (shiftR x 1);;
 bit :: forall a b. (Num a, Eq a, Bits b, Integral b) => a -> b -> Bool
 bit n x = if n == 0 then x `mod` 2 == 1 else bit (n - 1) (shiftR x 1)
 
-congruent_to :: forall formula atomic a b. (Bits b, PropositionalFormula formula atomic, Ord a, Ord formula, Num a, Integral b, Enum a) =>
+congruent_to :: forall formula atomic a b. (Bits b, IsPropositional formula atomic, Ord a, Ord formula, Num a, Integral b, Enum a) =>
                 (a -> formula) -> b -> a -> formula
 congruent_to x m n =
   conjoin (\ i -> if bit i m then x i else (.~.)(x i))
           (Set.fromList [0 .. (n - 1)])
 
-prime :: (PropositionalFormula formula atom, atom ~ Knows Integer) => Integer -> formula
+prime :: (IsPropositional formula atom, atom ~ Knows Integer) => Integer -> formula
 prime p =
   let [x, y, out] = map mk_knows ["x", "y", "out"] in
   let m i j = (x i) .&. (y j)

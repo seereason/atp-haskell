@@ -6,16 +6,16 @@
 {-# OPTIONS_GHC -Wall #-}
 module Formulas
     ( -- * True and False
-      Constants(asBool, fromBool), prettyBool
+      HasBoolean(asBool, fromBool), prettyBool
     , true, false, (⊨), (⊭)
     -- * Negation
-    , Negatable(naiveNegate, foldNegation), (.~.), (¬), negate, negated, negative, positive
-    -- * Combinable
-    , Combinable((.|.), (.&.), (.<=>.), (.=>.), (.<=.), (.<~>.), (.~|.), (.~&.))
+    , IsNegatable(naiveNegate, foldNegation), (.~.), (¬), negate, negated, negative, positive
+    -- * IsCombinable
+    , IsCombinable((.|.), (.&.), (.<=>.), (.=>.), (.<=.), (.<~>.), (.~|.), (.~&.))
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
     , Combination(..), BinOp(..), combine, binop
     -- * Formulas
-    , Formulae(atomic, foldAtoms, mapAtoms)
+    , IsFormula(atomic, foldAtoms, mapAtoms)
     , PFormula(F, T, Atom, Not, And, Or, Imp, Iff)
     , onatoms
     , overatoms
@@ -31,20 +31,20 @@ import Prelude hiding (negate)
 import Text.PrettyPrint.HughesPJClass (Doc, text)
 
 -- |Types that need to have True and False elements.
-class Constants p where
+class HasBoolean p where
     asBool :: p -> Maybe Bool
     fromBool :: Bool -> p
 
-true :: Constants p => p
+true :: HasBoolean p => p
 true = fromBool True
 
-false :: Constants p => p
+false :: HasBoolean p => p
 false = fromBool False
 
-(⊨) :: Constants p => p
+(⊨) :: HasBoolean p => p
 (⊨) = true
 
-(⊭) :: Constants p => p
+(⊭) :: HasBoolean p => p
 (⊭) = false
 
 prettyBool :: Bool -> Doc
@@ -53,8 +53,8 @@ prettyBool False = text "⊭"
 
 -- |The class of formulas that can be negated.  There are some types
 -- that can be negated but do not support the other Boolean Logic
--- operators, such as the 'Literal' class.
-class Negatable formula where
+-- operators, such as the 'IsLiteral' class.
+class IsNegatable formula where
     -- | Negate a formula in a naive fashion, the operators below
     -- prevent double negation.
     naiveNegate :: formula -> formula
@@ -64,24 +64,24 @@ class Negatable formula where
                  -> formula -> r
 
 -- | Is this formula negated at the top level?
-negated :: Negatable formula => formula -> Bool
+negated :: IsNegatable formula => formula -> Bool
 negated = foldNegation (const False) (not . negated)
 
 -- | Negate the formula, avoiding double negation
-(.~.) :: Negatable formula => formula -> formula
+(.~.) :: IsNegatable formula => formula -> formula
 (.~.) = foldNegation naiveNegate id
 
-(¬) :: Negatable formula => formula -> formula
+(¬) :: IsNegatable formula => formula -> formula
 (¬) = (.~.)
 
-negate :: Negatable formula => formula -> formula
+negate :: IsNegatable formula => formula -> formula
 negate = (.~.)
 
--- | Some operations on Negatable formulas
-negative :: Negatable formula => formula -> Bool
+-- | Some operations on IsNegatable formulas
+negative :: IsNegatable formula => formula -> Bool
 negative = negated
 
-positive :: Negatable formula => formula -> Bool
+positive :: IsNegatable formula => formula -> Bool
 positive = not . negative
 
 infix 5 .~., ¬
@@ -90,7 +90,7 @@ infix 5 .~., ¬
 -- @
 --  (.|.)
 -- @
-class Negatable formula => Combinable formula where
+class IsNegatable formula => IsCombinable formula where
     -- | Disjunction/OR
     (.|.) :: formula -> formula -> formula
 
@@ -124,26 +124,26 @@ infixr 2  .=>., ⇒, ==>
 infixr 3  .|., ∨
 infixl 4  .&., ∧
 
-(==>) :: Combinable formula => formula -> formula -> formula
+(==>) :: IsCombinable formula => formula -> formula -> formula
 (==>) = (.=>.)
-(<=>) :: Combinable formula => formula -> formula -> formula
+(<=>) :: IsCombinable formula => formula -> formula -> formula
 (<=>) = (.<=>.)
 
-(∧) :: Combinable formula => formula -> formula -> formula
+(∧) :: IsCombinable formula => formula -> formula -> formula
 (∧) = (.&.)
-(∨) :: Combinable formula => formula -> formula -> formula
+(∨) :: IsCombinable formula => formula -> formula -> formula
 (∨) = (.|.)
 
 -- | ⇒ can't be a function when -XUnicodeSyntax is enabled - it
 -- becomes a special character used in type signatures.
-(⇒) :: Combinable formula => formula -> formula -> formula
+(⇒) :: IsCombinable formula => formula -> formula -> formula
 (⇒) = (.=>.)
-(⇔) :: Combinable formula => formula -> formula -> formula
+(⇔) :: IsCombinable formula => formula -> formula -> formula
 (⇔) = (.<=>.)
 
 -- |The 'Combination' and 'BinOp' types can either be used as helper
 -- types for writing folds, or they can be embedded in a concrete type
--- intended to be a Combinable instance.
+-- intended to be a IsCombinable instance.
 data Combination formula
     = BinOp formula BinOp formula
     | (:~:) formula
@@ -163,14 +163,14 @@ data BinOp
 --   foldPropositional combine atomic
 -- @
 -- is a no-op.
-combine :: Combinable formula => Combination formula -> formula
+combine :: IsCombinable formula => Combination formula -> formula
 combine (BinOp f1 (:<=>:) f2) = f1 .<=>. f2
 combine (BinOp f1 (:=>:) f2) = f1 .=>. f2
 combine (BinOp f1 (:&:) f2) = f1 .&. f2
 combine (BinOp f1 (:|:) f2) = f1 .|. f2
 combine ((:~:) f) = (.~.) f
 
-binop :: Combinable formula => formula -> BinOp -> formula -> formula
+binop :: IsCombinable formula => formula -> BinOp -> formula -> formula
 binop a (:&:) b = a .&. b
 binop a (:|:) b = a .|. b
 binop a (:=>:) b = a .=>. b
@@ -187,26 +187,26 @@ data PFormula atom
     | Iff (PFormula atom) (PFormula atom)
     deriving (Eq, Ord, Read)
 
-instance Constants (PFormula atom) where
+instance HasBoolean (PFormula atom) where
     asBool T = Just True
     asBool F = Just False
     asBool _ = Nothing
     fromBool True = T
     fromBool False = F
 
-instance Negatable (PFormula atom) where
+instance IsNegatable (PFormula atom) where
     naiveNegate = Not
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 
-instance Combinable (PFormula atom) where
+instance IsCombinable (PFormula atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
     (.<=>.) = Iff
 
 -- | Class associating a formula type with its atom type.
-class Formulae formula atom | formula -> atom where
+class IsFormula formula atom | formula -> atom where
     atomic :: atom -> formula
     -- ^ Build a formula from an atom.
     foldAtoms :: (atom -> r -> r) -> formula -> r -> r
@@ -237,7 +237,7 @@ instance HasFixity atom => HasFixity (PFormula atom) where
     fixity (Imp _ _) = Fixity 2 InfixR
     fixity (Iff _ _) = Fixity 1 InfixL
 
-instance Formulae (PFormula atom) atom where
+instance IsFormula (PFormula atom) atom where
     atomic = Atom
     foldAtoms f fm b =
       case fm of
@@ -258,11 +258,11 @@ instance Formulae (PFormula atom) atom where
         Iff p q -> Iff (mapAtoms f p) (mapAtoms f q)
         _ -> fm
 
-overatoms :: Formulae formula atom => (atom -> r -> r) -> formula -> r -> r
+overatoms :: IsFormula formula atom => (atom -> r -> r) -> formula -> r -> r
 overatoms = foldAtoms
-onatoms :: Formulae formula atom => (atom -> formula) -> formula -> formula
+onatoms :: IsFormula formula atom => (atom -> formula) -> formula -> formula
 onatoms = mapAtoms
 
 -- | Special case of a union of the results of a function over the atoms.
-atom_union :: (Formulae formula atom, Ord r) => (atom -> Set r) -> formula -> Set r
+atom_union :: (IsFormula formula atom, Ord r) => (atom -> Set r) -> formula -> Set r
 atom_union f fm = foldAtoms (\h t -> Set.union (f h) t) fm Set.empty

@@ -1,10 +1,10 @@
 {-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables #-}
 module Extra where
 
-import FOL (vt, fApp, (.=.), for_all, exists, Atoms(appAtom), Predicate(Equals))
+import FOL (vt, fApp, (.=.), for_all, exists, IsAtom(appAtom), Predicate(Equals))
 import Formulas
 import Prop hiding (nnf)
-import Skolem (Skolem(toSkolem), skolemize, runSkolem, MyAtom, MyFormula)
+import Skolem (HasSkolem(toSkolem), skolemize, runSkolem, MyAtom, MyFormula)
 import Test.HUnit
 
 tests :: Test
