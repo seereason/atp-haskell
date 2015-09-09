@@ -45,6 +45,7 @@ module FOL
     , tests
     ) where
 
+import Data.Bool (bool)
 import Data.Data (Data)
 import Data.List (intersperse)
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
@@ -56,7 +57,7 @@ import Formulas (BinOp(..), Combination(..), Constants(..), Negatable(..), (.~.)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Prop (PropositionalFormula(foldPropositional))
 import Prelude hiding (pred)
-import Pretty (Doc, FixityDirection(InfixN, InfixL, InfixR), HasFixity(fixity), Fixity(Fixity), Pretty(pPrint), prettyShow, text, topFixity, (<>))
+import Pretty (Doc, FixityDirection(InfixN, InfixL, InfixR), HasFixity(fixity), Fixity(Fixity), parens, Pretty(pPrint), prettyShow, text, topFixity, (<>))
 import Test.HUnit
 
 class (Ord v, IsString v, Data v, Pretty v) => Variable v where
@@ -210,32 +211,8 @@ instance HasFixity atom => HasFixity (Formula atom) where
     fixity (Forall _ _) = Fixity 9 InfixN
     fixity (Exists _ _) = Fixity 9 InfixN
 
--- | Show a formula in a visually pleasing format.
-prettyFormula :: HasFixity atom =>
-                 (atom -> Doc)
-              -> Fixity        -- ^ The fixity of the parent formula.  If the operator being formatted here
-                               -- has a lower precedence it needs to be parenthesized.
-              -> Formula atom
-              -> Doc
-prettyFormula prettyAtom (Fixity parentPrecidence parentDirection) fm =
-    parenIf (parentPrecidence > precidence) (pp fm)
-    where
-      fix@(Fixity precidence direction) = fixity fm
-      parenIf True x = text "(" <> x <> text ")"
-      parenIf False x = x
-      pp F = text "⊨"
-      pp T = text "⊭"
-      pp (Atom atom) = prettyAtom atom
-      pp (Not f) = text "¬" <> prettyFormula prettyAtom fix f
-      pp (And f g) = prettyFormula prettyAtom fix f <> text "∧" <> prettyFormula prettyAtom fix g
-      pp (Or f g) = prettyFormula prettyAtom fix f <> text "∨" <> prettyFormula prettyAtom fix g
-      pp (Imp f g) = prettyFormula prettyAtom fix f <> text "⇒" <> prettyFormula prettyAtom fix g
-      pp (Iff f g) = prettyFormula prettyAtom fix f <> text "⇔" <> prettyFormula prettyAtom fix g
-      pp (Forall v f) = text ("∀" ++ show v ++ ". ") <> prettyFormula prettyAtom fix f
-      pp (Exists v f) = text ("∃" ++ show v ++ ". ") <> prettyFormula prettyAtom fix f
-
-instance (HasFixity atom, Pretty atom)  => Pretty (Formula atom) where
-    pPrint fm = prettyFormula pPrint topFixity fm
+--instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (Formula atom) where
+--    pPrint fm = prettyFirstOrder pPrint topFixity fm
 
 instance Formulae (Formula atom) atom where
     atomic = Atom
@@ -387,6 +364,24 @@ instance Ord atom => FirstOrderFormula (Formula atom) atom V where
           Forall v p -> qu (:!:) v p
           Exists v p -> qu (:?:) v p
           _ -> foldPropositional co tf at fm
+
+instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (Formula atom) where
+    pPrint fm = prettyFirstOrder topFixity fm
+
+prettyFirstOrder :: (FirstOrderFormula formula atom v, Pretty atom, HasFixity formula) => Fixity -> formula -> Doc
+prettyFirstOrder pfix fm =
+    bool id parens (pfix > fix) $ foldFirstOrder qu co tf at fm
+        where
+          fix = fixity fm
+          qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> prettyFirstOrder fix p
+          qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> prettyFirstOrder fix p
+          co ((:~:) f) = text "¬" <> prettyFirstOrder fix f
+          co (BinOp f (:&:) g) = prettyFirstOrder fix f <> text "∧" <> prettyFirstOrder fix g
+          co (BinOp f (:|:) g) = prettyFirstOrder fix f <> text "∨" <> prettyFirstOrder fix g
+          co (BinOp f (:=>:) g) = prettyFirstOrder fix f <> text "⇒" <> prettyFirstOrder fix g
+          co (BinOp f (:<=>:) g) = prettyFirstOrder fix f <> text "⇔" <> prettyFirstOrder fix g
+          tf = pPrint
+          at = pPrint
 
 -- | Special case of applying a subfunction to the top *terms*.
 onformula :: (Formulae formula r, Atoms r predicate term) => (term -> term) -> formula -> formula

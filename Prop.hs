@@ -9,6 +9,7 @@
 module Prop
     ( PropositionalFormula(foldPropositional)
     , convertPropositional
+    , prettyPropositional
     , Literal(foldLiteral)
     , zipLiterals
     , toPropositional
@@ -51,6 +52,7 @@ module Prop
     , tests
     ) where
 
+import Data.Bool (bool)
 import Data.Foldable as Foldable (null)
 import Data.List as List (map)
 import Data.Map as Map (Map)
@@ -66,10 +68,9 @@ import Formulas (atom_union,
                  PFormula(T, F, Atom, Not, And, Or, Imp, Iff))
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
 import Lib (fpf, (|=>), allpairs, setAny)
-import Pretty (HasFixity(fixity), botFixity)
+import Pretty (botFixity, Doc, HasFixity(fixity), nest, parens, Pretty(pPrint), prettyShow, text, topFixity)
 import Prelude hiding (negate, null)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
-import Text.PrettyPrint.HughesPJClass (Doc, nest, parens, Pretty(pPrint), prettyShow, text)
 
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
@@ -116,6 +117,22 @@ convertPropositional ca f1 =
       co (BinOp p (:<=>:) q) = (convertPropositional ca p) .<=>. (convertPropositional ca q)
       tf :: Bool -> f2
       tf = fromBool
+
+instance (Ord atom, Pretty atom, HasFixity atom) => Pretty (PFormula atom) where
+    pPrint fm = prettyPropositional topFixity fm
+
+prettyPropositional :: (PropositionalFormula formula atom, Pretty atom, HasFixity formula) => Fixity -> formula -> Doc
+prettyPropositional pfix fm =
+    bool id parens (pfix > fix) $ foldPropositional co tf at fm
+    where
+      fix = fixity fm
+      co ((:~:) f) = text "¬" <> prettyPropositional fix f
+      co (BinOp f (:&:) g) = prettyPropositional fix f <> text "∧" <> prettyPropositional fix g
+      co (BinOp f (:|:) g) = prettyPropositional fix f <> text "∨" <> prettyPropositional fix g
+      co (BinOp f (:=>:) g) = prettyPropositional fix f <> text "⇒" <> prettyPropositional fix g
+      co (BinOp f (:<=>:) g) = prettyPropositional fix f <> text "⇔" <> prettyPropositional fix g
+      tf = pPrint
+      at = pPrint
 
 data Prop = P {pname :: String} deriving (Eq, Ord)
 

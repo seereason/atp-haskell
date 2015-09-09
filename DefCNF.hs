@@ -45,7 +45,7 @@ instance NumAtom Atom where
 instance HasFixity Atom where
     fixity _ = botFixity
 
-instance (Pretty a, HasFixity a) => Literal (Formula a) a where
+instance (Ord atom, Pretty atom, HasFixity atom) => Literal (Formula atom) atom where
     foldLiteral ne tf at fm =
         case fm of
           T -> tf True

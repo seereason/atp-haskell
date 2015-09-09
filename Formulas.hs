@@ -23,13 +23,12 @@ module Formulas
     ) where
 
 import Data.Data (Data)
-import Data.Monoid ((<>))
 import Data.Set as Set (Set, empty, union)
 import Data.Typeable (Typeable)
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixL, InfixR, InfixN))
-import Pretty (HasFixity(fixity), topFixity)
+import Pretty (HasFixity(fixity))
 import Prelude hiding (negate)
-import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), text)
+import Text.PrettyPrint.HughesPJClass (Doc, text)
 
 -- |Types that need to have True and False elements.
 class Constants p where
@@ -237,31 +236,6 @@ instance HasFixity atom => HasFixity (PFormula atom) where
     fixity (Or _ _) = Fixity 3 InfixL
     fixity (Imp _ _) = Fixity 2 InfixR
     fixity (Iff _ _) = Fixity 1 InfixL
-
--- | Show a formula in a visually pleasing format.
-prettyFormula :: HasFixity atom =>
-                 (atom -> Doc)
-              -> Fixity        -- ^ The fixity of the parent formula.  If the operator being formatted here
-                               -- has a lower precedence it needs to be parenthesized.
-              -> PFormula atom
-              -> Doc
-prettyFormula prettyAtom (Fixity parentPrecidence parentDirection) fm =
-    parenIf (parentPrecidence > precidence) (pp fm)
-    where
-      fix@(Fixity precidence direction) = fixity fm
-      parenIf True x = text "(" <> x <> text ")"
-      parenIf False x = x
-      pp F = text "⊨"
-      pp T = text "⊭"
-      pp (Atom atom) = prettyAtom atom
-      pp (Not f) = text "¬" <> prettyFormula prettyAtom fix f
-      pp (And f g) = prettyFormula prettyAtom fix f <> text "∧" <> prettyFormula prettyAtom fix g
-      pp (Or f g) = prettyFormula prettyAtom fix f <> text "∨" <> prettyFormula prettyAtom fix g
-      pp (Imp f g) = prettyFormula prettyAtom fix f <> text "⇒" <> prettyFormula prettyAtom fix g
-      pp (Iff f g) = prettyFormula prettyAtom fix f <> text "⇔" <> prettyFormula prettyAtom fix g
-
-instance (HasFixity atom, Pretty atom)  => Pretty (PFormula atom) where
-    pPrint fm = prettyFormula pPrint topFixity fm
 
 instance Formulae (PFormula atom) atom where
     atomic = Atom
