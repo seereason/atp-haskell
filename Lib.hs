@@ -370,7 +370,7 @@ minimize :: forall a b. Ord b => (a -> b) -> [a] -> Maybe a
 minimize f l = optimize (<) f l
 
 optimize' :: forall a b. (b -> b -> Bool) -> (a -> b) -> Set.Set a -> Maybe a
-optimize' ord f s = optimize ord f (Set.toList s)
+optimize' ord f s = optimize ord f (Set.toAscList s)
 
 maximize' :: forall a b. Ord b => (a -> b) -> Set.Set a -> Maybe a
 maximize' f s = optimize' (>) f s

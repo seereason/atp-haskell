@@ -9,6 +9,11 @@
 module Prop
     ( PropositionalFormula(foldPropositional)
     , convertPropositional
+    , Literal(foldLiteral)
+    , zipLiterals
+    , toPropositional
+    , prettyLit
+    , foldAtomsLiteral
     -- * Interpretation of formulas.
     , eval
     , atoms
@@ -40,7 +45,7 @@ module Prop
     , dnf
     , purecnf
     , simpcnf
-    , cnf
+    , cnf', cnf_
     , trivial
     -- * Tests
     , tests
@@ -53,17 +58,18 @@ import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map, minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
 import Formulas (atom_union,
-                 Constants(fromBool, asBool), true, false,
-                 Negatable((.~.)), positive, negate,
+                 Constants(fromBool, asBool), true, false, prettyBool,
+                 Negatable, (.~.), negate, positive,
                  Combinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  Formulae(atomic), onatoms,
                  Formula(T, F, Atom, Not, And, Or, Imp, Iff, Forall, Exists))
+import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
 import Lib (fpf, (|=>), allpairs, setAny)
 import Lib.Pretty (HasFixity(fixity), botFixity)
 import Prelude hiding (negate, null)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
-import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
+import Text.PrettyPrint.HughesPJClass (Doc, nest, parens, Pretty(pPrint), prettyShow, text)
 
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
@@ -146,6 +152,58 @@ instance Ord atom => PropositionalFormula (Formula atom) atom where
           Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier"
           Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier"
 
+-- | Literals are the building blocks of the clause and implicative normal
+-- |forms.  They support negation and must include True and False elements.
+class (Formulae lit atom, Negatable lit, Constants lit,
+       Pretty lit -- for debugging
+      {-, HasFixity atom, Ord lit-}) => Literal lit atom | lit -> atom where
+    foldLiteral :: (lit -> r) -> (Bool -> r) -> (atom -> r) -> lit -> r
+
+-- | Unify two literals
+zipLiterals :: Literal lit atom =>
+               (lit -> lit -> Maybe r)
+            -> (Bool -> Bool -> Maybe r)
+            -> (atom -> atom -> Maybe r)
+            -> lit -> lit -> Maybe r
+zipLiterals neg tf at fm1 fm2 =
+    foldLiteral neg' tf' at' fm1
+    where
+      neg' p1 = foldLiteral (neg p1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      tf' x1 = foldLiteral (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
+      at' a1 = foldLiteral (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
+
+toPropositional :: forall lit atom1 pf atom2. (Literal lit atom1, PropositionalFormula pf atom2) =>
+                   (atom1 -> atom2) -> lit -> pf
+toPropositional ca lit = foldLiteral (\ p -> (.~.) (toPropositional ca p)) fromBool (atomic . ca) lit
+
+prettyLit :: forall lit atom v. (Literal lit atom, HasFixity atom) =>
+              (Fixity -> atom -> Doc)
+           -> (v -> Doc)
+           -> Fixity
+           -> lit
+           -> Doc
+prettyLit pa pv pprec lit =
+    parensIf (pprec > prec) $ foldLiteral neg tf at lit
+    where
+      neg :: lit -> Doc
+      neg x = text "¬" <> prettyLit pa pv (Fixity 6 InfixN) x
+      tf x = prettyBool x
+      at x = pa (Fixity 6 InfixN) x
+      parensIf False = id
+      parensIf _ = parens . nest 1
+      prec = fixityLiteral lit
+
+fixityLiteral :: (Literal formula atom, HasFixity atom) => formula -> Fixity
+fixityLiteral formula =
+    foldLiteral neg tf at formula
+    where
+      neg _ = Fixity 5 InfixN
+      tf _ = Fixity 10 InfixN
+      at = fixity
+
+foldAtomsLiteral :: Literal lit atom => (r -> atom -> r) -> r -> lit -> r
+foldAtomsLiteral f i lit = foldLiteral (foldAtomsLiteral f i) (const i) (f i) lit
+
 data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
 type TruthTableRow = ([Bool], Bool)
 
@@ -166,7 +224,7 @@ test01 =
     let fm = atomic "p" .=>. atomic "q" .<=>. atomic "r" .&. atomic "s" .|. (atomic "t" .<=>. ((.~.) ((.~.) (atomic "u"))) .&. atomic "v") :: Formula Prop
         input = (prettyShow fm, show fm)
         expected = (-- Pretty printed
-                    "p⇒q⇔r∧s∨(t⇔¬¬u∧v)",
+                    "p⇒q⇔r∧s∨(t⇔u∧v)",
                     -- Haskell expression
                     "((atomic (\"p\")) .=>. (atomic (\"q\"))) .<=>. (((atomic (\"r\")) .&. (atomic (\"s\"))) .|. ((atomic (\"t\")) .<=>. (((.~.) ((.~.) (atomic (\"u\")))) .&. (atomic (\"v\")))))") in
     TestCase $ assertEqual "Build Formula 1" expected input
@@ -726,13 +784,16 @@ simpcnf fm =
   let cjs = Set.filter (not . trivial) (purecnf fm) in
   Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
-cnf :: PropositionalFormula formula atom => formula -> formula
-cnf fm = list_conj (Set.map list_disj (simpcnf fm))
+cnf_ :: forall pf lit atom. (PropositionalFormula pf atom, Literal lit atom, Ord lit) => Set.Set (Set.Set lit) -> pf
+cnf_ = list_conj . Set.map (list_disj . Set.map (toPropositional id))
+
+cnf' :: PropositionalFormula formula atom => formula -> formula
+cnf' fm = list_conj (Set.map list_disj (simpcnf fm))
 
 -- Example. (p. 61)
 test35 :: Test
 test35 = TestCase $ assertEqual "cnf (p. 61)" expected input
-    where input = (prettyShow (cnf fm), tautology (Iff fm (cnf fm)))
+    where input = (prettyShow (cnf' fm), tautology (Iff fm (cnf' fm)))
           expected = ("(p∨q)∧(p∨r)∧(¬p∨¬r)", True)
           fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
           p = Atom (P "p")

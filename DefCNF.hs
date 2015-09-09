@@ -8,93 +8,61 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module DefCNF
-    ( Literal(foldLiteral)
-    , zipLiterals
-    , toPropositional
-    , prettyLit
-    , foldAtomsLiteral
-    , NumAtom(ma, ai)
+    ( NumAtom(ma, ai)
     , defcnfs
     , defcnf1
     , defcnf2
     , defcnf3
     -- * Tests
-    , Atom(P), N
     , tests
     ) where
 
 import Formulas
-import Lib.Pretty (HasFixity(fixity))
-import Prop (PropositionalFormula, cnf, foldPropositional, nenf, simpcnf)
-import PropExamples (N)
+import Lib.Pretty (HasFixity(fixity), botFixity)
+import Prop (PropositionalFormula, Literal(foldLiteral), cnf', cnf_, foldPropositional, nenf, simpcnf, list_conj, list_disj)
+-- import PropExamples (Knows(K), mk_knows, Atom(P), N)
 import FOL (pApp, MyFormula)
+import Data.Function (on)
 import Data.List as List
-import Data.Map as Map
+import Data.Map as Map hiding (fromList)
 import Data.Monoid ((<>))
 import Data.Set as Set
+import Data.String (fromString)
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
 import Test.HUnit
-import Text.PrettyPrint.HughesPJClass (Doc, nest, parens, prettyShow, text)
+import Text.PrettyPrint.HughesPJClass (Doc, nest, parens, Pretty(pPrint), prettyShow, text)
 
--- | Literals are the building blocks of the clause and implicative normal
--- |forms.  They support negation and must include True and False elements.
-class (Negatable lit, Constants lit, HasFixity atom, Formulae lit atom, Ord lit) => Literal lit atom | lit -> atom where
-    foldLiteral :: (lit -> r) -> (Bool -> r) -> (atom -> r) -> lit -> r
+data Atom = P String Integer deriving (Eq, Ord, Show)
 
--- | Unify two literals
-zipLiterals :: Literal lit atom =>
-               (lit -> lit -> Maybe r)
-            -> (Bool -> Bool -> Maybe r)
-            -> (atom -> atom -> Maybe r)
-            -> lit -> lit -> Maybe r
-zipLiterals neg tf at fm1 fm2 =
-    foldLiteral neg' tf' at' fm1
-    where
-      neg' p1 = foldLiteral (neg p1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
-      tf' x1 = foldLiteral (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
-      at' a1 = foldLiteral (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
+instance Pretty Atom where
+    pPrint (P s n) = text (s ++ if n == 0 then "" else show n)
 
-toPropositional :: forall lit atom1 pf atom2. (Literal lit atom1, PropositionalFormula pf atom2) =>
-                   (atom1 -> atom2) -> lit -> pf
-toPropositional ca lit = foldLiteral (\ p -> (.~.) (toPropositional ca p)) fromBool (atomic . ca) lit
-prettyLit :: forall lit atom v. (Literal lit atom) =>
-              (Fixity -> atom -> Doc)
-           -> (v -> Doc)
-           -> Fixity
-           -> lit
-           -> Doc
-prettyLit pa pv pprec lit =
-    parensIf (pprec > prec) $ foldLiteral neg tf at lit
-    where
-      neg :: lit -> Doc
-      neg x = text "¬" <> prettyLit pa pv (Fixity 6 InfixN) x
-      tf x = prettyBool x
-      at x = pa (Fixity 6 InfixN) x
-      parensIf False = id
-      parensIf _ = parens . nest 1
-      prec = fixityLiteral lit
+class NumAtom atom where
+    ma :: Integer -> atom
+    ai :: atom -> Integer
 
-fixityLiteral :: (Literal formula atom) => formula -> Fixity
-fixityLiteral formula =
-    foldLiteral neg tf at formula
-    where
-      neg _ = Fixity 5 InfixN
-      tf _ = Fixity 10 InfixN
-      at = fixity
+instance NumAtom Atom where
+    ma = P "p_"
+    ai (P _ n) = n
 
-foldAtomsLiteral :: Literal lit atom => (r -> atom -> r) -> r -> lit -> r
-foldAtomsLiteral f i lit = foldLiteral (foldAtomsLiteral f i) (const i) (f i) lit
+instance HasFixity Atom where
+    fixity _ = botFixity
 
--- | Example (p. 74)
-test01 :: Test
-test01 = TestCase $ assertEqual "cnf test (p. 74)"
-                                "(p[]∨q[]∨r[])∧(p[]∨¬q[]∨¬r[])∧(q[]∨¬p[]∨¬r[])∧(r[]∨¬p[]∨¬q[])"
-                                (let (p, q, r) = (pApp "p" [], pApp "q" [], pApp "r" []) in
-                                 prettyShow (cnf (p .<=>. (q .<=>. r)) :: MyFormula))
-
--- | Make a stylized variable and update the index.
-data Atom a = P a
-
+instance (Pretty a, HasFixity a) => Literal (Formula a) a where
+    foldLiteral ne tf at fm =
+        case fm of
+          T -> tf True
+          F -> tf False
+          Atom a -> at a
+          Not l -> ne l
+          And _ _ -> error "And in Literal"
+          Or _ _ -> error "Or in Literal"
+          Imp _ _ -> error "Imp in Literal"
+          Iff _ _ -> error "IFF in Literal"
+          Forall _ _ -> error "Forall in Literal"
+          Exists _ _ -> error "Exists in Literal"
+{-
+-- | Association between Ints (N's) and atoms.
 class NumAtom atom where
     ma :: N -> atom
     ai :: atom -> N
@@ -102,12 +70,19 @@ class NumAtom atom where
 instance NumAtom (Atom N) where
     ma = P
     ai (P n) = n
+-}
+-- | Example (p. 74)
+test01 :: Test
+test01 = TestCase $ assertEqual "cnf test (p. 74)"
+                                "(p[]∨q[]∨r[])∧(p[]∨¬q[]∨¬r[])∧(q[]∨¬p[]∨¬r[])∧(r[]∨¬p[]∨¬q[])"
+                                (let (p, q, r) = (pApp "p" [], pApp "q" [], pApp "r" []) in
+                                 prettyShow (cnf' (p .<=>. (q .<=>. r)) :: MyFormula))
 
-mkprop :: forall pf atom. (PropositionalFormula pf atom, NumAtom atom) => N -> (pf, N)
+mkprop :: forall pf atom. (PropositionalFormula pf atom, NumAtom atom) => Integer -> (pf, Integer)
 mkprop n = (atomic (ma n :: atom), n + 1)
 
 -- |  Core definitional CNF procedure.
-maincnf :: (NumAtom atom, PropositionalFormula pf atom) => (pf, Map.Map pf pf, Int) -> (pf, Map.Map pf pf, Int)
+maincnf :: (NumAtom atom, PropositionalFormula pf atom) => (pf, Map.Map pf pf, Integer) -> (pf, Map.Map pf pf, Integer)
 maincnf trip@(fm, _defs, _n) =
     foldPropositional co tf at fm
     where
@@ -119,7 +94,7 @@ maincnf trip@(fm, _defs, _n) =
       tf _ = trip
       at _ = trip
 
-defstep :: (PropositionalFormula pf atom, NumAtom atom, Ord pf) => (pf -> pf -> pf) -> (pf, pf) -> (pf, Map.Map pf pf, Int) -> (pf, Map.Map pf pf, Int)
+defstep :: (PropositionalFormula pf atom, NumAtom atom, Ord pf) => (pf -> pf -> pf) -> (pf, pf) -> (pf, Map.Map pf pf, Integer) -> (pf, Map.Map pf pf, Integer)
 defstep op (p,q) (_fm, defs, n) =
   let (fm1,defs1,n1) = maincnf (p,defs,n) in
   let (fm2,defs2,n2) = maincnf (q,defs1,n1) in
@@ -129,7 +104,7 @@ defstep op (p,q) (_fm, defs, n) =
     Nothing -> let (v,n3) = mkprop n2 in (v, Map.insert v (v .<=>. fm') defs2,n3)
 
 -- | Make n large enough that "v_m" won't clash with s for any m >= n
-max_varindex :: NumAtom atom =>  atom -> Int -> Int
+max_varindex :: NumAtom atom =>  atom -> Integer -> Integer
 max_varindex atom n = max n (ai atom)
 
 -- | Overall definitional CNF.
@@ -137,7 +112,7 @@ max_varindex atom n = max n (ai atom)
 mk_defcnf :: forall pf lit atom. (PropositionalFormula pf atom, Literal lit atom, NumAtom atom, Ord lit) =>
              ((pf, Map.Map pf pf, Int) -> (pf, Map.Map pf pf, Int)) -> pf -> Set.Set (Set.Set lit)
 -}
-mk_defcnf :: (PropositionalFormula formula atom, PropositionalFormula lit atom, NumAtom atom) => ((formula, Map pf pf, Int) -> (lit, Map pf lit, Int)) -> formula -> Set (Set lit)
+mk_defcnf :: (PropositionalFormula formula atom, PropositionalFormula lit atom, NumAtom atom) => ((formula, Map pf pf, Integer) -> (lit, Map pf lit, Integer)) -> formula -> Set (Set lit)
 mk_defcnf fn fm =
   let fm' = nenf fm in
   let n = 1 + overatoms max_varindex fm' 0 in
@@ -146,12 +121,32 @@ mk_defcnf fn fm =
   Set.unions (simpcnf fm'' : List.map simpcnf deflist)
 
 -- defcnf1 :: forall pf lit atom. (PropositionalFormula pf atom, Literal lit atom, NumAtom atom, Ord lit) => lit -> atom -> pf -> pf
-defcnf1 :: (PropositionalFormula pf atom, PropositionalFormula (Set (Set pf)) atom, NumAtom atom) =>
-           lit -> atom -> pf -> Set (Set pf)
-defcnf1 _ _ fm = cnf (mk_defcnf maincnf fm {- :: Set.Set (Set.Set lit)-})
-
+-- defcnf1 :: (PropositionalFormula pf atom, PropositionalFormula pf atom, NumAtom atom) => pf -> pf
+defcnf1 :: (Constants pf, Ord pf, PropositionalFormula pf atom, NumAtom atom, Literal pf atom) => pf -> pf
+defcnf1 fm = cnf_ (mk_defcnf maincnf fm)
 
 -- Example.
+test02 :: Test
+test02 =
+    let fm :: Formula Atom
+        fm = let (p, q, r, s) = (atomic (P "p" 0), atomic (P "q" 0), atomic (P "r" 0), atomic (P "s" 0)) in
+             (p .|. (q .&. ((.~.) r))) .&. s in
+    TestCase $ assertEqual "defcnf1 (p. 77)"
+                           (sortBy (compare `on` length) . sort . List.map sort $
+                            [["p","p_1","¬p_2"],
+                             ["p_1","r","¬q"],
+                             ["p_2","¬p"],
+                             ["p_2","¬p_1"],
+                             ["p_2","¬p_3"],
+                             ["p_3"],
+                             ["p_3","¬p_2","¬s"],
+                             ["q","¬p_1"],
+                             ["s","¬p_3"],
+                             ["¬p_1","¬r"]])
+                           (strings (mk_defcnf maincnf fm))
+
+strings :: Pretty a => Set (Set a) -> [[String]]
+strings ss = sortBy (compare `on` length) . sort . Set.toList $ Set.map (sort . Set.toList . Set.map prettyShow) ss
 {-
 START_INTERACTIVE;;
 defcnf1 <<(p \/ (q /\ ~r)) /\ s>>;;
@@ -160,25 +155,25 @@ END_INTERACTIVE;;
 
 -- | Version tweaked to exploit initial structure.
 subcnf :: (PropositionalFormula pf atom, NumAtom atom) =>
-          ((pf, Map.Map pf pf, Int) -> (pf, Map.Map pf pf, Int))
+          ((pf, Map.Map pf pf, Integer) -> (pf, Map.Map pf pf, Integer))
        -> (pf -> pf -> pf)
        -> pf
        -> pf
-       -> (pf, Map.Map pf pf, Int)
-       -> (pf, Map.Map pf pf, Int)
+       -> (pf, Map.Map pf pf, Integer)
+       -> (pf, Map.Map pf pf, Integer)
 subcnf sfn op p q (_fm,defs,n) =
   let (fm1,defs1,n1) = sfn (p,defs,n) in
   let (fm2,defs2,n2) = sfn (q,defs1,n1) in
   (op fm1 fm2, defs2, n2)
 
-orcnf :: (NumAtom atom, PropositionalFormula pf atom) => (pf, Map.Map pf pf, Int) -> (pf, Map.Map pf pf, Int)
+orcnf :: (NumAtom atom, PropositionalFormula pf atom) => (pf, Map.Map pf pf, Integer) -> (pf, Map.Map pf pf, Integer)
 orcnf trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> maincnf trip) (\ _ -> maincnf trip) fm
     where
       co (BinOp p (:|:) q) = subcnf orcnf (.|.) p q trip
       co _ = maincnf trip
 
-andcnf :: (PropositionalFormula pf atom, NumAtom atom, Ord pf) => (pf, Map.Map pf pf, Int) -> (pf, Map.Map pf pf, Int)
+andcnf :: (PropositionalFormula pf atom, NumAtom atom, Ord pf) => (pf, Map.Map pf pf, Integer) -> (pf, Map.Map pf pf, Integer)
 andcnf trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> orcnf trip) (\ _ -> orcnf trip) fm
     where
@@ -191,7 +186,7 @@ defcnfs fm = mk_defcnf andcnf fm
 -- defcnf2 :: forall pf lit atom.(PropositionalFormula pf atom, Literal lit atom, NumAtom atom, Ord lit) => lit -> atom -> pf -> pf
 defcnf2 :: (PropositionalFormula pf atom, PropositionalFormula (Set (Set pf)) atom, NumAtom atom) =>
            lit -> atom -> pf -> Set (Set pf)
-defcnf2 _ _ fm = cnf (defcnfs fm)
+defcnf2 _ _ fm = cnf' (defcnfs fm)
 
 -- Examples.
 {-
@@ -201,7 +196,7 @@ END_INTERACTIVE;;
 -}
 
 -- | Version that guarantees 3-CNF.
-andcnf3 :: (PropositionalFormula pf atom, NumAtom atom, Ord pf) => (pf, Map.Map pf pf, Int) -> (pf, Map.Map pf pf, Int)
+andcnf3 :: (PropositionalFormula pf atom, NumAtom atom, Ord pf) => (pf, Map.Map pf pf, Integer) -> (pf, Map.Map pf pf, Integer)
 andcnf3 trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> maincnf trip) (\ _ -> maincnf trip) fm
     where
@@ -211,7 +206,7 @@ andcnf3 trip@(fm,_defs,_n) =
 -- defcnf3 :: forall pf lit atom. (PropositionalFormula pf atom, Literal lit atom, NumAtom atom, Ord lit) => lit -> atom -> pf -> pf
 defcnf3 :: (PropositionalFormula pf atom, PropositionalFormula (Set (Set pf)) atom, NumAtom atom) =>
            lit -> atom -> pf -> Set (Set pf)
-defcnf3 _ _ fm = cnf (mk_defcnf andcnf3 fm)
+defcnf3 _ _ fm = cnf' (mk_defcnf andcnf3 fm)
 
 tests :: Test
-tests = TestList [test01]
+tests = TestList [test01, test02]

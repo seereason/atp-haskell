@@ -13,7 +13,7 @@ import DefCNF hiding (tests)
 import Formulas
 import Lib hiding (tests)
 import Prop hiding (tests)
-import PropExamples (prime, Knows(K), Atom(P), N)
+import PropExamples (prime, Knows(K), Atom(P))
 import Data.Foldable as Foldable
 import Data.Map as Map
 import Data.Set as Set
@@ -21,7 +21,9 @@ import Prelude hiding (negate)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow)
 
-import Debug.Trace
+instance NumAtom (Knows Integer) where
+    ma n = K "p" n Nothing
+    ai (K _ n _) = n
 
 flatten :: Ord a => Set (Set a) -> Set a
 flatten ss' = Set.fold Set.union Set.empty ss'
@@ -146,9 +148,9 @@ resolution_rule clauses =
 -- Overall procedure.                                                        
 -- ------------------------------------------------------------------------- 
 
-dp :: forall lit atom. (Literal lit atom, Ord lit, Pretty lit) => Set.Set (Set.Set lit) -> Failing Bool        
+dp :: forall lit atom. (Literal lit atom, Ord lit, Pretty lit) => Set.Set (Set.Set lit) -> Failing Bool
 dp clauses =
-  if Set.null (t1 clauses)
+  if Set.null clauses
   then Success True
   else if Set.member Set.empty clauses
        then Success False
@@ -160,8 +162,6 @@ dp clauses =
                     Failure _ -> resolution_rule clauses >>= dp
 #endif
 
-t1 x = trace ("dp: " ++ prettyShow x) x
-
 -- | Davis-Putnam satisfiability tester and tautology checker.
 dpsat :: forall pf atom. (PropositionalFormula pf atom, Literal pf atom, NumAtom atom, Ord pf) => pf -> Failing Bool
 dpsat fm = dp (defcnfs fm :: Set (Set pf))
@@ -171,7 +171,7 @@ dptaut fm = not <$> dpsat (negate fm)
 
 -- Examples.
 
-test01 = TestCase (assertEqual "dptaut(prime 11) p. 84" (Success True) (dptaut (prime 11 :: Formula (Knows N))))
+test01 = TestCase (assertEqual "dptaut(prime 11) p. 84" (Success True) (dptaut (prime 11 :: Formula (Knows Integer))))
 
 -- | The same thing but with the DPLL procedure. (p. 84)
 posneg_count :: forall formula. (Negatable formula, Ord formula) =>
@@ -204,11 +204,11 @@ dpll clauses =
                                 (Failure a, _) -> Failure a
                                 (_, Failure b) -> Failure b
 
-dpllsat :: forall pf. (PropositionalFormula pf (Knows N), Literal pf (Knows N), Ord pf) =>
+dpllsat :: forall pf. (PropositionalFormula pf (Knows Integer), Literal pf (Knows Integer), Ord pf) =>
            pf -> Failing Bool
 dpllsat fm = dpll(defcnfs fm :: Set (Set pf))
 
-dplltaut :: forall pf. (PropositionalFormula pf (Knows N), Literal pf (Knows N), Ord pf) =>
+dplltaut :: forall pf. (PropositionalFormula pf (Knows Integer), Literal pf (Knows Integer), Ord pf) =>
             pf -> Failing Bool
 dplltaut fm = dpllsat (negate fm) >>= return . not
 
@@ -216,7 +216,7 @@ dplltaut fm = dpllsat (negate fm) >>= return . not
 -- Example.                                                                  
 -- ------------------------------------------------------------------------- 
 
-test02 = TestCase (assertEqual "dplltaut(prime 11)" (Success True) (dplltaut (prime 11 :: Formula (Knows N))))
+test02 = TestCase (assertEqual "dplltaut(prime 11)" (Success True) (dplltaut (prime 11 :: Formula (Knows Integer))))
 
 -- ------------------------------------------------------------------------- 
 -- Iterative implementation with explicit trail instead of recursion.        
@@ -327,8 +327,8 @@ dplbtaut fm = dplbsat (negate fm) >>= return . not
 -- Examples.                                                                 
 -- ------------------------------------------------------------------------- 
 
-test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" (Success True) (dplitaut (prime 101 :: Formula (Knows N)))),
-                   TestCase (assertEqual "dplbtaut(prime 101)" (Success True) (dplbtaut (prime 101 :: Formula (Knows N))))]
+test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" (Success True) (dplitaut (prime 101 :: Formula (Knows Integer)))),
+                   TestCase (assertEqual "dplbtaut(prime 101)" (Success True) (dplbtaut (prime 101 :: Formula (Knows Integer))))]
 
 tests :: Test
 tests = TestList [test01, test02, test03]

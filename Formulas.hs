@@ -9,7 +9,7 @@ module Formulas
       Constants(asBool, fromBool), prettyBool
     , true, false, (⊨), (⊭)
     -- * Negation
-    , Negatable((.~.), foldNegation), (¬), negate, negated, negative, positive
+    , Negatable(negatePrivate, foldNegation), (.~.), (¬), negate, negated, negative, positive
     -- * Combinable
     , Combinable((.|.), (.&.), (.<=>.), (.=>.), (.<=.), (.<~>.), (.~|.), (.~&.))
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
@@ -61,23 +61,27 @@ prettyBool False = text "⊭"
 -- that can be negated but do not support the other Boolean Logic
 -- operators, such as the 'Literal' class.
 class Negatable formula where
-    -- | Negate a formula
-    (.~.) :: formula -> formula
+    -- | Negate a formula in a naive fashion, the operators below
+    -- prevent double negation.
+    negatePrivate :: formula -> formula
     -- | Test whether a formula is negated or normal
     foldNegation :: (formula -> r) -- ^ called for normal formulas
                  -> (formula -> r) -- ^ called for negated formulas
                  -> formula -> r
+
 -- | Is this formula negated at the top level?
 negated :: Negatable formula => formula -> Bool
 negated = foldNegation (const False) (not . negated)
 
+-- | Negate the formula, avoiding double negation
+(.~.) :: Negatable formula => formula -> formula
+(.~.) = foldNegation negatePrivate id
+
 (¬) :: Negatable formula => formula -> formula
 (¬) = (.~.)
 
--- | Return the formula negated, eliminating double negations at the
--- top level.
 negate :: Negatable formula => formula -> formula
-negate = foldNegation (.~.) id
+negate = (.~.)
 
 -- | Some operations on Negatable formulas
 negative :: Negatable formula => formula -> Bool
@@ -241,7 +245,7 @@ instance Constants (Formula atom) where
     fromBool False = F
 
 instance Negatable (Formula atom) where
-    (.~.) = Not
+    negatePrivate = Not
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 

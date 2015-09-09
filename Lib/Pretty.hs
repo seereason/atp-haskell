@@ -12,10 +12,10 @@ module Lib.Pretty
     ) where
 
 import qualified Language.Haskell.TH.Syntax as TH
-import Text.PrettyPrint.HughesPJClass (Pretty(pPrint))
-import Data.List as List (map)
+import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text, (<>))
+import Data.List as List (intercalate, intersperse, map, sort)
 import Data.Map as Map (Map, map, mapKeys)
-import Data.Set as Set (Set, map)
+import Data.Set as Set (Set, map, toAscList)
 {-
 import Text.PrettyPrint (Doc, text)
 
@@ -101,3 +101,7 @@ instance Show (Classy Bool) where
 
 instance Show (Classy Int) where
     show = show . deClassy
+
+instance Pretty a => Pretty (Set a) where
+    -- pPrint s = text "{" <> mconcat (intersperse (text ", ") (List.map pPrint (Set.toAscList s))) <> text "}"
+    pPrint s = text "{" <> text (intercalate ", " (List.sort (List.map prettyShow (Set.toAscList s)))) <> text "}"

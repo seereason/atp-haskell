@@ -1,9 +1,10 @@
 -- | Some propositional formulas to test, and functions to generate classes.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, RankNTypes, ScopedTypeVariables, StandaloneDeriving, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, RankNTypes, ScopedTypeVariables, StandaloneDeriving, TypeFamilies, TypeSynonymInstances #-}
 module PropExamples
-    ( Knows(P), N
+    ( Knows(K), Atom(P)
+    , mk_knows, mk_knows2
     , prime
     , ramsey
     , tests
@@ -21,30 +22,31 @@ import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
 
 -- Generate assertion equivalent to R(s,t) <= n for the Ramsey number R(s,t)
 
-data Knows a = P String a (Maybe a) deriving (Eq, Ord, Show)
+data Knows a = K String a (Maybe a) deriving (Eq, Ord, Show)
 
-instance Pretty (Knows N) where
-    pPrint (P s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
+-- | Make a stylized variable and update the index.
+data Atom a = P a
 
-instance HasFixity (Knows N) where
+instance Pretty (Knows Integer) where
+    pPrint (K s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
+
+instance HasFixity (Knows Integer) where
     fixity = const botFixity
 
-type N = Int
-
-ramsey :: forall formula.
-          (PropositionalFormula formula (Knows N), Ord formula) =>
-          Int -> Int -> N -> formula
+ramsey :: forall formula atom.
+          (PropositionalFormula formula atom, atom ~ Knows Integer, Ord formula) =>
+          Integer -> Integer -> Integer -> formula
 ramsey s t n =
   let vertices = Set.fromList [1 .. n] in
-  let yesgrps = Set.map (allsets (2 :: Int)) (allsets s vertices)
-      nogrps = Set.map (allsets (2 :: Int)) (allsets t vertices) in
-  let e xs = let [m, n] = Set.toAscList xs in atomic (P "p" m (Just n)) in
+  let yesgrps = Set.map (allsets (2 :: Integer)) (allsets s vertices)
+      nogrps = Set.map (allsets (2 :: Integer)) (allsets t vertices) in
+  let e xs = let [m, n] = Set.toAscList xs in atomic (K "p" m (Just n)) in
   list_disj (Set.map (list_conj . Set.map e) yesgrps) .|. list_disj (Set.map (list_conj . Set.map (\ p -> (.~.)(e p))) nogrps)
 
 -- Some currently tractable examples. (p. 36)
 test01 :: Test
-test01 = TestList [TestCase (assertEqual "tautology (ramsey 3 3 5)" False (tautology (ramsey 3 3 5 :: Formula (Knows N)))),
-                   TestCase (assertEqual "tautology (ramsey 3 3 6)" True (tautology (ramsey 3 3 6 :: Formula (Knows N))))]
+test01 = TestList [TestCase (assertEqual "tautology (ramsey 3 3 5)" False (tautology (ramsey 3 3 5 :: Formula (Knows Integer)))),
+                   TestCase (assertEqual "tautology (ramsey 3 3 6)" True (tautology (ramsey 3 3 6 :: Formula (Knows Integer))))]
 
 -- | Half adder.  (p. 66)
 halfsum :: forall formula. Combinable formula => formula -> formula -> formula
@@ -81,18 +83,22 @@ ripplecarry x y c out n =
     conjoin (\ i -> fa (x i) (y i) (c i) (out i) (c(i + 1))) (Set.fromList [0 .. (n - 1)])
 
 -- Example.
-mk_index :: forall formula a. PropositionalFormula formula (Knows a) => String -> a -> formula
-mk_index x i = atomic (P x i Nothing)
-mk_index2 :: forall formula a. PropositionalFormula formula (Knows a) => String -> a -> a -> formula
-mk_index2 x i j = atomic (P x i (Just j))
+mk_knows :: forall formula a. PropositionalFormula formula (Knows a) => String -> a -> formula
+mk_knows x i = atomic (K x i Nothing)
+mk_knows2 :: forall formula a. PropositionalFormula formula (Knows a) => String -> a -> a -> formula
+mk_knows2 x i j = atomic (K x i (Just j))
 
-test02 = TestCase (assertEqual "ripplecarry x y c out 2"
-                               ((((atomic (P "OUT" 0 Nothing)) .<=>. (((atomic (P "X" 0 Nothing)) .<=>. ((.~.) (atomic (P "Y" 0 Nothing)))) .<=>. ((.~.) (atomic (P "C" 0 Nothing))))) .&.
-                                 ((atomic (P "C" 1 Nothing)) .<=>. (((atomic (P "X" 0 Nothing)) .&. (atomic (P "Y" 0 Nothing))) .|. (((atomic (P "X" 0 Nothing)) .|. (atomic (P "Y" 0 Nothing))) .&. (atomic (P "C" 0 Nothing)))))) .&.
-                                (((atomic (P "OUT" 1 Nothing)) .<=>. (((atomic (P "X" 1 Nothing)) .<=>. ((.~.) (atomic (P "Y" 1 Nothing)))) .<=>. ((.~.) (atomic (P "C" 1 Nothing))))) .&.
-                                 ((atomic (P "C" 2 Nothing)) .<=>. (((atomic (P "X" 1 Nothing)) .&. (atomic (P "Y" 1 Nothing))) .|. (((atomic (P "X" 1 Nothing)) .|. (atomic (P "Y" 1 Nothing))) .&. (atomic (P "C" 1 Nothing)))))))
-                                (let [x, y, out, c] = map mk_index ["X", "Y", "OUT", "C"] in
-                                 ripplecarry x y c out 2 :: Formula (Knows N)))
+mk_index :: forall formula a. PropositionalFormula formula (Atom a) => String -> a -> formula
+mk_index x i = atomic (P i)
+
+test02 =
+    let [x, y, out, c] = map mk_knows ["X", "Y", "OUT", "C"] :: [Integer -> Formula (Knows Integer)] in
+    TestCase (assertEqual "ripplecarry x y c out 2"
+                          (((out 0 .<=>. ((x 0 .<=>. ((.~.) (y 0))) .<=>. ((.~.) (c 0)))) .&.
+                            (c 1 .<=>. ((x 0 .&. y 0) .|. ((x 0 .|. y 0) .&. c 0)))) .&.
+                           ((out 1 .<=>. ((x 1 .<=>. ((.~.) (y 1))) .<=>. ((.~.) (c 1)))) .&.
+                            (c 2 .<=>. ((x 1 .&. y 1) .|. ((x 1 .|. y 1) .&. c 1)))))
+                          (ripplecarry x y c out 2 :: Formula (Knows Integer)))
 
 -- | Special case with 0 instead of c(0).
 ripplecarry0 :: forall formula atomic a. (PropositionalFormula formula atomic, Ord formula, Ord a, Num a, Enum a) =>
@@ -145,11 +151,11 @@ carryselect x y c0 c1 s0 s1 c s n k =
           (n - k) k)
 
 -- | Equivalence problems for carry-select vs ripple carry adders. (p. 69)
-mk_adder_test :: forall formula a. (PropositionalFormula formula (Knows a), Ord a, Ord formula, Num a, Enum a) =>
+mk_adder_test :: forall formula atom a. (PropositionalFormula formula atom, atom ~ Knows a, Ord a, Ord formula, Num a, Enum a) =>
                  a -> a -> formula
 mk_adder_test n k =
   let [x, y, c, s, c0, s0, c1, s1, c2, s2] =
-          map mk_index ["x", "y", "c", "s", "c0", "s0", "c1", "s1", "c2", "s2"] in
+          map mk_knows ["x", "y", "c", "s", "c0", "s0", "c1", "s1", "c2", "s2"] in
   (((carryselect x y c0 c1 s0 s1 c s n k) .&.
     ((.~.) (c 0))) .&.
    (ripplecarry0 x y c2 s2 n)) .=>.
@@ -209,17 +215,17 @@ congruent_to x m n =
   conjoin (\ i -> if bit i m then x i else (.~.)(x i))
           (Set.fromList [0 .. (n - 1)])
 
-prime :: forall formula. (PropositionalFormula formula (Knows N), Ord formula) => N -> formula
+prime :: (PropositionalFormula formula atom, atom ~ Knows Integer) => Integer -> formula
 prime p =
-  let [x, y, out] = map mk_index ["x", "y", "out"] in
+  let [x, y, out] = map mk_knows ["x", "y", "out"] in
   let m i j = (x i) .&. (y j)
-      [u, v] = map mk_index2 ["u", "v"] in
-  let (n :: Int) = bitlength p in
+      [u, v] = map mk_knows2 ["u", "v"] in
+  let (n :: Integer) = bitlength p in
   (.~.) (multiplier m u v out (n - 1) .&. congruent_to out p (max n (2 * n - 2)))
 
--- Examples. (P. 72)
+-- Examples. (p. 72)
 
-type F = Formula (Knows Int)
+type F = Formula (Knows Integer)
 
 test03 :: Test
 test03 =
