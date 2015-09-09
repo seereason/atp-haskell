@@ -6,6 +6,11 @@
 module DP
     ( tests
     , dpll
+    , dpllsat
+    , dplltaut
+    , dplb
+    , dplbsat
+    , dplbtaut
     ) where
 
 import Control.Applicative.Error (Failing(..))

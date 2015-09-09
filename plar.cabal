@@ -31,5 +31,5 @@ Test-Suite atp-haskell-tests
   Type: exitcode-stdio-1.0
   Hs-Source-Dirs: tests
   Main-Is: Main.hs
-  Build-Depends: atp-haskell, base, containers, HUnit
+  Build-Depends: applicative-extras, atp-haskell, base, containers, HUnit
   GHC-options: -Wall -O2
