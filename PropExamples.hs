@@ -40,7 +40,7 @@ ramsey s t n =
   let vertices = Set.fromList [1 .. n] in
   let yesgrps = Set.map (allsets (2 :: Integer)) (allsets s vertices)
       nogrps = Set.map (allsets (2 :: Integer)) (allsets t vertices) in
-  let e xs = let [m, n] = Set.toAscList xs in atomic (K "p" m (Just n)) in
+  let e xs = let [a, b] = Set.toAscList xs in atomic (K "p" a (Just b)) in
   list_disj (Set.map (list_conj . Set.map e) yesgrps) .|. list_disj (Set.map (list_conj . Set.map (\ p -> (.~.)(e p))) nogrps)
 
 -- Some currently tractable examples. (p. 36)

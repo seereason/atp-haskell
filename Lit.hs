@@ -6,22 +6,16 @@ module Lit
     , zipLiterals
     , prettyLit
     , foldAtomsLiteral
+    , LFormula(T, F, Atom, Not)
     ) where
 
-import Data.Bool (bool)
-import Data.Foldable as Foldable (null)
-import Data.List as List (map)
-import Data.Map as Map (Map)
 import Data.Monoid ((<>))
-import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map, minView, partition, Set, singleton, toAscList, union)
-import Data.String (IsString(fromString))
 import Formulas (atom_union,
                  HasBoolean(fromBool, asBool), true, false, prettyBool,
-                 IsNegatable, (.~.), negate, positive,
+                 IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
-                 IsFormula(atomic), onatoms,
-                 PFormula(T, F, Atom, Not, And, Or, Imp, Iff))
+                 IsFormula(atomic), onatoms)
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
 import Lib (fpf, (|=>), allpairs, setAny)
 import Pretty (botFixity, Doc, HasFixity(fixity), nest, parens, Pretty(pPrint), prettyShow, text, topFixity)
@@ -75,3 +69,22 @@ fixityLiteral formula =
 
 foldAtomsLiteral :: IsLiteral lit atom => (r -> atom -> r) -> r -> lit -> r
 foldAtomsLiteral f i lit = foldLiteral (foldAtomsLiteral f i) (const i) (f i) lit
+
+data LFormula atom
+    = F
+    | T
+    | Atom atom
+    | Not (LFormula atom)
+    deriving (Eq, Ord, Read)
+
+instance HasBoolean (LFormula atom) where
+    asBool T = Just True
+    asBool F = Just False
+    asBool _ = Nothing
+    fromBool True = T
+    fromBool False = F
+
+instance IsNegatable (LFormula atom) where
+    naiveNegate = Not
+    foldNegation normal inverted (Not x) = foldNegation inverted normal x
+    foldNegation normal _ x = normal x

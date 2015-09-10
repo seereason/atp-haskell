@@ -19,9 +19,9 @@ module DefCNF
     ) where
 
 import Formulas as P
-import Lit (IsLiteral(foldLiteral))
+import Lit (IsLiteral)
 import Pretty (HasFixity(fixity), botFixity)
-import Prop (IsPropositional, cnf', cnf_, foldPropositional, nenf, simpcnf)
+import Prop as P (IsPropositional, cnf', cnf_, foldPropositional, nenf, PFormula, simpcnf)
 -- import PropExamples (Knows(K), mk_knows, Atom(P), N)
 import FOL (pApp)
 import Data.Function (on)
@@ -47,18 +47,6 @@ instance NumAtom Atom where
 
 instance HasFixity Atom where
     fixity _ = botFixity
-
-instance (Ord atom, Pretty atom, HasFixity atom) => IsLiteral (PFormula atom) atom where
-    foldLiteral ne tf at fm =
-        case fm of
-          P.T -> tf True
-          P.F -> tf False
-          P.Atom a -> at a
-          P.Not l -> ne l
-          P.And _ _ -> error "And in Literal"
-          P.Or _ _ -> error "Or in Literal"
-          P.Imp _ _ -> error "Imp in Literal"
-          P.Iff _ _ -> error "IFF in Literal"
 
 -- | Example (p. 74)
 test01 :: Test

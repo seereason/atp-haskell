@@ -21,7 +21,7 @@ import DefCNF hiding (tests)
 import Formulas
 import Lib hiding (tests)
 import Lit
-import Prelude hiding (negate)
+import Prelude hiding (negate, pure)
 import Pretty (Pretty)
 import Prop hiding (tests)
 import PropExamples (prime, Knows(K))
@@ -177,6 +177,7 @@ dptaut fm = not <$> dpsat (negate fm)
 
 -- Examples.
 
+test01 :: Test
 test01 = TestCase (assertEqual "dptaut(prime 11) p. 84" (Success True) (dptaut (prime 11 :: PFormula (Knows Integer))))
 
 -- | The same thing but with the DPLL procedure. (p. 84)
@@ -222,6 +223,7 @@ dplltaut fm = dpllsat (negate fm) >>= return . not
 -- Example.                                                                  
 -- ------------------------------------------------------------------------- 
 
+test02 :: Test
 test02 = TestCase (assertEqual "dplltaut(prime 11)" (Success True) (dplltaut (prime 11 :: PFormula (Knows Integer))))
 
 -- ------------------------------------------------------------------------- 
@@ -333,6 +335,7 @@ dplbtaut fm = dplbsat (negate fm) >>= return . not
 -- Examples.                                                                 
 -- ------------------------------------------------------------------------- 
 
+test03 :: Test
 test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" (Success True) (dplitaut (prime 101 :: PFormula (Knows Integer)))),
                    TestCase (assertEqual "dplbtaut(prime 101)" (Success True) (dplbtaut (prime 101 :: PFormula (Knows Integer))))]
 

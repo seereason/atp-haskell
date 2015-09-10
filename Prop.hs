@@ -43,6 +43,8 @@ module Prop
     , simpcnf
     , cnf', cnf_
     , trivial
+    -- * Instance
+    , PFormula(F, T, Atom, Not, And, Or, Imp, Iff)
     -- * Tests
     , tests
     ) where
@@ -55,16 +57,14 @@ import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map, minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
 import Formulas (atom_union,
-                 HasBoolean(fromBool, asBool), true, false, prettyBool,
-                 IsNegatable, (.~.), negate, positive,
+                 HasBoolean(fromBool, asBool), true, false,
+                 IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
-                 IsFormula(atomic), onatoms,
-                 PFormula(T, F, Atom, Not, And, Or, Imp, Iff))
-import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
+                 IsFormula(atomic, foldAtoms, mapAtoms), onatoms)
 import Lib (fpf, (|=>), allpairs, setAny)
-import Lit
-import Pretty (botFixity, Doc, HasFixity(fixity), nest, parens, Pretty(pPrint), prettyShow, text, topFixity)
+import Lit (IsLiteral(foldLiteral))
+import Pretty (botFixity, Doc, Fixity(Fixity), FixityDirection(InfixN, InfixL, InfixR), HasFixity(fixity), parens, Pretty(pPrint), prettyShow, text, topFixity)
 import Prelude hiding (negate, null)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 
@@ -151,6 +151,79 @@ instance Pretty Prop where
 instance HasFixity Prop where
     fixity _ = botFixity
 
+data PFormula atom
+    = F
+    | T
+    | Atom atom
+    | Not (PFormula atom)
+    | And (PFormula atom) (PFormula atom)
+    | Or (PFormula atom) (PFormula atom)
+    | Imp (PFormula atom) (PFormula atom)
+    | Iff (PFormula atom) (PFormula atom)
+    deriving (Eq, Ord, Read)
+
+instance HasBoolean (PFormula atom) where
+    asBool T = Just True
+    asBool F = Just False
+    asBool _ = Nothing
+    fromBool True = T
+    fromBool False = F
+
+instance IsNegatable (PFormula atom) where
+    naiveNegate = Not
+    foldNegation normal inverted (Not x) = foldNegation inverted normal x
+    foldNegation normal _ x = normal x
+
+instance IsCombinable (PFormula atom) where
+    (.|.) = Or
+    (.&.) = And
+    (.=>.) = Imp
+    (.<=>.) = Iff
+
+-- infixr 9 !, ?, ∀, ∃
+
+-- Display formulas using infix notation
+instance Show atom => Show (PFormula atom) where
+    show F = "false"
+    show T = "true"
+    show (Atom atom) = "atomic (" ++ show atom ++ ")"
+    show (Not f) = "(.~.) (" ++ show f ++ ")"
+    show (And f g) = "(" ++ show f ++ ") .&. (" ++ show g ++ ")"
+    show (Or f g) = "(" ++ show f ++ ") .|. (" ++ show g ++ ")"
+    show (Imp f g) = "(" ++ show f ++ ") .=>. (" ++ show g ++ ")"
+    show (Iff f g) = "(" ++ show f ++ ") .<=>. (" ++ show g ++ ")"
+
+instance HasFixity atom => HasFixity (PFormula atom) where
+    fixity T = Fixity 10 InfixN
+    fixity F = Fixity 10 InfixN
+    fixity (Atom a) = fixity a
+    fixity (Not _) = Fixity 5 InfixN
+    fixity (And _ _) = Fixity 4 InfixL
+    fixity (Or _ _) = Fixity 3 InfixL
+    fixity (Imp _ _) = Fixity 2 InfixR
+    fixity (Iff _ _) = Fixity 1 InfixL
+
+instance IsFormula (PFormula atom) atom where
+    atomic = Atom
+    foldAtoms f fm b =
+      case fm of
+        Atom a -> f a b
+        Not p -> foldAtoms f p b
+        And p q -> foldAtoms f p (foldAtoms f q b)
+        Or p q -> foldAtoms f p (foldAtoms f q b)
+        Imp p q -> foldAtoms f p (foldAtoms f q b)
+        Iff p q -> foldAtoms f p (foldAtoms f q b)
+        _ -> b
+    mapAtoms f fm =
+      case fm of
+        Atom a -> f a
+        Not p -> Not (mapAtoms f p)
+        And p q -> And (mapAtoms f p) (mapAtoms f q)
+        Or p q -> Or (mapAtoms f p) (mapAtoms f q)
+        Imp p q -> Imp (mapAtoms f p) (mapAtoms f q)
+        Iff p q -> Iff (mapAtoms f p) (mapAtoms f q)
+        _ -> fm
+
 instance Ord atom => IsPropositional (PFormula atom) atom where
     foldPropositional co tf at fm =
         case fm of
@@ -162,6 +235,18 @@ instance Ord atom => IsPropositional (PFormula atom) atom where
           Or p q -> co (BinOp p (:|:) q)
           Imp p q -> co (BinOp p (:=>:) q)
           Iff p q -> co (BinOp p (:<=>:) q)
+
+instance (Ord atom, Pretty atom, HasFixity atom) => IsLiteral (PFormula atom) atom where
+    foldLiteral ne tf at fm =
+        case fm of
+          T -> tf True
+          F -> tf False
+          Atom a -> at a
+          Not l -> ne l
+          And _ _ -> error "And in Literal"
+          Or _ _ -> error "Or in Literal"
+          Imp _ _ -> error "Imp in Literal"
+          Iff _ _ -> error "IFF in Literal"
 
 data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
 type TruthTableRow = ([Bool], Bool)
