@@ -25,6 +25,7 @@ module FOL
     , IsFirstOrder(quant, foldFirstOrder), for_all, exists
     , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     , convertFirstOrder
+    , propositionalFromFirstOrder
     , onformula
     -- * Semantics
     , Interp
@@ -319,27 +320,27 @@ infix 5 .=. -- , .!=., ≡, ≢
 
 instance IsFormula (Formula v atom) atom where
     atomic = Atom
-    foldAtoms f fm b =
+    overatoms f fm b =
       case fm of
         Atom a -> f a b
-        Not p -> foldAtoms f p b
-        And p q -> foldAtoms f p (foldAtoms f q b)
-        Or p q -> foldAtoms f p (foldAtoms f q b)
-        Imp p q -> foldAtoms f p (foldAtoms f q b)
-        Iff p q -> foldAtoms f p (foldAtoms f q b)
-        Forall _x p -> foldAtoms f p b
-        Exists _x p -> foldAtoms f p b
+        Not p -> overatoms f p b
+        And p q -> overatoms f p (overatoms f q b)
+        Or p q -> overatoms f p (overatoms f q b)
+        Imp p q -> overatoms f p (overatoms f q b)
+        Iff p q -> overatoms f p (overatoms f q b)
+        Forall _x p -> overatoms f p b
+        Exists _x p -> overatoms f p b
         _ -> b
-    mapAtoms f fm =
+    onatoms f fm =
       case fm of
         Atom a -> f a
-        Not p -> Not (mapAtoms f p)
-        And p q -> And (mapAtoms f p) (mapAtoms f q)
-        Or p q -> Or (mapAtoms f p) (mapAtoms f q)
-        Imp p q -> Imp (mapAtoms f p) (mapAtoms f q)
-        Iff p q -> Iff (mapAtoms f p) (mapAtoms f q)
-        Forall x p -> Forall x (mapAtoms f p)
-        Exists x p -> Exists x (mapAtoms f p)
+        Not p -> Not (onatoms f p)
+        And p q -> And (onatoms f p) (onatoms f q)
+        Or p q -> Or (onatoms f p) (onatoms f q)
+        Imp p q -> Imp (onatoms f p) (onatoms f q)
+        Iff p q -> Iff (onatoms f p) (onatoms f q)
+        Forall x p -> Forall x (onatoms f p)
+        Exists x p -> Exists x (onatoms f p)
         _ -> fm
 
 instance (Ord atom, Ord v) => IsPropositional (Formula v atom) atom where
@@ -403,6 +404,19 @@ convertFirstOrder ca cv f1 =
       tf = fromBool
       at :: a1 -> f2
       at = atomic . ca
+
+-- | Convert any first order formula to a propositional formula.  If
+-- we encounter a quantifier an error is raised.
+propositionalFromFirstOrder :: (IsFirstOrder fof atom1 v, IsPropositional pf atom2) => (atom1 -> atom2) -> fof -> pf
+propositionalFromFirstOrder ca fm =
+    foldFirstOrder qu co fromBool (atomic . ca) fm
+    where
+      qu _ _ _ = error "propositionalFromFirstOrder: found quantifier"
+      co ((:~:) p) = (.~.) (propositionalFromFirstOrder ca p)
+      co (BinOp p (:&:) q) = propositionalFromFirstOrder ca p .&. propositionalFromFirstOrder ca q
+      co (BinOp p (:|:) q) = propositionalFromFirstOrder ca p .|. propositionalFromFirstOrder ca q
+      co (BinOp p (:=>:) q) = propositionalFromFirstOrder ca p .=>. propositionalFromFirstOrder ca q
+      co (BinOp p (:<=>:) q) = propositionalFromFirstOrder ca p .<=>. propositionalFromFirstOrder ca q
 
 for_all :: IsFirstOrder formula atom v => v -> formula -> formula
 for_all = quant (:!:)

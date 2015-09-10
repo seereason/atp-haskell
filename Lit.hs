@@ -5,22 +5,15 @@ module Lit
     ( IsLiteral(foldLiteral)
     , zipLiterals
     , prettyLit
-    , foldAtomsLiteral
+    -- , foldAtomsLiteral
     , LFormula(T, F, Atom, Not)
     ) where
 
 import Data.Monoid ((<>))
-import Formulas (atom_union,
-                 HasBoolean(fromBool, asBool), true, false, prettyBool,
-                 IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive,
-                 IsCombinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
-                 Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
-                 IsFormula(atomic), onatoms)
+import Formulas (HasBoolean(..), IsNegatable(..), IsFormula)
 import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
-import Lib (fpf, (|=>), allpairs, setAny)
-import Pretty (botFixity, Doc, HasFixity(fixity), nest, parens, Pretty(pPrint), prettyShow, text, topFixity)
+import Pretty (Doc, HasFixity(fixity), nest, parens, Pretty(pPrint), text)
 import Prelude hiding (negate, null)
-import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- |forms.  They support negation and must include True and False elements.
@@ -53,7 +46,7 @@ prettyLit pa pv pprec lit =
     where
       neg :: lit -> Doc
       neg x = text "¬" <> prettyLit pa pv (Fixity 6 InfixN) x
-      tf x = prettyBool x
+      tf = pPrint
       at x = pa (Fixity 6 InfixN) x
       parensIf False = id
       parensIf _ = parens . nest 1
@@ -67,8 +60,8 @@ fixityLiteral formula =
       tf _ = Fixity 10 InfixN
       at = fixity
 
-foldAtomsLiteral :: IsLiteral lit atom => (r -> atom -> r) -> r -> lit -> r
-foldAtomsLiteral f i lit = foldLiteral (foldAtomsLiteral f i) (const i) (f i) lit
+-- foldAtomsLiteral :: IsLiteral lit atom => (r -> atom -> r) -> r -> lit -> r
+-- foldAtomsLiteral f i lit = overatoms (flip f) lit i
 
 data LFormula atom
     = F

@@ -287,19 +287,21 @@ askolemize = skolem . nnf . simplify
 -- | Remove the leading universal quantifiers.  After a call to pnf
 -- this will be all the universal quantifiers, and the skolemization
 -- will have already turned all the existential quantifiers into
--- skolem functions.
-specialize :: IsFirstOrder r atom v => r -> r
-specialize fm =
-    foldFirstOrder qu (\_ -> fm) (\_ -> fm) (\_ -> fm) fm
+-- skolem functions.  For this reason we can safely convert to any
+-- instance of IsPropositional.
+specialize :: (IsFirstOrder fof atom1 v, IsPropositional pf atom2) => (atom1 -> atom2) -> fof -> pf
+specialize ca fm =
+    propositionalFromFirstOrder ca (specialize' fm)
     where
-      qu (:!:) _ p = specialize p
+      specialize' p = foldFirstOrder qu (\_ -> p) (\_ -> p) (\_ -> p) p
+      qu (:!:) _ p = specialize' p
       qu _ _ _ = fm
 
 -- | Skolemize and then specialize.  Because we know all quantifiers
 -- are gone we can convert to any instance of IsPropositional.
-skolemize :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function, HasSkolem function v, Monad m) =>
-             formula -> StateT SkolemState m formula
-skolemize fm = (specialize . pnf) <$> askolemize fm
+skolemize :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function, HasSkolem function v, IsPropositional pf atom2, Monad m) =>
+             (atom -> atom2) -> formula -> StateT SkolemState m pf
+skolemize ca fm = (specialize ca . pnf) <$> askolemize fm
 
 -- | A function type that is an instance of HasSkolem
 data Function
@@ -331,7 +333,7 @@ type MyFormula = Formula V MyAtom
 
 test04 :: Test
 test04 = TestCase $ assertEqual "skolemize 1 (p. 150)" expected input
-    where input = runSkolem (skolemize fm) :: MyFormula
+    where input = runSkolem (skolemize id fm) :: MyFormula
           fm :: MyFormula
           fm = exists "y" (pApp ("<") [vt "x", vt "y"] .=>.
                            for_all "u" (exists "v" (pApp ("<") [fApp "*" [vt "x", vt "u"],  fApp "*" [vt "y", vt "v"]])))
@@ -342,7 +344,7 @@ test05 :: Test
 test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
     where p = "P"
           q = "Q"
-          input = runSkolem (skolemize fm) :: MyFormula
+          input = runSkolem (skolemize id fm) :: MyFormula
           fm :: MyFormula
           fm = for_all "x" ((pApp p [vt "x"]) .=>.
                             (exists "y" (exists "z" ((pApp q [vt "y"]) .|.

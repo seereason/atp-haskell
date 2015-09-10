@@ -15,9 +15,7 @@ module Formulas
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
     , Combination(..), BinOp(..), combine, binop
     -- * Formulas
-    , IsFormula(atomic, foldAtoms, mapAtoms)
-    , onatoms
-    , overatoms
+    , IsFormula(atomic, overatoms, onatoms)
     , atom_union
     ) where
 
@@ -177,16 +175,11 @@ binop a (:<=>:) b = a .<=>. b
 class IsFormula formula atom | formula -> atom where
     atomic :: atom -> formula
     -- ^ Build a formula from an atom.
-    foldAtoms :: (atom -> r -> r) -> formula -> r -> r
+    overatoms :: (atom -> r -> r) -> formula -> r -> r
     -- ^ Formula analog of list iterator "itlist".
-    mapAtoms :: (atom -> formula) -> formula -> formula
+    onatoms :: (atom -> formula) -> formula -> formula
     -- ^ Apply a function to the atoms, otherwise keeping structure.
-
-overatoms :: IsFormula formula atom => (atom -> r -> r) -> formula -> r -> r
-overatoms = foldAtoms
-onatoms :: IsFormula formula atom => (atom -> formula) -> formula -> formula
-onatoms = mapAtoms
 
 -- | Special case of a union of the results of a function over the atoms.
 atom_union :: (IsFormula formula atom, Ord r) => (atom -> Set r) -> formula -> Set r
-atom_union f fm = foldAtoms (\h t -> Set.union (f h) t) fm Set.empty
+atom_union f fm = overatoms (\h t -> Set.union (f h) t) fm Set.empty

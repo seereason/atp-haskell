@@ -61,7 +61,7 @@ import Formulas (atom_union,
                  IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
-                 IsFormula(atomic, foldAtoms, mapAtoms), onatoms)
+                 IsFormula(atomic, overatoms, onatoms), onatoms)
 import Lib (fpf, (|=>), allpairs, setAny)
 import Lit (IsLiteral(foldLiteral))
 import Pretty (botFixity, Doc, Fixity(Fixity), FixityDirection(InfixN, InfixL, InfixR), HasFixity(fixity), parens, Pretty(pPrint), prettyShow, text, topFixity)
@@ -114,9 +114,9 @@ convertPropositional ca f1 =
       tf :: Bool -> f2
       tf = fromBool
 
-toPropositional :: forall lit atom1 pf atom2. (IsLiteral lit atom1, IsPropositional pf atom2) =>
+propositionalFromLiteral :: forall lit atom1 pf atom2. (IsLiteral lit atom1, IsPropositional pf atom2) =>
                    (atom1 -> atom2) -> lit -> pf
-toPropositional ca lit = foldLiteral (\ p -> (.~.) (toPropositional ca p)) fromBool (atomic . ca) lit
+propositionalFromLiteral ca lit = foldLiteral (\ p -> (.~.) (propositionalFromLiteral ca p)) fromBool (atomic . ca) lit
 
 instance (Ord atom, Pretty atom, HasFixity atom) => Pretty (PFormula atom) where
     pPrint fm = prettyPropositional topFixity fm
@@ -205,23 +205,23 @@ instance HasFixity atom => HasFixity (PFormula atom) where
 
 instance IsFormula (PFormula atom) atom where
     atomic = Atom
-    foldAtoms f fm b =
+    overatoms f fm b =
       case fm of
         Atom a -> f a b
-        Not p -> foldAtoms f p b
-        And p q -> foldAtoms f p (foldAtoms f q b)
-        Or p q -> foldAtoms f p (foldAtoms f q b)
-        Imp p q -> foldAtoms f p (foldAtoms f q b)
-        Iff p q -> foldAtoms f p (foldAtoms f q b)
+        Not p -> overatoms f p b
+        And p q -> overatoms f p (overatoms f q b)
+        Or p q -> overatoms f p (overatoms f q b)
+        Imp p q -> overatoms f p (overatoms f q b)
+        Iff p q -> overatoms f p (overatoms f q b)
         _ -> b
-    mapAtoms f fm =
+    onatoms f fm =
       case fm of
         Atom a -> f a
-        Not p -> Not (mapAtoms f p)
-        And p q -> And (mapAtoms f p) (mapAtoms f q)
-        Or p q -> Or (mapAtoms f p) (mapAtoms f q)
-        Imp p q -> Imp (mapAtoms f p) (mapAtoms f q)
-        Iff p q -> Iff (mapAtoms f p) (mapAtoms f q)
+        Not p -> Not (onatoms f p)
+        And p q -> And (onatoms f p) (onatoms f q)
+        Or p q -> Or (onatoms f p) (onatoms f q)
+        Imp p q -> Imp (onatoms f p) (onatoms f q)
+        Iff p q -> Iff (onatoms f p) (onatoms f q)
         _ -> fm
 
 instance Ord atom => IsPropositional (PFormula atom) atom where
@@ -829,7 +829,7 @@ simpcnf fm =
   Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
 cnf_ :: forall pf lit atom. (IsPropositional pf atom, IsLiteral lit atom, Ord lit) => Set.Set (Set.Set lit) -> pf
-cnf_ = list_conj . Set.map (list_disj . Set.map (toPropositional id))
+cnf_ = list_conj . Set.map (list_disj . Set.map (propositionalFromLiteral id))
 
 cnf' :: IsPropositional formula atom => formula -> formula
 cnf' fm = list_conj (Set.map list_disj (simpcnf fm))

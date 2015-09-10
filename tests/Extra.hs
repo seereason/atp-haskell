@@ -19,7 +19,7 @@ test06 =
         expected' :: MyFormula
         expected' = (((vt "x") .=. (vt "x"))) .&. ((.~.) (((fApp (toSkolem "x")[]) .=. (vt "x"))))
         -- atoms = [appAtom equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x")[]) .=. (vt "x")-}] :: [MyAtom]
-        sk = runSkolem (skolemize fm) :: MyFormula
+        sk = runSkolem (skolemize id fm) :: MyFormula
         table = truthTable expected' :: TruthTable MyAtom in
     TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y"
                            (expected',
