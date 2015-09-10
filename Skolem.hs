@@ -103,12 +103,10 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
           fm = (for_all "x" (pApp p [vt "x"])) .=>. ((exists "y" (pApp q [vt "y"])) .<=>. exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"]))
 
 -- | Prenex normal form.
-pullquants :: forall formula atom term predicate function v.
-              (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) => formula -> formula
+pullquants :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) => formula -> formula
 pullquants fm =
     foldFirstOrder (\_ _ _ -> fm) pullQuantsCombine (\_ -> fm) (\_ -> fm) fm
     where
-      pullQuantsCombine :: Combination formula -> formula
       pullQuantsCombine ((:~:) _) = fm
       pullQuantsCombine (BinOp l op r) =
           case (getQuant l, op, getQuant r) of
@@ -152,7 +150,7 @@ prenex fm =
 
 pnf :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
        formula -> formula
-pnf fm = prenex (nnf (simplify fm))
+pnf = prenex . nnf . simplify
 
 -- Example.
 
@@ -177,7 +175,7 @@ funcs :: IsTerm term v function => term -> Set (function, Arity)
 funcs term = foldTerm (\_ -> Set.empty) (\f ts -> Set.singleton (f, length ts)) term
 
 -- | Get the functions in a term and formula.
-functions :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function, Ord function) =>
+functions :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
              formula -> Set (function, Arity)
 functions fm =
     foldFirstOrder qu co (\_ -> mempty) at fm

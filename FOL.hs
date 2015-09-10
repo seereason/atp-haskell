@@ -147,7 +147,7 @@ data Term function v
     | FApply function [Term function v]
     deriving (Eq, Ord)
 
-instance (IsVariable v, Show v, IsFunction function, Show function) => {-(Ord function, Show function, IsVariable v, Show v) =>-} Show (Term function v) where
+instance (IsVariable v, Show v, IsFunction function, Show function) => Show (Term function v) where
     show = showTerm
 
 showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
@@ -340,7 +340,7 @@ instance IsFormula (Formula v atom) atom where
         Exists x p -> Exists x (onatoms f p)
         _ -> fm
 
-instance (IsAtom atom predicate term, IsTerm term v function, Ord atom) => IsPropositional (Formula v atom) atom where
+instance (IsAtom atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -420,7 +420,7 @@ for_all = quant (:!:)
 exists :: IsFirstOrder formula atom v => v -> formula -> formula
 exists = quant (:?:)
 
-instance (IsAtom atom predicate term, Ord atom, IsTerm term v function) => IsFirstOrder (Formula v atom) atom v where
+instance (IsAtom atom predicate term, IsTerm term v function) => IsFirstOrder (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldFirstOrder qu co tf at fm =
@@ -429,7 +429,7 @@ instance (IsAtom atom predicate term, Ord atom, IsTerm term v function) => IsFir
           Exists v p -> qu (:?:) v p
           _ -> foldPropositional co tf at fm
 
-instance (Ord atom, HasFixity atom, Pretty atom, Pretty v, IsVariable v, IsAtom atom predicate term, IsTerm term v function) => Pretty (Formula v atom) where
+instance (IsAtom atom predicate term, IsTerm term v function, IsVariable v, HasFixity atom, Pretty atom, Pretty v) => Pretty (Formula v atom) where
     pPrint fm = prettyFirstOrder topFixity fm
 
 prettyFirstOrder :: (IsFirstOrder formula atom v, Pretty atom, Pretty v, HasFixity formula) => Fixity -> formula -> Doc
@@ -605,7 +605,7 @@ data Interp function predicate d
              , predApply :: predicate -> [d] -> Bool }
 
 -- | Semantics, implemented of course for finite domains only.
-termval :: (Show v, IsTerm term v function) => Interp function predicate r -> Map v r -> term -> r
+termval :: (IsTerm term v function, Show v) => Interp function predicate r -> Map v r -> term -> r
 termval m v tm =
     foldTerm (\x -> fromMaybe (error ("Undefined variable: " ++ show x)) (Map.lookup x v))
              (\f args -> funcApply m f (map (termval m v) args)) tm
@@ -626,7 +626,7 @@ holds m v fm =
       at = foldAtom (\r args -> predApply m r (map (termval m v) args))
 
 -- | Examples of particular interpretations.
-bool_interp :: (Eq function, Show function, IsString function, Eq predicate, Show predicate, IsString predicate, HasEquality predicate) =>
+bool_interp :: (IsFunction function, Eq predicate, Show function, Show predicate, HasEquality predicate) =>
                Interp function predicate Bool
 bool_interp =
     Interp [False, True] func pred
@@ -639,7 +639,7 @@ bool_interp =
       pred p [x,y] | p == equals = x == y
       pred p _ = error ("bool_interp - uninterpreted predicate: " ++ show p)
 
-mod_interp :: (Eq function, Show function, IsString function, Eq predicate, Show predicate, IsString predicate, HasEquality predicate) =>
+mod_interp :: (IsFunction function, Eq predicate, Show function, Show predicate, HasEquality predicate) =>
               Int -> Interp function predicate Int
 mod_interp n =
     Interp [0..(n-1)] func pred
@@ -717,6 +717,7 @@ var fm =
       tf _ = Set.empty
       at = foldAtom (\_ args -> unions (map fvt args))
 
+-- | Find the variables in an atom
 fa :: (IsAtom atom predicate term, IsTerm term v function) => atom -> Set v
 fa = foldAtom (\_ args -> unions (map fvt args))
 
