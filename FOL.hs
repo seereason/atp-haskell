@@ -13,8 +13,10 @@
 module FOL
     ( -- * Variables
       IsVariable(variant, prefix, prettyVariable), variants, showVariable, V(V)
-    -- * Functions and Terms
-    , IsTerm(vt, fApp, foldTerm, zipTerms), FName(FName), Term(Var, FApply)
+    -- * Functions
+    , IsFunction, FName(FName)
+    -- * Terms
+    , IsTerm(vt, fApp, foldTerm, zipTerms), Term(Var, FApply)
     -- * Predicates
     , HasEquality(equals), Predicate(NamedPredicate, Equals)
     -- * Atoms
@@ -105,10 +107,14 @@ instance Pretty V where
 -- FUNCTIONS --
 ---------------
 
+class (IsString function, Ord function) => IsFunction function
+
 -- | A simple type to use as the function parameter of Term, FOL, etc.
 -- The only reason to use this instead of String is to get nicer
 -- pretty printing.
 newtype FName = FName String deriving (Eq, Ord)
+
+instance IsFunction FName
 
 instance IsString FName where fromString = FName
 
@@ -121,7 +127,7 @@ instance Pretty FName where pPrint (FName s) = text s
 -----------
 
 -- | Terms are built from variables and combined by functions to build the atoms of a formula.
-class (Ord term, IsVariable v, Eq function) => IsTerm term v function | term -> v function where
+class (IsVariable v, IsFunction function) => IsTerm term v function | term -> v function where
     vt :: v -> term
     -- ^ Build a term which is a variable reference.
     fApp :: function -> [term] -> term
@@ -141,13 +147,13 @@ data Term function v
     | FApply function [Term function v]
     deriving (Eq, Ord)
 
-instance (Ord function, Show function, IsVariable v, Show v) => Show (Term function v) where
+instance (IsVariable v, Show v, IsFunction function, Show function) => {-(Ord function, Show function, IsVariable v, Show v) =>-} Show (Term function v) where
     show = showTerm
 
 showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
 showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp " ++ show fn ++ "[" ++ intercalate ", " (map showTerm ts) ++ "]")
 
-instance (Ord function, IsVariable v) => IsTerm (Term function v) v function where
+instance (IsFunction function, IsVariable v) => IsTerm (Term function v) v function where
     vt = Var
     fApp = FApply
     foldTerm vf fn t =

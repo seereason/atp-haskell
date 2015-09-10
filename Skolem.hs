@@ -309,6 +309,8 @@ data Function
     | Skolem V
     deriving (Eq, Ord)
 
+instance IsFunction Function
+
 instance IsString Function where
     fromString = Fn
 

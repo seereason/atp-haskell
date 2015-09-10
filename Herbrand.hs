@@ -24,14 +24,14 @@ pholds :: (IsPropositional formula atom, Ord atom) => (atom -> Bool) -> formula 
 pholds d fm = eval fm d
 
 -- | Get the constants for Herbrand base, adding nullary one if necessary.
-herbfuns :: (IsFirstOrder fof atom v, IsAtom atom predicate term, IsTerm term v function, IsString function, Ord function) =>
+herbfuns :: (IsFirstOrder fof atom v, IsAtom atom predicate term, IsTerm term v function, Ord function) =>
             fof -> (Set (function, Arity), Set (function, Arity))
 herbfuns fm =
   let (cns,fns) = Set.partition (\ (_,ar) -> ar == 0) (functions fm) in
   if Set.null cns then (Set.singleton (fromString "c",0),fns) else (cns,fns)
 
 -- | Enumeration of ground terms and m-tuples, ordered by total fns.
-groundterms :: forall term v f. (IsTerm term v f) =>
+groundterms :: forall term v f. (IsTerm term v f, Ord term) =>
                Set term -> Set (f, Arity) -> Int -> Set term
 groundterms cntms _ 0 = cntms
 groundterms cntms funcs n =
@@ -39,7 +39,7 @@ groundterms cntms funcs n =
     where
       terms (f,m) l = Set.union (Set.map (fApp f) (groundtuples cntms funcs (n - 1) m)) l
 
-groundtuples :: forall term v f. (IsTerm term v f) =>
+groundtuples :: forall term v f. (IsTerm term v f, Ord term) =>
                 Set term -> Set (f, Int) -> Int -> Int -> Set [term]
 groundtuples _ _ 0 0 = Set.singleton []
 groundtuples _ _ _ 0 = Set.empty
@@ -49,7 +49,8 @@ groundtuples cntms funcs n m =
       tuples k l = Set.union (allpairs (:) (groundterms cntms funcs k) (groundtuples cntms funcs (n - k) (m - 1))) l
 
 -- | Iterate modifier "mfn" over ground terms till "tfn" fails.
-herbloop :: forall lit v term formula atom predicate function. (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
+herbloop :: forall lit v term formula atom predicate function.
+            (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function, Ord term) =>
             (Set (Set lit) -> (formula -> formula) -> Set (Set lit) -> Set (Set lit))
          -> (Set (Set lit) -> Failing Bool)
          -> Set (Set lit)
@@ -86,7 +87,7 @@ subst' env fm =
 
 -- | Hence a simple Gilmore-type procedure.
 gilmore_loop :: forall lit atom term v function predicate.
-                (IsFirstOrder lit atom v, IsLiteral lit atom, IsTerm term v function, IsAtom atom predicate term, Ord lit, Ord predicate) =>
+                (IsFirstOrder lit atom v, IsLiteral lit atom, IsTerm term v function, IsAtom atom predicate term, Ord lit, Ord predicate, Ord term) =>
                 Set (Set lit)
              -> Set term
              -> Set (function, Int)
@@ -103,13 +104,13 @@ gilmore_loop =
 
 gilmore :: forall fof atom predicate term function v pf.
            (fof ~ pf,
-            Ord pf,
-            Ord predicate,
             IsLiteral fof atom,
             IsTerm term v function,
             IsFirstOrder fof atom v,
             IsAtom atom predicate term,
-            HasSkolem function v, Ord function, IsString function) =>
+            HasSkolem function v,
+            Ord pf, Ord predicate, Ord term, Ord function,
+            IsString function) =>
            fof
         -> Failing Int
 gilmore fm =
@@ -185,7 +186,8 @@ let p20 = gilmore
 dp_mfn :: Ord b => Set (Set a) -> (a -> b) -> Set (Set b) -> Set (Set b)
 dp_mfn cjs0 ifn cjs = Set.union (Set.map (Set.map ifn) cjs0) cjs
 
-dp_loop :: forall lit atom v term predicate function. (IsFirstOrder lit atom v, IsLiteral lit atom, IsTerm term v function, IsAtom atom predicate term, Ord lit) =>
+dp_loop :: forall lit atom v term predicate function.
+           (IsFirstOrder lit atom v, IsLiteral lit atom, IsTerm term v function, IsAtom atom predicate term, Ord lit, Ord term) =>
            Set (Set lit)
         -> Set term
         -> Set (function, Int)
@@ -199,14 +201,13 @@ dp_loop = herbloop dp_mfn dpll
 
 davisputnam :: forall fof atom term v predicate function pf.
                (fof ~ pf,
-                Ord pf,
                 IsLiteral fof atom,
                 IsFirstOrder fof atom v,
                 IsTerm term v function,
                 IsAtom atom predicate term,
                 IsString function,
                 HasSkolem function v,
-                Ord function) =>
+                Ord pf, Ord term, Ord function) =>
                fof -> Failing Int
 davisputnam fm =
   let (sfm :: pf) = runSkolem (skolemize id ((.~.)(generalize fm))) in
@@ -225,8 +226,9 @@ END_INTERACTIVE;;
 -}
 
 -- | Try to cut out useless instantiations in final result.
-dp_refine :: (IsLiteral lit atom, IsTerm term v function, Ord lit,
-              IsFirstOrder lit atom v, IsAtom atom predicate term) =>
+dp_refine :: (IsLiteral lit atom, IsTerm term v function,
+              IsFirstOrder lit atom v, IsAtom atom predicate term,
+              Ord lit, Ord term) =>
              Set (Set lit) -> [v] -> Set [term] -> Set [term] -> Failing (Set [term])
 dp_refine cjs0 fvs dknow need =
     case Set.minView dknow of
@@ -238,10 +240,11 @@ dp_refine cjs0 fvs dknow need =
           dp_refine cjs0 fvs dknow'
 
 dp_refine_loop :: forall v term predicate function lit atom.
-                  (IsLiteral lit atom, Ord lit,
+                  (IsLiteral lit atom,
                    IsTerm term v function,
                    IsFirstOrder lit atom v,
-                   IsAtom atom predicate term) =>
+                   IsAtom atom predicate term,
+                   Ord lit, Ord term) =>
                   Set (Set lit)
                -> Set term
                -> Set (function, Int)
@@ -259,11 +262,12 @@ dp_refine_loop cjs0 cntms funcs fvs n cjs tried tuples =
 davisputnam' :: forall fof atom predicate term lit v f pf.
                 (pf ~ fof, fof ~ lit,
                  IsFirstOrder fof atom v,
-                 IsLiteral lit atom, Ord lit,
+                 IsLiteral lit atom,
                  IsPropositional pf atom,
                  IsTerm term v f,
                  IsAtom atom predicate term,
-                 IsString f, HasSkolem f v, Ord f) =>
+                 HasSkolem f v,
+                 Ord lit, Ord term, Ord f) =>
                 lit -> pf -> fof -> Failing Int
 davisputnam' _ _ fm =
     let (sfm :: pf) = runSkolem (skolemize id ((.~.)(generalize fm))) in
