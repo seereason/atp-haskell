@@ -7,6 +7,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 module DefCNF
     ( NumAtom(ma, ai)
     , defcnfs
@@ -17,11 +18,12 @@ module DefCNF
     , tests
     ) where
 
-import Formulas hiding (PFormula(..))
+import Formulas as P
+import Lit (IsLiteral(foldLiteral))
 import Pretty (HasFixity(fixity), botFixity)
-import Prop (IsPropositional, IsLiteral(foldLiteral), cnf', cnf_, foldPropositional, nenf, simpcnf)
+import Prop (IsPropositional, cnf', cnf_, foldPropositional, nenf, simpcnf)
 -- import PropExamples (Knows(K), mk_knows, Atom(P), N)
-import FOL (pApp, Formula(..))
+import FOL (pApp)
 import Data.Function (on)
 import Data.List as List
 import Data.Map as Map hiding (fromList)
@@ -46,29 +48,18 @@ instance NumAtom Atom where
 instance HasFixity Atom where
     fixity _ = botFixity
 
-instance (Ord atom, Pretty atom, HasFixity atom) => IsLiteral (Formula atom) atom where
+instance (Ord atom, Pretty atom, HasFixity atom) => IsLiteral (PFormula atom) atom where
     foldLiteral ne tf at fm =
         case fm of
-          T -> tf True
-          F -> tf False
-          Atom a -> at a
-          Not l -> ne l
-          And _ _ -> error "And in Literal"
-          Or _ _ -> error "Or in Literal"
-          Imp _ _ -> error "Imp in Literal"
-          Iff _ _ -> error "IFF in Literal"
-          Forall _ _ -> error "Forall in Literal"
-          Exists _ _ -> error "Exists in Literal"
-{-
--- | Association between Ints (N's) and atoms.
-class NumAtom atom where
-    ma :: N -> atom
-    ai :: atom -> N
+          P.T -> tf True
+          P.F -> tf False
+          P.Atom a -> at a
+          P.Not l -> ne l
+          P.And _ _ -> error "And in Literal"
+          P.Or _ _ -> error "Or in Literal"
+          P.Imp _ _ -> error "Imp in Literal"
+          P.Iff _ _ -> error "IFF in Literal"
 
-instance NumAtom (Atom N) where
-    ma = P
-    ai (P n) = n
--}
 -- | Example (p. 74)
 test01 :: Test
 test01 = TestCase $ assertEqual "cnf test (p. 74)"
@@ -126,7 +117,7 @@ defcnf1 fm = cnf_ (mk_defcnf maincnf fm)
 -- Example.
 test02 :: Test
 test02 =
-    let fm :: Formula Atom
+    let fm :: PFormula Atom
         fm = let (p, q, r, s) = (atomic (P "p" 0), atomic (P "q" 0), atomic (P "r" 0), atomic (P "s" 0)) in
              (p .|. (q .&. ((.~.) r))) .&. s in
     TestCase $ assertEqual "defcnf1 (p. 77)"

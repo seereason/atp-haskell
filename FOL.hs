@@ -9,6 +9,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE UndecidableInstances #-}
 module FOL
     ( -- * Variables
       IsVariable(variant, prefix, prettyVariable), variants, showVariable, V(V)
@@ -140,7 +141,7 @@ data Term function v
 instance (Ord function, Show function, IsVariable v, Show v) => Show (Term function v) where
     show = showTerm
 
-showTerm :: (IsTerm term function v, Show function, Show v) => term -> String
+showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
 showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp " ++ show fn ++ "[" ++ intercalate ", " (map showTerm ts) ++ "]")
 
 instance (Ord function, IsVariable v) => IsTerm (Term function v) v function where
@@ -245,39 +246,39 @@ data Quant
 -- FORMULAE --
 --------------
 
-data Formula atom
+data Formula v atom
     = F
     | T
     | Atom atom
-    | Not (Formula atom)
-    | And (Formula atom) (Formula atom)
-    | Or (Formula atom) (Formula atom)
-    | Imp (Formula atom) (Formula atom)
-    | Iff (Formula atom) (Formula atom)
-    | Forall V (Formula atom)
-    | Exists V (Formula atom)
+    | Not (Formula v atom)
+    | And (Formula v atom) (Formula v atom)
+    | Or (Formula v atom) (Formula v atom)
+    | Imp (Formula v atom) (Formula v atom)
+    | Iff (Formula v atom) (Formula v atom)
+    | Forall v (Formula v atom)
+    | Exists v (Formula v atom)
     deriving (Eq, Ord, Read)
 
-instance HasBoolean (Formula atom) where
+instance HasBoolean (Formula v atom) where
     asBool T = Just True
     asBool F = Just False
     asBool _ = Nothing
     fromBool True = T
     fromBool False = F
 
-instance IsNegatable (Formula atom) where
+instance IsNegatable (Formula v atom) where
     naiveNegate = Not
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 
-instance IsCombinable (Formula atom) where
+instance IsCombinable (Formula v atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
     (.<=>.) = Iff
 
 -- Display formulas using infix notation
-instance Show atom => Show (Formula atom) where
+instance (Show atom, Show v) => Show (Formula v atom) where
     show F = "false"
     show T = "true"
     show (Atom atom) = show atom
@@ -289,7 +290,7 @@ instance Show atom => Show (Formula atom) where
     show (Forall v f) = "(for_all " ++ show v ++ " " ++ show f ++ ")"
     show (Exists v f) = "(exists " ++ show v ++ " " ++ show f ++ ")"
 
-instance HasFixity atom => HasFixity (Formula atom) where
+instance HasFixity atom => HasFixity (Formula v atom) where
     fixity T = Fixity 10 InfixN
     fixity F = Fixity 10 InfixN
     fixity (Atom a) = fixity a
@@ -311,10 +312,10 @@ a .=. b = atomic (appAtom equals [a, b])
 
 infix 5 .=. -- , .!=., ≡, ≢
 
---instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (Formula atom) where
+--instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (Formula v atom) where
 --    pPrint fm = prettyFirstOrder pPrint topFixity fm
 
-instance IsFormula (Formula atom) atom where
+instance IsFormula (Formula v atom) atom where
     atomic = Atom
     foldAtoms f fm b =
       case fm of
@@ -339,7 +340,7 @@ instance IsFormula (Formula atom) atom where
         Exists x p -> Exists x (mapAtoms f p)
         _ -> fm
 
-instance Ord atom => IsPropositional (Formula atom) atom where
+instance (Ord atom, Ord v) => IsPropositional (Formula v atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -357,7 +358,7 @@ instance Ord atom => IsPropositional (Formula atom) atom where
           Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier"
           Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier"
 
-class (IsPropositional formula atom, IsVariable v) => IsFirstOrder formula atom v | formula -> atom, formula -> v where
+class (IsPropositional formula atom, IsVariable v) => IsFirstOrder formula atom v | formula -> atom v where
     quant :: Quant -> v -> formula -> formula
     foldFirstOrder :: (Quant -> v -> formula -> r)
                    -> (Combination formula -> r)
@@ -392,7 +393,7 @@ for_all = quant (:!:)
 exists :: IsFirstOrder formula atom v => v -> formula -> formula
 exists = quant (:?:)
 
-instance Ord atom => IsFirstOrder (Formula atom) atom V where
+instance (Ord atom, IsAtom atom predicate term, IsTerm term v function, IsVariable v) => IsFirstOrder (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldFirstOrder qu co tf at fm =
@@ -401,7 +402,7 @@ instance Ord atom => IsFirstOrder (Formula atom) atom V where
           Exists v p -> qu (:?:) v p
           _ -> foldPropositional co tf at fm
 
-instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (Formula atom) where
+instance (Ord atom, HasFixity atom, Pretty atom, IsVariable v, IsAtom atom predicate term, IsTerm term v function) => Pretty (Formula v atom) where
     pPrint fm = prettyFirstOrder topFixity fm
 
 prettyFirstOrder :: (IsFirstOrder formula atom v, Pretty atom, HasFixity formula) => Fixity -> formula -> Doc
@@ -642,7 +643,7 @@ END_INTERACTIVE;;
 -}
 
 type MyAtom = FOL Predicate (Term FName V)
-type MyFormula = Formula MyAtom
+type MyFormula = Formula V MyAtom
 
 test01 :: Test
 test01 = TestCase $ assertEqual "holds bool test (p. 126)" expected input

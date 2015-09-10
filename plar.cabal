@@ -20,6 +20,7 @@ Library
     Lib
     Pretty
     Formulas
+    Lit
     Prop
     FOL
     Skolem

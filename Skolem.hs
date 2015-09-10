@@ -66,8 +66,8 @@ simplify fm =
 test01 :: Test
 test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ prettyShow fm) expected input
     where input = prettyShow (simplify fm)
-          expected = prettyShow ((for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: Formula (FOL Predicate (Term FName V)))
-          fm :: Formula (FOL Predicate (Term FName V))
+          expected = prettyShow ((for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: MyFormula)
+          fm :: MyFormula
           fm = (for_all "x" (for_all "y" (pApp "P" [vt "x"] .|. (pApp "P" [vt "y"] .&. false)))) .=>. exists "z" (pApp "Q" [])
 
 -- | Negation normal form.
@@ -99,8 +99,8 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
           expected = exists "x" ((.~.)(pApp p [vt "x"])) .|.
                      ((exists "y" (pApp q [vt "y"]) .&. exists "z" ((pApp p [vt "z"]) .&. (pApp q [vt "z"]))) .|.
                       (for_all "y" ((.~.)(pApp q [vt "y"])) .&.
-                       for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: Formula (FOL Predicate (Term FName V)))
-          fm :: Formula (FOL Predicate (Term FName V))
+                       for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: MyFormula)
+          fm :: MyFormula
           fm = (for_all "x" (pApp p [vt "x"])) .=>. ((exists "y" (pApp q [vt "y"])) .<=>. exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"]))
 
 -- | Prenex normal form.
@@ -167,8 +167,8 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" expected input
                                  ((((.~.)(pApp p [vt "x"])) .&. ((.~.)(pApp r [vt "y"]))) .|.
                                   ((pApp q [vt "x"]) .|.
                                    (((.~.)(pApp p [vt "z"])) .|.
-                                    ((.~.)(pApp q [vt "z"])))))) :: Formula (FOL Predicate (Term Function V))
-          fm :: Formula (FOL Predicate (Term Function V))
+                                    ((.~.)(pApp q [vt "z"])))))) :: MyFormula
+          fm :: MyFormula
           fm = (for_all "x" (pApp p [vt "x"]) .|. (pApp r [vt "y"])) .=>.
                exists "y" (exists "z" ((pApp q [vt "y"]) .|. ((.~.)(exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"])))))
 
@@ -320,14 +320,14 @@ instance HasSkolem Function V where
     fromSkolem _ = Nothing
 
 type MyAtom = FOL Predicate (Term Function V)
-type MyFormula = Formula MyAtom
+type MyFormula = Formula V MyAtom
 
 -- Example.
 
 test04 :: Test
 test04 = TestCase $ assertEqual "skolemize 1 (p. 150)" expected input
-    where input = runSkolem (skolemize fm) :: Formula (FOL Predicate (Term Function V))
-          fm :: Formula (FOL Predicate (Term Function V))
+    where input = runSkolem (skolemize fm) :: MyFormula
+          fm :: MyFormula
           fm = exists "y" (pApp ("<") [vt "x", vt "y"] .=>.
                            for_all "u" (exists "v" (pApp ("<") [fApp "*" [vt "x", vt "u"],  fApp "*" [vt "y", vt "v"]])))
           expected = ((.~.)(pApp ("<") [vt "x",fApp (Skolem "y") [vt "x"]])) .|.
@@ -337,8 +337,8 @@ test05 :: Test
 test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
     where p = "P"
           q = "Q"
-          input = runSkolem (skolemize fm) :: Formula (FOL Predicate (Term Function V))
-          fm :: Formula (FOL Predicate (Term Function V))
+          input = runSkolem (skolemize fm) :: MyFormula
+          fm :: MyFormula
           fm = for_all "x" ((pApp p [vt "x"]) .=>.
                             (exists "y" (exists "z" ((pApp q [vt "y"]) .|.
                                                      ((.~.)(exists "z" ((pApp p [vt "z"]) .&. (pApp q [vt "z"]))))))))

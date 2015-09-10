@@ -17,9 +17,10 @@ import Control.Applicative.Error (Failing(..))
 import Data.Map as Map
 import Data.Set as Set
 import DefCNF hiding (tests)
-import FOL (Formula)
+-- import FOL (Formula)
 import Formulas
 import Lib hiding (tests)
+import Lit
 import Prelude hiding (negate)
 import Pretty (Pretty)
 import Prop hiding (tests)
@@ -176,7 +177,7 @@ dptaut fm = not <$> dpsat (negate fm)
 
 -- Examples.
 
-test01 = TestCase (assertEqual "dptaut(prime 11) p. 84" (Success True) (dptaut (prime 11 :: Formula (Knows Integer))))
+test01 = TestCase (assertEqual "dptaut(prime 11) p. 84" (Success True) (dptaut (prime 11 :: PFormula (Knows Integer))))
 
 -- | The same thing but with the DPLL procedure. (p. 84)
 posneg_count :: forall formula. (IsNegatable formula, Ord formula) =>
@@ -221,7 +222,7 @@ dplltaut fm = dpllsat (negate fm) >>= return . not
 -- Example.                                                                  
 -- ------------------------------------------------------------------------- 
 
-test02 = TestCase (assertEqual "dplltaut(prime 11)" (Success True) (dplltaut (prime 11 :: Formula (Knows Integer))))
+test02 = TestCase (assertEqual "dplltaut(prime 11)" (Success True) (dplltaut (prime 11 :: PFormula (Knows Integer))))
 
 -- ------------------------------------------------------------------------- 
 -- Iterative implementation with explicit trail instead of recursion.        
@@ -332,8 +333,8 @@ dplbtaut fm = dplbsat (negate fm) >>= return . not
 -- Examples.                                                                 
 -- ------------------------------------------------------------------------- 
 
-test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" (Success True) (dplitaut (prime 101 :: Formula (Knows Integer)))),
-                   TestCase (assertEqual "dplbtaut(prime 101)" (Success True) (dplbtaut (prime 101 :: Formula (Knows Integer))))]
+test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" (Success True) (dplitaut (prime 101 :: PFormula (Knows Integer)))),
+                   TestCase (assertEqual "dplbtaut(prime 101)" (Success True) (dplbtaut (prime 101 :: PFormula (Knows Integer))))]
 
 tests :: Test
 tests = TestList [test01, test02, test03]
