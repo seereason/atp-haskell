@@ -117,7 +117,7 @@ gilmore fm =
   let (fvs :: [v]) = Set.toList (overatoms (\ (a :: atom) (s :: Set v) -> Set.union s (fv (atomic a :: fof))) sfm (Set.empty))
       (consts :: Set (function, Int),funcs :: Set (function, Int)) = herbfuns sfm in
   let cntms = Set.map (\ (c,_) -> fApp c []) consts in
-  gilmore_loop (simpdnf sfm {-:: Set (Set pf)-}) cntms funcs (fvs) 0 Set.empty Set.empty Set.empty >>= return . Set.size
+  gilmore_loop (simpdnf id sfm :: Set (Set pf)) cntms funcs (fvs) 0 Set.empty Set.empty Set.empty >>= return . Set.size
 
 -- | First example and a little tracing.
 test01 :: Test
@@ -213,7 +213,7 @@ davisputnam fm =
   let fvs = Set.toList (overatoms (\ (a :: atom) s -> Set.union (fv (atomic a :: fof)) s) sfm Set.empty)
       (consts,funcs) = herbfuns sfm in
   let cntms = Set.map (\ (c,_) -> fApp c [] :: term) consts in
-  dp_loop (simpcnf sfm :: Set (Set fof)) cntms funcs fvs 0 Set.empty Set.empty Set.empty >>= return . Set.size
+  dp_loop (simpcnf id sfm :: Set (Set fof)) cntms funcs fvs 0 Set.empty Set.empty Set.empty >>= return . Set.size
 
 {-
 -- | Show how much better than the Gilmore procedure this can be.
@@ -260,7 +260,7 @@ davisputnam' :: forall fof atom predicate term lit v f pf.
                 (pf ~ fof, fof ~ lit,
                  IsFirstOrder fof atom v,
                  IsLiteral lit atom, Ord lit,
-                 IsPropositional pf atom, -- Formula pf atom,
+                 IsPropositional pf atom,
                  IsTerm term v f,
                  IsAtom atom predicate term,
                  IsString f, HasSkolem f v, Ord f) =>
@@ -270,7 +270,7 @@ davisputnam' _ _ fm =
     let fvs = Set.toList (overatoms (\ (a :: atom) s -> Set.union (fv (atomic a :: fof)) s) sfm Set.empty)
         (consts,funcs) = herbfuns sfm in
     let cntms = Set.map (\ (c,_) -> fApp c []) consts in
-    dp_refine_loop (simpcnf sfm :: Set.Set (Set.Set lit)) cntms funcs fvs 0 Set.empty Set.empty Set.empty >>= return . Set.size
+    dp_refine_loop (simpcnf id sfm :: Set.Set (Set.Set lit)) cntms funcs fvs 0 Set.empty Set.empty Set.empty >>= return . Set.size
 
 {-
 START_INTERACTIVE;;

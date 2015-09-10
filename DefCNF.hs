@@ -53,7 +53,7 @@ test01 :: Test
 test01 = TestCase $ assertEqual "cnf test (p. 74)"
                                 "(p[]∨q[]∨r[])∧(p[]∨¬q[]∨¬r[])∧(q[]∨¬p[]∨¬r[])∧(r[]∨¬p[]∨¬q[])"
                                 (let (p, q, r) = (pApp "p" [], pApp "q" [], pApp "r" []) in
-                                 prettyShow (cnf' (p .<=>. (q .<=>. r)) :: MyFormula))
+                                 prettyShow (cnf' ((p .<=>. (q .<=>. r))) :: MyFormula))
 
 mkprop :: forall pf atom. (IsPropositional pf atom, NumAtom atom) => Integer -> (pf, Integer)
 mkprop n = (atomic (ma n :: atom), n + 1)
@@ -85,22 +85,18 @@ max_varindex :: NumAtom atom =>  atom -> Integer -> Integer
 max_varindex atom n = max n (ai atom)
 
 -- | Overall definitional CNF.
-{-
-mk_defcnf :: forall pf lit atom. (IsPropositional pf atom, IsLiteral lit atom, NumAtom atom, Ord lit) =>
-             ((pf, Map.Map pf pf, Int) -> (pf, Map.Map pf pf, Int)) -> pf -> Set.Set (Set.Set lit)
--}
-mk_defcnf :: (IsPropositional formula atom, IsPropositional lit atom, Ord lit, NumAtom atom) => ((formula, Map pf pf, Integer) -> (lit, Map pf lit, Integer)) -> formula -> Set (Set lit)
-mk_defcnf fn fm =
-  let fm' = nenf fm in
+mk_defcnf :: forall formula atom lit atom2. (IsPropositional formula atom, NumAtom atom, IsLiteral lit atom2, Ord lit) => (atom -> atom2) -> ((formula, Map formula formula, Integer) -> (formula, Map formula formula, Integer)) -> formula -> Set (Set lit)
+mk_defcnf ca fn fm =
+  let (fm' :: formula) = nenf fm in
   let n = 1 + overatoms max_varindex fm' 0 in
   let (fm'',defs,_) = fn (fm',Map.empty,n) in
-  let (deflist {- :: [pf]-}) = Map.elems defs in
-  Set.unions (simpcnf fm'' : List.map simpcnf deflist)
+  let (deflist :: [formula]) = Map.elems defs in
+  Set.unions (List.map (simpcnf ca :: formula -> Set (Set lit)) (fm'' : deflist))
 
 -- defcnf1 :: forall pf lit atom. (IsPropositional pf atom, IsLiteral lit atom, NumAtom atom, Ord lit) => lit -> atom -> pf -> pf
 -- defcnf1 :: (IsPropositional pf atom, IsPropositional pf atom, NumAtom atom) => pf -> pf
-defcnf1 :: (HasBoolean pf, Ord pf, IsPropositional pf atom, NumAtom atom, IsLiteral pf atom) => pf -> pf
-defcnf1 fm = cnf_ (mk_defcnf maincnf fm)
+defcnf1 :: forall pf atom. (HasBoolean pf, Ord pf, IsPropositional pf atom, NumAtom atom) => pf -> pf
+defcnf1 fm = cnf_ (mk_defcnf id maincnf fm :: Set (Set pf))
 
 -- Example.
 test02 :: Test
@@ -120,7 +116,7 @@ test02 =
                              ["q","¬p_1"],
                              ["s","¬p_3"],
                              ["¬p_1","¬r"]])
-                           (strings (mk_defcnf maincnf fm))
+                           (strings (mk_defcnf id maincnf fm :: Set (Set (PFormula Atom))))
 
 strings :: Pretty a => Set (Set a) -> [[String]]
 strings ss = sortBy (compare `on` length) . sort . Set.toList $ Set.map (sort . Set.toList . Set.map prettyShow) ss
@@ -158,7 +154,7 @@ andcnf trip@(fm,_defs,_n) =
       co _ = orcnf trip
 
 defcnfs :: (IsPropositional pf atom, Ord pf, NumAtom atom) => pf -> Set (Set pf)
-defcnfs fm = mk_defcnf andcnf fm
+defcnfs fm = mk_defcnf id andcnf fm
 
 -- Don't we need an IsPropositional (Set (Set pf)) instance for this to work?
 defcnf2 :: (IsPropositional pf atom, IsPropositional (Set (Set pf)) atom, Ord pf, NumAtom atom) =>
@@ -183,7 +179,7 @@ andcnf3 trip@(fm,_defs,_n) =
 -- defcnf3 :: forall pf lit atom. (IsPropositional pf atom, IsLiteral lit atom, NumAtom atom, Ord lit) => lit -> atom -> pf -> pf
 defcnf3 :: (IsPropositional pf atom, IsPropositional (Set (Set pf)) atom, Ord pf, NumAtom atom) =>
            pf -> Set (Set pf)
-defcnf3 fm = cnf' (mk_defcnf andcnf3 fm)
+defcnf3 fm = cnf' (mk_defcnf id andcnf3 fm)
 
 tests :: Test
 tests = TestList [test01, test02]

@@ -78,18 +78,11 @@ import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 -- raise errors in the implementation if a non-atomic formula somehow
 -- appears where an atomic formula is expected (i.e. as an argument to
 -- atomic or to the third argument of foldPropositional.)
---
--- The Ord superclass is required so we can put formulas in sets
--- during the normal form computations.  IsNegatable and IsCombinable are
--- also considered basic operations that we can't build this package
--- without.  It is less obvious whether HasBoolean is always required,
--- but the implementation of functions like simplify would be more
--- elaborate if we didn't have it, so we will require it.
 class (IsFormula formula atom,
+       IsLiteral formula atom,
        IsNegatable formula,
        IsCombinable formula,
-       HasBoolean formula,
-       Ord atom
+       HasBoolean formula
       ) => IsPropositional formula atom | formula -> atom where
     -- | Build an atomic formula from the atom type.
     -- | A fold function that distributes different sorts of formula
@@ -103,27 +96,25 @@ class (IsFormula formula atom,
 
 -- | Use foldPropositional to convert any instance of
 -- IsPropositional to any other by specifying the result type.
-convertPropositional :: forall f1 a1 f2 a2. (IsPropositional f1 a1, IsPropositional f2 a2) => (a1 -> a2) -> f1 -> f2
+convertPropositional :: (IsPropositional f1 a1, IsPropositional f2 a2) => (a1 -> a2) -> f1 -> f2
 convertPropositional ca f1 =
     foldPropositional co tf (atomic . ca) f1
     where
-      co :: Combination f1 -> f2
       co ((:~:) p) = (.~.) (convertPropositional ca p)
       co (BinOp p (:&:) q) = (convertPropositional ca p) .&. (convertPropositional ca q)
       co (BinOp p (:|:) q) = (convertPropositional ca p) .|. (convertPropositional ca q)
       co (BinOp p (:=>:) q) = (convertPropositional ca p) .=>. (convertPropositional ca q)
       co (BinOp p (:<=>:) q) = (convertPropositional ca p) .<=>. (convertPropositional ca q)
-      tf :: Bool -> f2
       tf = fromBool
 
-propositionalFromLiteral :: forall lit atom1 pf atom2. (IsLiteral lit atom1, IsPropositional pf atom2) =>
-                   (atom1 -> atom2) -> lit -> pf
+propositionalFromLiteral :: (IsLiteral lit atom1, IsPropositional pf atom2) =>
+                            (atom1 -> atom2) -> lit -> pf
 propositionalFromLiteral ca lit =
     foldLiteral ne fromBool (atomic . ca) lit
     where
       ne p = (.~.) (propositionalFromLiteral ca p)
 
-literalFromPropositional :: forall lit atom1 pf atom2. (IsPropositional pf atom1, IsLiteral lit atom2) =>
+literalFromPropositional :: (IsPropositional pf atom1, IsLiteral lit atom2) =>
                             (atom1 -> atom2) -> pf -> lit
 literalFromPropositional ca =
     foldPropositional co fromBool (atomic . ca)
@@ -237,7 +228,7 @@ instance IsFormula (PFormula atom) atom where
         Iff p q -> Iff (onatoms f p) (onatoms f q)
         _ -> fm
 
-instance Ord atom => IsPropositional (PFormula atom) atom where
+instance IsPropositional (PFormula atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -249,7 +240,7 @@ instance Ord atom => IsPropositional (PFormula atom) atom where
           Imp p q -> co (BinOp p (:=>:) q)
           Iff p q -> co (BinOp p (:<=>:) q)
 
-instance Ord atom => IsLiteral (PFormula atom) atom where
+instance IsLiteral (PFormula atom) atom where
     foldLiteral ne tf at fm =
         case fm of
           T -> tf True
@@ -375,11 +366,11 @@ eval fm v =
       at = v
 
 -- | Return the set of propositional variables in a formula.
-atoms :: (Ord atom, IsFormula formula atom) => formula -> Set atom
+atoms :: (IsFormula formula atom, Ord atom) => formula -> Set atom
 atoms fm = atom_union singleton fm
 
 -- | Code to print out truth tables.
-onallvaluations :: (Eq atom, Ord atom) => (r -> r -> r) -> ((atom -> Bool) -> r) -> (atom -> Bool) -> Set atom -> r
+onallvaluations :: Ord atom => (r -> r -> r) -> ((atom -> Bool) -> r) -> (atom -> Bool) -> Set atom -> r
 onallvaluations cmb subfn v ats =
     case minView ats of
       Nothing -> subfn v
@@ -387,7 +378,7 @@ onallvaluations cmb subfn v ats =
           let v' t q = (if q == p then t else v q) in
           cmb (onallvaluations cmb subfn (v' False) ps) (onallvaluations cmb subfn (v' True) ps)
 
-truthTable :: IsPropositional formula atom => formula -> TruthTable atom
+truthTable :: (IsPropositional formula atom, Ord atom) => formula -> TruthTable atom
 truthTable fm =
     TruthTable atl (onallvaluations (<>) mkRow (const False) ats)
     where
@@ -396,7 +387,7 @@ truthTable fm =
       atl = Set.toAscList ats
 
 -- | Recognizing tautologies.
-tautology :: IsPropositional formula atom => formula -> Bool
+tautology :: (IsPropositional formula atom, Ord atom) => formula -> Bool
 tautology fm = onallvaluations (&&) (eval fm) (\_s -> False) (atoms fm)
 
 -- Examples.
@@ -411,13 +402,13 @@ test13 :: Test
 test13 = TestCase $ assertEqual "tautology 4 (p. 41)" True (tautology $ (p .|. q) .&. ((.~.)(p .&. q)) .=>. ((.~.)p .<=>. q)) where (p, q) = (Atom (P "p"), Atom (P "q"))
 
 -- | Related concepts.
-unsatisfiable :: IsPropositional formula atom => formula -> Bool
+unsatisfiable :: (IsPropositional formula atom, Ord atom) => formula -> Bool
 unsatisfiable = tautology . (.~.)
-satisfiable :: IsPropositional formula atom  => formula -> Bool
+satisfiable :: (IsPropositional formula atom, Ord atom)  => formula -> Bool
 satisfiable = not . unsatisfiable
 
 -- | Substitution operation.
-psubst :: IsPropositional formula atom => Map atom formula -> formula -> formula
+psubst :: (IsPropositional formula atom, Ord atom) => Map atom formula -> formula -> formula
 psubst subfn fm = onatoms (\ p -> maybe (atomic p) id (fpf subfn p)) fm
 
 -- Example
@@ -645,16 +636,26 @@ list_disj l = foldl1 (.|.) l
 mk_lits :: IsPropositional formula atom => [formula] -> (atom -> Bool) -> formula
 mk_lits pvs v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs)
 
-allsatvaluations :: Eq a => ((a -> Bool) -> Bool) -> (a -> Bool) -> Set a -> [a -> Bool]
+mk_lits' :: (IsPropositional formula atom, Ord formula) => Set formula -> (atom -> Bool) -> formula
+mk_lits' pvs v = list_conj (Set.map (\ p -> if eval p v then p else (.~.) p) pvs)
+
+allsatvaluations :: Ord atom => ((atom -> Bool) -> Bool) -> (atom -> Bool) -> Set atom -> [atom -> Bool]
 allsatvaluations subfn v pvs =
     case Set.minView pvs of
       Nothing -> if subfn v then [v] else []
       Just (p, ps) -> (allsatvaluations subfn (\a -> if a == p then False else v a) ps) ++
                       (allsatvaluations subfn (\a -> if a == p then True else v a) ps)
 
-dnfList :: IsPropositional formula atom => formula -> formula
+dnfList :: (IsPropositional formula atom, Ord atom) => formula -> formula
 dnfList fm =
     list_disj (List.map (mk_lits (List.map atomic (Set.toAscList pvs))) satvals)
+     where
+       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
+       pvs = atoms fm
+
+dnfSet :: (IsPropositional formula atom, Ord formula, Ord atom) => formula -> formula
+dnfSet fm =
+    list_disj (List.map (mk_lits' (Set.map atomic pvs)) satvals)
     where
       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
       pvs = atoms fm
@@ -766,27 +767,20 @@ test31 = TestCase $ assertEqual "rawdnf (p. 58)" expected input
 distrib2 :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
 distrib2 s1 s2 = allpairs union s1 s2
 
-purednf :: (IsPropositional formula atom, Ord formula) => formula -> Set (Set formula)
-purednf fm =
-    foldPropositional co (\_ -> singleton (singleton fm)) (\_ -> singleton (singleton fm)) fm
+purednf :: (IsPropositional formula atom, IsLiteral lit atom2, Ord lit) => (atom -> atom2) -> formula -> Set (Set lit)
+purednf ca fm =
+    foldPropositional co (\_ -> l2f fm) (\_ -> l2f fm) fm
     where
-      co (BinOp p (:&:) q) = distrib2 (purednf p) (purednf q)
-      co (BinOp p (:|:) q) = union (purednf p) (purednf q)
-      co _ = singleton (singleton fm)
-{-
-purednf :: Ord atom => Formula atom -> Set (Set (Formula atom))
-purednf fm =
-    case fm of
-      And p q -> distrib2 (purednf p) (purednf q)
-      Or p q -> union (purednf p) (purednf q)
-      _ -> singleton (singleton fm)
--}
+      l2f = singleton . singleton . literalFromPropositional ca
+      co (BinOp p (:&:) q) = distrib2 (purednf ca p) (purednf ca q)
+      co (BinOp p (:|:) q) = union (purednf ca p) (purednf ca q)
+      co _ = l2f fm
 
 -- Example.
 
 test32 :: Test
 test32 = TestCase $ assertEqual "purednf (p. 58)" expected input
-    where input = purednf $ (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
+    where input = purednf id $ (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
           expected = Set.fromList [Set.fromList [p,Not p],
                                    Set.fromList [p,Not r],
                                    Set.fromList [q,r,Not p],
@@ -804,7 +798,7 @@ trivial lits =
 -- Example.
 test33 :: Test
 test33 = TestCase $ assertEqual "trivial" expected input
-    where input = Set.filter (not . trivial) (purednf fm)
+    where input = Set.filter (not . trivial) (purednf id fm)
           expected = Set.fromList [Set.fromList [p,Not r],
                                    Set.fromList [q,r,Not p]]
           fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
@@ -813,15 +807,18 @@ test33 = TestCase $ assertEqual "trivial" expected input
           r = Atom (P "r")
 
 -- | With subsumption checking, done very naively (quadratic).
-simpdnf :: (IsPropositional formula atom, Eq formula, Ord formula) => formula -> Set (Set formula)
-simpdnf fm =
-  if fm == false then Set.empty else if fm == true then singleton Set.empty else
-  let djs = Set.filter (not . trivial) (purednf (nnf fm)) in
-  Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
+simpdnf :: (IsPropositional formula atom, IsLiteral lit atom2, Ord lit) => (atom -> atom2) -> formula -> Set (Set lit)
+simpdnf ca fm =
+    foldPropositional (\_ -> go) tf (\_ -> go) fm
+    where
+      tf False = Set.empty
+      tf True = singleton Set.empty
+      go = let djs = Set.filter (not . trivial) (purednf ca (nnf fm)) in
+           Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
 
 -- | Mapping back to a formula.
 dnf :: (IsPropositional formula atom, Ord formula) => formula -> formula
-dnf fm = list_disj (Set.toAscList (Set.map list_conj (simpdnf fm)))
+dnf fm = list_disj (Set.toAscList (Set.map list_conj (simpdnf id fm)))
 
 -- Example. (p. 56)
 test34 :: Test
@@ -832,20 +829,23 @@ test34 = TestCase $ assertEqual "dnf (p. 56)" expected input
                (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
 
 -- | Conjunctive normal form (CNF) by essentially the same code. (p. 60)
-purecnf :: (IsPropositional formula atom, Ord formula) => formula -> Set (Set formula)
-purecnf fm = Set.map (Set.map negate) (purednf (nnf ((.~.) fm)))
+purecnf :: (IsPropositional formula atom, IsLiteral lit atom2, Ord lit) => (atom -> atom2) -> formula -> Set (Set lit)
+purecnf ca fm = Set.map (Set.map negate) (purednf ca (nnf ((.~.) fm)))
 
-simpcnf :: (IsPropositional formula atom, Eq formula, Ord formula) => formula -> Set (Set formula)
-simpcnf fm =
-  if fm == false then singleton (Set.empty) else if fm == true then Set.empty else
-  let cjs = Set.filter (not . trivial) (purecnf fm) in
-  Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
+simpcnf :: (IsPropositional formula atom, IsLiteral lit atom2, Ord lit) => (atom -> atom2) -> formula -> Set (Set lit)
+simpcnf ca fm =
+    foldPropositional (\_ -> go) tf (\_ -> go) fm
+    where
+      tf False = Set.empty
+      tf True = singleton Set.empty
+      go = let cjs = Set.filter (not . trivial) (purecnf ca fm) in
+           Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
 cnf_ :: forall pf lit atom. (IsPropositional pf atom, Ord pf, IsLiteral lit atom, Ord lit) => Set.Set (Set.Set lit) -> pf
 cnf_ = list_conj . Set.map (list_disj . Set.map (propositionalFromLiteral id))
 
 cnf' :: (IsPropositional formula atom, Ord formula) => formula -> formula
-cnf' fm = list_conj (Set.map list_disj (simpcnf fm))
+cnf' fm = list_conj (Set.map list_disj (simpcnf id fm))
 
 -- Example. (p. 61)
 test35 :: Test

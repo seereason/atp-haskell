@@ -334,7 +334,7 @@ instance IsFormula (Formula v atom) atom where
         Exists x p -> Exists x (onatoms f p)
         _ -> fm
 
-instance Ord atom => IsPropositional (Formula v atom) atom where
+instance (IsAtom atom predicate term, IsTerm term v function, Ord atom) => IsPropositional (Formula v atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True

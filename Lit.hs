@@ -17,7 +17,7 @@ import Prelude hiding (negate, null)
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- |forms.  They support negation and must include True and False elements.
-class (IsFormula lit atom, IsNegatable lit, HasBoolean lit) => IsLiteral lit atom | lit -> atom where
+class (IsFormula lit atom, IsNegatable lit, HasBoolean lit) => IsLiteral lit atom where
     foldLiteral :: (lit -> r) -> (Bool -> r) -> (atom -> r) -> lit -> r
 
 -- | Unify two literals

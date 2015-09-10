@@ -22,7 +22,6 @@ import Formulas
 import Lib hiding (tests)
 import Lit
 import Prelude hiding (negate, pure)
-import Pretty (Pretty)
 import Prop hiding (tests)
 import PropExamples (prime, Knows(K))
 import Test.HUnit
