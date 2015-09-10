@@ -83,7 +83,7 @@ class (IsFormula formula atom,
        IsNegatable formula,
        IsCombinable formula,
        HasBoolean formula
-      ) => IsPropositional formula atom | formula -> atom where
+      ) => IsPropositional formula atom where
     -- | Build an atomic formula from the atom type.
     -- | A fold function that distributes different sorts of formula
     -- to its parameter functions, one to handle binary operators, one
