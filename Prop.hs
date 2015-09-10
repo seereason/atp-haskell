@@ -9,6 +9,8 @@
 module Prop
     ( IsPropositional(foldPropositional)
     , convertPropositional
+    , propositionalFromLiteral
+    , literalFromPropositional
     , prettyPropositional
     -- * Interpretation of formulas.
     , eval
@@ -116,7 +118,18 @@ convertPropositional ca f1 =
 
 propositionalFromLiteral :: forall lit atom1 pf atom2. (IsLiteral lit atom1, IsPropositional pf atom2) =>
                    (atom1 -> atom2) -> lit -> pf
-propositionalFromLiteral ca lit = foldLiteral (\ p -> (.~.) (propositionalFromLiteral ca p)) fromBool (atomic . ca) lit
+propositionalFromLiteral ca lit =
+    foldLiteral ne fromBool (atomic . ca) lit
+    where
+      ne p = (.~.) (propositionalFromLiteral ca p)
+
+literalFromPropositional :: forall lit atom1 pf atom2. (IsPropositional pf atom1, IsLiteral lit atom2) =>
+                            (atom1 -> atom2) -> pf -> lit
+literalFromPropositional ca =
+    foldPropositional co fromBool (atomic . ca)
+    where
+      co ((:~:) p) = (.~.) (literalFromPropositional ca p)
+      co _ = error "literalFromPropositional found binary operator"
 
 instance (Ord atom, Pretty atom, HasFixity atom) => Pretty (PFormula atom) where
     pPrint fm = prettyPropositional topFixity fm
