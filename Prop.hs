@@ -352,6 +352,19 @@ test09 = TestCase $
                           ([True],False)])
               p = Atom (P "p")
 
+-- | Code to print out truth tables.
+truthTable :: (IsPropositional formula atom, Ord atom) => formula -> TruthTable atom
+truthTable fm =
+    TruthTable atl (onallvaluations (<>) mkRow (const False) ats)
+    where
+      ats = atoms fm
+      mkRow v = [(List.map v atl, eval fm v)]
+      atl = Set.toAscList ats
+
+-- | Recognizing tautologies.
+tautology :: (IsPropositional formula atom, Ord atom) => formula -> Bool
+tautology fm = onallvaluations (&&) (eval fm) (\_s -> False) (atoms fm)
+
 -- | Interpretation of formulas.
 eval :: IsPropositional formula atom => formula -> (atom -> Bool) -> Bool
 eval fm v =
@@ -365,11 +378,6 @@ eval fm v =
       co (BinOp p (:<=>:) q) = (eval p v) == (eval q v)
       at = v
 
--- | Return the set of propositional variables in a formula.
-atoms :: (IsFormula formula atom, Ord atom) => formula -> Set atom
-atoms fm = atom_union singleton fm
-
--- | Code to print out truth tables.
 onallvaluations :: Ord atom => (r -> r -> r) -> ((atom -> Bool) -> r) -> (atom -> Bool) -> Set atom -> r
 onallvaluations cmb subfn v ats =
     case minView ats of
@@ -378,17 +386,9 @@ onallvaluations cmb subfn v ats =
           let v' t q = (if q == p then t else v q) in
           cmb (onallvaluations cmb subfn (v' False) ps) (onallvaluations cmb subfn (v' True) ps)
 
-truthTable :: (IsPropositional formula atom, Ord atom) => formula -> TruthTable atom
-truthTable fm =
-    TruthTable atl (onallvaluations (<>) mkRow (const False) ats)
-    where
-      ats = atoms fm
-      mkRow v = [(List.map v atl, eval fm v)]
-      atl = Set.toAscList ats
-
--- | Recognizing tautologies.
-tautology :: (IsPropositional formula atom, Ord atom) => formula -> Bool
-tautology fm = onallvaluations (&&) (eval fm) (\_s -> False) (atoms fm)
+-- | Return the set of propositional variables in a formula.
+atoms :: (IsFormula formula atom, Ord atom) => formula -> Set atom
+atoms fm = atom_union singleton fm
 
 -- Examples.
 
@@ -485,6 +485,18 @@ test22 = TestCase $ assertEqual "Dual (p. 49)" expected input
           expected = And (Atom (P {pname = "p"})) (Not (Atom (P {pname = "p"})))
 
 -- | Routine simplification.
+psimplify :: IsPropositional formula atom => formula -> formula
+psimplify fm =
+    foldPropositional co tf at fm
+    where
+      co ((:~:) p) = psimplify1 ((.~.) (psimplify p))
+      co (BinOp p (:&:) q) = psimplify1 ((psimplify p) .&. (psimplify q))
+      co (BinOp p (:|:) q) = psimplify1 ((psimplify p) .|. (psimplify q))
+      co (BinOp p (:=>:) q) = psimplify1 ((psimplify p) .=>. (psimplify q))
+      co (BinOp p (:<=>:) q) = psimplify1 ((psimplify p) .<=>. (psimplify q))
+      tf _ = fm
+      at _ = fm
+
 psimplify1 :: IsPropositional formula atom => formula -> formula
 psimplify1 fm =
     foldPropositional simplifyCombine (\_ -> fm) (\_ -> fm) fm
@@ -513,18 +525,6 @@ psimplify1 fm =
       simplifyNotCombine ((:~:) f) = f
       simplifyNotCombine _ = fm
       simplifyNotAtom x = (.~.) (atomic x)
-
-psimplify :: IsPropositional formula atom => formula -> formula
-psimplify fm =
-    foldPropositional co tf at fm
-    where
-      co ((:~:) p) = psimplify1 ((.~.) (psimplify p))
-      co (BinOp p (:&:) q) = psimplify1 ((psimplify p) .&. (psimplify q))
-      co (BinOp p (:|:) q) = psimplify1 ((psimplify p) .|. (psimplify q))
-      co (BinOp p (:=>:) q) = psimplify1 ((psimplify p) .=>. (psimplify q))
-      co (BinOp p (:<=>:) q) = psimplify1 ((psimplify p) .<=>. (psimplify q))
-      tf _ = fm
-      at _ = fm
 
 -- Example.
 test23 :: Test
@@ -586,6 +586,9 @@ test26 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           r = Atom (P "r")
           s = Atom (P "s")
 
+nenf :: IsPropositional formula atom => formula -> formula
+nenf = nenf' . psimplify
+
 -- | Simple negation-pushing when we don't care to distinguish occurrences.
 nenf' :: IsPropositional formula atom => formula -> formula
 nenf' fm =
@@ -601,9 +604,6 @@ nenf' fm =
       co' (BinOp p (:|:) q) = nenf' ((.~.) p) .&. nenf' ((.~.) q)
       co' (BinOp p (:=>:) q) = nenf' p .&. nenf' ((.~.) q)
       co' (BinOp p (:<=>:) q) = nenf' p .<=>. nenf' ((.~.) q) -- really?  how is this asymmetrical?
-
-nenf :: IsPropositional formula atom => formula -> formula
-nenf = nenf' . psimplify
 
 -- Some tautologies remarked on.
 
@@ -624,14 +624,19 @@ test28 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           p' = Atom (P "p'")
           q' = Atom (P "q'")
 
--- | Disjunctive normal form (DNF) via truth tables.
-list_conj :: (Foldable t, HasBoolean formula, IsCombinable formula) => t formula -> formula
-list_conj l | null l = true
-list_conj l = foldl1 (.&.) l
+dnfList :: (IsPropositional formula atom, Ord atom) => formula -> formula
+dnfList fm =
+    list_disj (List.map (mk_lits (List.map atomic (Set.toAscList pvs))) satvals)
+     where
+       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
+       pvs = atoms fm
 
-list_disj :: (Foldable t, HasBoolean formula, IsCombinable formula) => t formula -> formula
-list_disj l | null l = false
-list_disj l = foldl1 (.|.) l
+dnfSet :: (IsPropositional formula atom, Ord formula, Ord atom) => formula -> formula
+dnfSet fm =
+    list_disj (List.map (mk_lits' (Set.map atomic pvs)) satvals)
+    where
+      satvals = allsatvaluations (eval fm) (\_s -> False) pvs
+      pvs = atoms fm
 
 mk_lits :: IsPropositional formula atom => [formula] -> (atom -> Bool) -> formula
 mk_lits pvs v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs)
@@ -646,19 +651,14 @@ allsatvaluations subfn v pvs =
       Just (p, ps) -> (allsatvaluations subfn (\a -> if a == p then False else v a) ps) ++
                       (allsatvaluations subfn (\a -> if a == p then True else v a) ps)
 
-dnfList :: (IsPropositional formula atom, Ord atom) => formula -> formula
-dnfList fm =
-    list_disj (List.map (mk_lits (List.map atomic (Set.toAscList pvs))) satvals)
-     where
-       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
-       pvs = atoms fm
+-- | Disjunctive normal form (DNF) via truth tables.
+list_conj :: (Foldable t, HasBoolean formula, IsCombinable formula) => t formula -> formula
+list_conj l | null l = true
+list_conj l = foldl1 (.&.) l
 
-dnfSet :: (IsPropositional formula atom, Ord formula, Ord atom) => formula -> formula
-dnfSet fm =
-    list_disj (List.map (mk_lits' (Set.map atomic pvs)) satvals)
-    where
-      satvals = allsatvaluations (eval fm) (\_s -> False) pvs
-      pvs = atoms fm
+list_disj :: (Foldable t, HasBoolean formula, IsCombinable formula) => t formula -> formula
+list_disj l | null l = false
+list_disj l = foldl1 (.|.) l
 
 -- Examples.
 

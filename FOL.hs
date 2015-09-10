@@ -37,7 +37,6 @@ module FOL
     , mod_interp
     -- * Free Variables
     , var
-    , fa
     , fv
     , generalize
     -- * Substitution
@@ -597,19 +596,7 @@ START_INTERACTIVE;;
 END_INTERACTIVE;;
 -}
 
--- | Specify the domain of a formula interpretation, and how to
--- interpret its functions and predicates.
-data Interp function predicate d
-    = Interp { domain :: [d]
-             , funcApply :: function -> [d] -> d
-             , predApply :: predicate -> [d] -> Bool }
-
 -- | Semantics, implemented of course for finite domains only.
-termval :: (IsTerm term v function, Show v) => Interp function predicate r -> Map v r -> term -> r
-termval m v tm =
-    foldTerm (\x -> fromMaybe (error ("Undefined variable: " ++ show x)) (Map.lookup x v))
-             (\f args -> funcApply m f (map (termval m v) args)) tm
-
 holds :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function, Show v) =>
          Interp function predicate dom -> Map v dom -> formula -> Bool
 holds m v fm =
@@ -624,6 +611,18 @@ holds m v fm =
       co (BinOp p (:<=>:) q) = (holds m v p) == (holds m v q)
       tf x = x
       at = foldAtom (\r args -> predApply m r (map (termval m v) args))
+
+-- | Specify the domain of a formula interpretation, and how to
+-- interpret its functions and predicates.
+data Interp function predicate d
+    = Interp { domain :: [d]
+             , funcApply :: function -> [d] -> d
+             , predApply :: predicate -> [d] -> Bool }
+
+termval :: (IsTerm term v function, Show v) => Interp function predicate r -> Map v r -> term -> r
+termval m v tm =
+    foldTerm (\x -> fromMaybe (error ("Undefined variable: " ++ show x)) (Map.lookup x v))
+             (\f args -> funcApply m f (map (termval m v) args)) tm
 
 -- | Examples of particular interpretations.
 bool_interp :: (IsFunction function, Eq predicate, Show function, Show predicate, HasEquality predicate) =>
@@ -702,9 +701,17 @@ test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
 
 -- Free variables in terms and formulas.
 
--- | Find the variables in a 'Term'.
-fvt :: IsTerm term v function => term -> Set v
-fvt tm = foldTerm singleton (\_ args -> unions (map fvt args)) tm
+-- | Find the free variables in a formula.
+fv :: (IsFirstOrder formula atom v, IsAtom atom predicate term,  IsTerm term v function) =>
+      formula -> Set v
+fv fm =
+    foldFirstOrder qu co tf at fm
+    where
+      qu _ x p = difference (fv p) (singleton x)
+      co ((:~:) p) = fv p
+      co (BinOp p _ q) = union (fv p) (fv q)
+      tf _ = Set.empty
+      at = foldAtom (\_ args -> unions (map fvt args))
 
 -- | Find the variables in a formula.
 var :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) => formula -> Set v
@@ -717,33 +724,14 @@ var fm =
       tf _ = Set.empty
       at = foldAtom (\_ args -> unions (map fvt args))
 
--- | Find the variables in an atom
-fa :: (IsAtom atom predicate term, IsTerm term v function) => atom -> Set v
-fa = foldAtom (\_ args -> unions (map fvt args))
-
--- | Find the free variables in a formula.
-fv :: (IsFirstOrder formula atom v, IsAtom atom predicate term,  IsTerm term v function) =>
-      formula -> Set v
-fv fm =
-    foldFirstOrder qu co tf at fm
-    where
-      qu _ x p = difference (fv p) (singleton x)
-      co ((:~:) p) = fv p
-      co (BinOp p _ q) = union (fv p) (fv q)
-      tf _ = Set.empty
-      at = fa
+-- | Find the variables in a 'Term'.
+fvt :: IsTerm term v function => term -> Set v
+fvt tm = foldTerm singleton (\_ args -> unions (map fvt args)) tm
 
 -- | Universal closure of a formula.
 generalize :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
               formula -> formula
 generalize fm = Set.fold for_all fm (fv fm)
-
--- | Substitution within terms.
-tsubst :: IsTerm term v function => Map v term -> term -> term
-tsubst sfn tm =
-    foldTerm (\x -> fromMaybe tm (Map.lookup x sfn))
-             (\f args -> fApp f (map (tsubst sfn) args))
-             tm
 
 test07 :: Test
 test07 = TestCase $ assertEqual "variant 1 (p. 133)" expected input
@@ -775,6 +763,14 @@ subst subfn fm =
       tf True = true
       at = foldAtom (\p args -> atomic (appAtom p (map (tsubst subfn) args)))
 
+-- | Substitution within terms.
+tsubst :: IsTerm term v function => Map v term -> term -> term
+tsubst sfn tm =
+    foldTerm (\x -> fromMaybe tm (Map.lookup x sfn))
+             (\f args -> fApp f (map (tsubst sfn) args))
+             tm
+
+-- | Substitution within quantifiers
 substq :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
           Map v term
        -> (v -> formula -> formula)
@@ -786,7 +782,6 @@ substq subfn qu x p =
                      (difference (fv p) (singleton x))
            then variant x (fv (subst (undefine x subfn) p)) else x in
   qu x' (subst ((x |-> vt x') subfn) p)
-
 
 -- Examples.
 
