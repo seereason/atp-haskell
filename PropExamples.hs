@@ -215,7 +215,7 @@ congruent_to x m n =
   conjoin (\ i -> if bit i m then x i else (.~.)(x i))
           (Set.fromList [0 .. (n - 1)])
 
-prime :: (IsPropositional formula atom, atom ~ Knows Integer) => Integer -> formula
+prime :: (IsPropositional formula atom, Ord formula, atom ~ Knows Integer) => Integer -> formula
 prime p =
   let [x, y, out] = map mk_knows ["x", "y", "out"] in
   let m i j = (x i) .&. (y j)

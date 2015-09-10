@@ -103,6 +103,7 @@ gilmore_loop =
 
 gilmore :: forall fof atom predicate term function v pf.
            (fof ~ pf,
+            Ord pf,
             Ord predicate,
             IsLiteral fof atom,
             IsTerm term v function,
@@ -198,6 +199,7 @@ dp_loop = herbloop dp_mfn dpll
 
 davisputnam :: forall fof atom term v predicate function pf.
                (fof ~ pf,
+                Ord pf,
                 IsLiteral fof atom,
                 IsFirstOrder fof atom v,
                 IsTerm term v function,
@@ -223,7 +225,7 @@ END_INTERACTIVE;;
 -}
 
 -- | Try to cut out useless instantiations in final result.
-dp_refine :: (IsLiteral lit atom, IsTerm term v function,
+dp_refine :: (IsLiteral lit atom, IsTerm term v function, Ord lit,
               IsFirstOrder lit atom v, IsAtom atom predicate term) =>
              Set (Set lit) -> [v] -> Set [term] -> Set [term] -> Failing (Set [term])
 dp_refine cjs0 fvs dknow need =
@@ -236,7 +238,7 @@ dp_refine cjs0 fvs dknow need =
           dp_refine cjs0 fvs dknow'
 
 dp_refine_loop :: forall v term predicate function lit atom.
-                  (IsLiteral lit atom,
+                  (IsLiteral lit atom, Ord lit,
                    IsTerm term v function,
                    IsFirstOrder lit atom v,
                    IsAtom atom predicate term) =>
@@ -257,7 +259,7 @@ dp_refine_loop cjs0 cntms funcs fvs n cjs tried tuples =
 davisputnam' :: forall fof atom predicate term lit v f pf.
                 (pf ~ fof, fof ~ lit,
                  IsFirstOrder fof atom v,
-                 IsLiteral lit atom,
+                 IsLiteral lit atom, Ord lit,
                  IsPropositional pf atom, -- Formula pf atom,
                  IsTerm term v f,
                  IsAtom atom predicate term,

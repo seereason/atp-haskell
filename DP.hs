@@ -36,7 +36,7 @@ flatten ss' = Set.fold Set.union Set.empty ss'
 
 #if 0
 -- * The DP procedure.
-one_literal_rule :: (IsLiteral lit atom, Ord lit, Pretty lit) => Set (Set lit) -> Failing (Set (Set lit))
+one_literal_rule :: (IsLiteral lit atom, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
 one_literal_rule clauses =
     case Set.minView (Set.filter (\ cl -> Set.size cl == 1) clauses) of
       Nothing -> Failure ["one_literal_rule"]
@@ -154,7 +154,7 @@ resolution_rule clauses =
 -- Overall procedure.                                                        
 -- ------------------------------------------------------------------------- 
 
-dp :: forall lit atom. (IsLiteral lit atom, Ord lit, Pretty lit) => Set.Set (Set.Set lit) -> Failing Bool
+dp :: forall lit atom. (IsLiteral lit atom, Ord lit) => Set (Set lit) -> Failing Bool
 dp clauses =
   if Set.null clauses
   then Success True

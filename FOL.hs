@@ -64,7 +64,7 @@ import Test.HUnit
 -- VARIABLES --
 ---------------
 
-class (Ord v, IsString v, Data v, Pretty v) => IsVariable v where
+class (Ord v, IsString v, Data v) => IsVariable v where
     variant :: v -> Set.Set v -> v
     -- ^ Return a variable based on v but different from any set
     -- element.  The result may be v itself if v is not a member of
@@ -214,13 +214,7 @@ data FOL predicate term = R predicate [term] deriving (Eq, Ord)
 
 instance (Pretty predicate, Show predicate, Show term) => Show (FOL predicate term) where
     show (R p ts) = "appAtom " ++ show p ++ " [" ++ intercalate ", " (map show ts) ++ "]"
-{-
-showAtom :: (Pretty predicate, Show predicate, Show term) => IsAtom atom predicate term => atom -> String
-showAtom = foldAtom showPApp
-    where
-      showPApp p [a, b] | pPrint p == text "=" = "(" ++ show a ++ ") .=. (" ++ show b ++ ")"
-      showPApp p ts = "pApp (" ++ show p ++ ") [" ++ intercalate ", " (map show ts) ++ "]"
--}
+
 instance IsAtom (FOL predicate term) predicate term where
     appAtom = R
     foldAtom f (R p ts) = f p ts
@@ -315,9 +309,6 @@ a .=. b = atomic (appAtom equals [a, b])
 
 infix 5 .=. -- , .!=., ≡, ≢
 
---instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (Formula v atom) where
---    pPrint fm = prettyFirstOrder pPrint topFixity fm
-
 instance IsFormula (Formula v atom) atom where
     atomic = Atom
     overatoms f fm b =
@@ -343,7 +334,7 @@ instance IsFormula (Formula v atom) atom where
         Exists x p -> Exists x (onatoms f p)
         _ -> fm
 
-instance (Ord atom, Ord v) => IsPropositional (Formula v atom) atom where
+instance Ord atom => IsPropositional (Formula v atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -361,7 +352,7 @@ instance (Ord atom, Ord v) => IsPropositional (Formula v atom) atom where
           Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier"
           Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier"
 
-instance (IsVariable v, Ord atom, Pretty atom, HasFixity atom, IsTerm term v function, IsAtom atom predicate term) => IsLiteral (Formula v atom) atom where
+instance (IsAtom atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
     foldLiteral co tf at fm =
         case fm of
           T -> tf True
@@ -423,7 +414,7 @@ for_all = quant (:!:)
 exists :: IsFirstOrder formula atom v => v -> formula -> formula
 exists = quant (:?:)
 
-instance (Ord atom, IsAtom atom predicate term, IsTerm term v function, IsVariable v) => IsFirstOrder (Formula v atom) atom v where
+instance (IsAtom atom predicate term, Ord atom, IsTerm term v function) => IsFirstOrder (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldFirstOrder qu co tf at fm =
@@ -432,10 +423,10 @@ instance (Ord atom, IsAtom atom predicate term, IsTerm term v function, IsVariab
           Exists v p -> qu (:?:) v p
           _ -> foldPropositional co tf at fm
 
-instance (Ord atom, HasFixity atom, Pretty atom, IsVariable v, IsAtom atom predicate term, IsTerm term v function) => Pretty (Formula v atom) where
+instance (Ord atom, HasFixity atom, Pretty atom, Pretty v, IsVariable v, IsAtom atom predicate term, IsTerm term v function) => Pretty (Formula v atom) where
     pPrint fm = prettyFirstOrder topFixity fm
 
-prettyFirstOrder :: (IsFirstOrder formula atom v, Pretty atom, HasFixity formula) => Fixity -> formula -> Doc
+prettyFirstOrder :: (IsFirstOrder formula atom v, Pretty atom, Pretty v, HasFixity formula) => Fixity -> formula -> Doc
 prettyFirstOrder pfix fm =
     bool id parens (pfix > fix) $ foldFirstOrder qu co tf at fm
         where
