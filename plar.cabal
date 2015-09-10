@@ -27,6 +27,7 @@ Library
     PropExamples
     DefCNF
     DP
+    Herbrand
 
 Test-Suite atp-haskell-tests
   Type: exitcode-stdio-1.0

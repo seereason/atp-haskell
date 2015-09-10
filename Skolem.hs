@@ -5,11 +5,10 @@
 module Skolem
     ( -- * Simplify for predicate formulas
       simplify
-    -- Predicate Application
-    , pApp
     -- * Normal forms
     , nnf
     , pnf
+    , Arity
     , functions
     -- * Skolem monad
     , SkolemM
@@ -19,7 +18,7 @@ module Skolem
     , askolemize
     , skolemize
     , Function(Fn, Skolem)
-    , MyAtom, MyFormula
+    , MyTerm, MyAtom, MyFormula
     -- * Tests
     , tests
     ) where
@@ -28,7 +27,7 @@ import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT)
 import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
-import Data.Set as Set (member, Set, toAscList)
+import Data.Set as Set (empty, member, Set, singleton, toAscList, unions)
 import Data.String (IsString(fromString))
 import FOL hiding (tests)
 import Formulas
@@ -172,16 +171,21 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" expected input
           fm = (for_all "x" (pApp p [vt "x"]) .|. (pApp r [vt "y"])) .=>.
                exists "y" (exists "z" ((pApp q [vt "y"]) .|. ((.~.)(exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"])))))
 
+type Arity = Int
+
+funcs :: IsTerm term v function => term -> Set (function, Arity)
+funcs term = foldTerm (\_ -> Set.empty) (\f ts -> Set.singleton (f, length ts)) term
 
 -- | Get the functions in a term and formula.
-functions :: (IsFirstOrder formula atom v, Ord function) =>
-             (atom -> Set (function, Int)) -> formula -> Set (function, Int)
-functions fa fm =
-    foldFirstOrder qu co (\_ -> mempty) fa fm
+functions :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function, Ord function) =>
+             formula -> Set (function, Arity)
+functions fm =
+    foldFirstOrder qu co (\_ -> mempty) at fm
     where
-      qu _ _ p = functions fa p
-      co ((:~:) p) = functions fa p
-      co (BinOp p _ q) = functions fa p <> functions fa q
+      qu _ _ p = functions p
+      co ((:~:) p) = functions p
+      co (BinOp p _ q) = functions p <> functions q
+      at = foldAtom (\_ ts -> unions (map funcs ts))
 
 -- -------------------------------------------------------------------------
 -- State monad for generating Skolem functions and constants.
@@ -319,7 +323,8 @@ instance HasSkolem Function V where
     fromSkolem (Skolem v) = Just v
     fromSkolem _ = Nothing
 
-type MyAtom = FOL Predicate (Term Function V)
+type MyTerm = Term Function V
+type MyAtom = FOL Predicate MyTerm
 type MyFormula = Formula V MyAtom
 
 -- Example.

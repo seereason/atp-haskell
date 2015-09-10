@@ -34,6 +34,7 @@ module FOL
     , mod_interp
     -- * Free Variables
     , var
+    , fa
     , fv
     , generalize
     -- * Substitution
@@ -52,6 +53,7 @@ import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), (.~.), true, false, IsCombinable(..), IsFormula(..), onatoms)
 import Lib (setAny, tryApplyD, undefine, (|->))
+import Lit (IsLiteral(foldLiteral))
 import Prop (IsPropositional(foldPropositional))
 import Prelude hiding (pred)
 import Pretty (Doc, FixityDirection(InfixN, InfixL, InfixR), HasFixity(fixity), Fixity(Fixity), parens, Pretty(pPrint), prettyShow, text, topFixity, (<>))
@@ -357,6 +359,20 @@ instance (Ord atom, Ord v) => IsPropositional (Formula v atom) atom where
           -- only method) on a Formula that has quantifiers.
           Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier"
           Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier"
+
+instance (IsVariable v, Ord atom, Pretty atom, HasFixity atom, IsTerm term v function, IsAtom atom predicate term) => IsLiteral (Formula v atom) atom where
+    foldLiteral co tf at fm =
+        case fm of
+          T -> tf True
+          F -> tf False
+          Atom a -> at a
+          Not p -> co ((.~.) p)
+          And _ _ -> error $ "foldLiteral used on Formula with a quantifier"
+          Or _ _ -> error $ "foldLiteral used on Formula with a quantifier"
+          Imp _ _ -> error $ "foldLiteral used on Formula with a quantifier"
+          Iff _ _ -> error $ "foldLiteral used on Formula with a quantifier"
+          Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier"
+          Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier"
 
 class (IsPropositional formula atom, IsVariable v) => IsFirstOrder formula atom v | formula -> atom v where
     quant :: Quant -> v -> formula -> formula
@@ -690,6 +706,9 @@ var fm =
       tf _ = Set.empty
       at = foldAtom (\_ args -> unions (map fvt args))
 
+fa :: (IsAtom atom predicate term, IsTerm term v function) => atom -> Set v
+fa = foldAtom (\_ args -> unions (map fvt args))
+
 -- | Find the free variables in a formula.
 fv :: (IsFirstOrder formula atom v, IsAtom atom predicate term,  IsTerm term v function) =>
       formula -> Set v
@@ -700,7 +719,7 @@ fv fm =
       co ((:~:) p) = fv p
       co (BinOp p _ q) = union (fv p) (fv q)
       tf _ = Set.empty
-      at = foldAtom (\_ args -> unions (map fvt args))
+      at = fa
 
 -- | Universal closure of a formula.
 generalize :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
