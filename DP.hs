@@ -4,13 +4,13 @@
 
 {-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, ScopedTypeVariables #-}
 module DP
-    ( tests
-    , dpll
+    ( dpll
     , dpllsat
     , dplltaut
     , dplb
     , dplbsat
     , dplbtaut
+    , tests
     ) where
 
 import Control.Applicative.Error (Failing(..))

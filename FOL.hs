@@ -20,7 +20,7 @@ module FOL
     -- * Predicates
     , HasEquality(equals), Predicate(NamedPredicate, Equals)
     -- * Atoms
-    , IsAtom(appAtom, foldAtom), pApp , (.=.), FOL(R)
+    , IsAtom(appAtom, foldAtom, zipAtoms), pApp , (.=.), FOL(R)
     -- * Quantifiers
     , Quant((:!:), (:?:))
     -- Formula
@@ -40,7 +40,7 @@ module FOL
     , fv
     , generalize
     -- * Substitution
-    , subst, substq
+    , subst, substq, asubst, tsubst
     -- * Tests
     , tests
     ) where
@@ -54,7 +54,7 @@ import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, 
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), (.~.), true, false, IsCombinable(..), IsFormula(..), onatoms)
-import Lib (setAny, tryApplyD, undefine, (|->))
+import Lib (setAny, tryApplyD, undefine, (|->), Failing(..))
 import Lit (IsLiteral(foldLiteral))
 import Prop (IsPropositional(foldPropositional))
 import Prelude hiding (pred)
@@ -213,6 +213,7 @@ instance Pretty Predicate where
 class IsAtom atom predicate term | atom -> predicate term where
     appAtom :: predicate -> [term] -> atom
     foldAtom :: (predicate -> [term] -> r) -> atom -> r
+    zipAtoms :: Eq predicate => (predicate -> [(term, term)] -> Failing r) -> atom -> atom -> Failing r
 
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord)
@@ -223,11 +224,13 @@ instance (Pretty predicate, Show predicate, Show term) => Show (FOL predicate te
 instance IsAtom (FOL predicate term) predicate term where
     appAtom = R
     foldAtom f (R p ts) = f p ts
+    zipAtoms f (R p1 ts1) (R p2 ts2) =
+        if p1 == p2 && length ts1 == length ts2 then f p1 (zip ts1 ts2) else Failure ["zipAtoms"]
 
 -- | The type of the predicate determines how this atom is pretty
 -- printed - specifically, whether it is an instance of HasEquality.
 -- So we need to do some gymnastics to make this happen.
-instance (Pretty predicate, Pretty term) => Pretty (FOL predicate term) where
+instance (Eq predicate, Pretty predicate, Pretty term) => Pretty (FOL predicate term) where
     pPrint = foldAtom (\ p ts -> if pPrint p == text "="
                                  then error "illegal pretty printer for predicate"
                                  else pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]")
@@ -761,7 +764,7 @@ subst subfn fm =
       co (BinOp p (:<=>:) q) = (subst subfn p) .<=>. (subst subfn q)
       tf False = false
       tf True = true
-      at = foldAtom (\p args -> atomic (appAtom p (map (tsubst subfn) args)))
+      at = atomic . asubst subfn
 
 -- | Substitution within terms.
 tsubst :: IsTerm term v function => Map v term -> term -> term
@@ -769,6 +772,10 @@ tsubst sfn tm =
     foldTerm (\x -> fromMaybe tm (Map.lookup x sfn))
              (\f args -> fApp f (map (tsubst sfn) args))
              tm
+
+-- | Substitution within terms.
+asubst :: (IsAtom atom predicate term, IsTerm term v function) => Map v term -> atom -> atom
+asubst sfn a = foldAtom (\p ts -> appAtom p (map (tsubst sfn) ts)) a
 
 -- | Substitution within quantifiers
 substq :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>

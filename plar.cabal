@@ -20,14 +20,48 @@ Library
     Lib
     Pretty
     Formulas
+    --
     Lit
     Prop
-    FOL
-    Skolem
     PropExamples
     DefCNF
     DP
+    -- Stal
+    -- BDD
+    FOL
+    Skolem
     Herbrand
+    Unif
+    Tableaux
+    -- Resolution
+    -- Prolog
+    -- Meson
+    -- Skolems
+    -- Equal
+    -- Cong
+    -- Rewrite
+    -- Order
+    -- Completion
+    -- Eqelim
+    -- Paramodulation
+    --
+    -- Decidable
+    -- Qelim
+    -- Cooper
+    -- Complex
+    -- Real
+    -- Grobner
+    -- Geom
+    -- Interpolation
+    -- Combining
+
+    -- Lcf
+    -- Lcfprop
+    -- Folderived
+    -- Lcffol
+    -- Tactics
+
+    -- Limitations
 
 Test-Suite atp-haskell-tests
   Type: exitcode-stdio-1.0

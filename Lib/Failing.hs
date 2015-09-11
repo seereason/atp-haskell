@@ -1,7 +1,8 @@
 {-# LANGUAGE  DeriveDataTypeable, FlexibleContexts, FlexibleInstances, StandaloneDeriving #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Lib.Failing
-    ( Failing(Success, Failure)
+    ( module Control.Applicative.Error
+    , Failing(Success, Failure)
     , failing
     ) where
 

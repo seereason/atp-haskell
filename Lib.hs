@@ -32,6 +32,7 @@ module Lib
     , mapfilter
     , setmapfilter
     , (∅)
+    , module Lib.Failing
     , tests
     ) where
 
@@ -39,7 +40,7 @@ import Data.List as List (foldr, map)
 import Data.Map as Map (delete, findMin, fromList, insert, lookup, Map, member)
 import Data.Maybe
 import Data.Set as Set
-import Lib.Failing (Failing(..), failing)
+import Lib.Failing
 import Test.HUnit (Test(TestCase, TestList, TestLabel), assertEqual)
 
 (∅) :: Set.Set a
