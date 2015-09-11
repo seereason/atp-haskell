@@ -11,7 +11,7 @@ module Unif
     , tests
     ) where
 
-import Lib.Failing
+import Lib (Failing(Success, Failure), failing)
 import FOL (IsTerm(..), tsubst)
 import Skolem (MyTerm)
 import Data.List as List (map)

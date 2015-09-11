@@ -329,10 +329,9 @@ END_INTERACTIVE;;
 -- ------------------------------------------------------------------------- 
 -- Try to split up the initial formula first; often a big improvement.       
 -- ------------------------------------------------------------------------- 
--}
 splittab fm =
   List.map tabrefute (simpdnf id (runSkolem (askolemize((.~.)(generalize fm)))))
-{-
+
 -- ------------------------------------------------------------------------- 
 -- Example: the Andrews challenge.                                           
 -- ------------------------------------------------------------------------- 

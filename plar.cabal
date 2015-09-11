@@ -16,6 +16,7 @@ Extra-Source-Files: tests/Extra.hs
 Library
   Build-Depends: applicative-extras, base, containers, hashable, HUnit, mtl, pretty >= 1.1.2, syb, template-haskell
   GHC-options: -Wall -O2
+  Hs-Source-Dirs: src
   Exposed-Modules:
     Lib
     Pretty
