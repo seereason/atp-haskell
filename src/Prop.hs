@@ -865,7 +865,7 @@ simpcnf ca fm =
       go = let cjs = Set.filter (not . trivial) (purecnf ca fm) in
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
-cnf_ :: forall pf atom lit atom2. (IsPropositional pf atom, Ord pf, IsLiteral lit atom2, Ord lit) => (atom2 -> atom) -> Set.Set (Set.Set lit) -> pf
+cnf_ :: forall pf atom lit atom2. (IsPropositional pf atom, Ord pf, IsLiteral lit atom2, Ord lit) => (atom2 -> atom) -> Set (Set.Set lit) -> pf
 cnf_ ca = list_conj . Set.map (list_disj . Set.map (propositionalFromLiteral ca))
 
 cnf' :: (IsPropositional formula atom, Ord formula) => formula -> formula

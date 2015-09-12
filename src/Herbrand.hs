@@ -245,7 +245,7 @@ davisputnam' _ _ fm =
     let fvs = Set.toList (overatoms (\ (a :: atom) s -> Set.union (fv (atomic a :: formula)) s) sfm Set.empty)
         (consts,funcs) = herbfuns sfm in
     let cntms = Set.map (\ (c,_) -> fApp c []) consts in
-    dp_refine_loop (simpcnf id sfm :: Set.Set (Set.Set formula)) cntms funcs fvs 0 Set.empty Set.empty Set.empty >>= return . Set.size
+    dp_refine_loop (simpcnf id sfm :: Set (Set formula)) cntms funcs fvs 0 Set.empty Set.empty Set.empty >>= return . Set.size
 
 -- | Try to cut out useless instantiations in final result.
 dp_refine_loop :: forall formula atom term v predicate function.

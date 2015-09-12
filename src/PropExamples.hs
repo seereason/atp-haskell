@@ -24,7 +24,8 @@ import Lib (allsets)
 import Pretty (HasFixity(fixity), leafFixity, prettyShow)
 import Prop hiding (tests)
 import Data.Bits (Bits, shiftR)
-import qualified Data.Set as Set
+import Data.List as List (map)
+import Data.Set as Set
 import Prelude hiding (sum)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
@@ -78,7 +79,7 @@ fa :: forall formula. IsCombinable formula => formula -> formula -> formula -> f
 fa x y z s c = (s .<=>. sum x y z) .&. (c .<=>. carry x y z)
 
 -- | Useful idiom.
-conjoin :: forall formula atomic a. (IsPropositional formula atomic, Ord formula, Ord a) => (a -> formula) -> Set.Set a -> formula
+conjoin :: forall formula atomic a. (IsPropositional formula atomic, Ord formula, Ord a) => (a -> formula) -> Set a -> formula
 conjoin f l = list_conj (Set.map f l)
 
 -- | n-bit ripple carry adder with carry c(0) propagated in and c(n) out.  (p. 67)
@@ -98,7 +99,7 @@ mk_knows2 :: forall formula a. IsPropositional formula (Knows a) => String -> a 
 mk_knows2 x i j = atomic (K x i (Just j))
 
 test02 =
-    let [x, y, out, c] = map mk_knows ["X", "Y", "OUT", "C"] :: [Integer -> PFormula (Knows Integer)] in
+    let [x, y, out, c] = List.map mk_knows ["X", "Y", "OUT", "C"] :: [Integer -> PFormula (Knows Integer)] in
     TestCase (assertEqual "ripplecarry x y c out 2"
                           (((out 0 .<=>. ((x 0 .<=>. ((.~.) (y 0))) .<=>. ((.~.) (c 0)))) .&.
                             (c 1 .<=>. ((x 0 .&. y 0) .|. ((x 0 .|. y 0) .&. c 0)))) .&.
@@ -161,7 +162,7 @@ mk_adder_test :: forall formula atom a. (IsPropositional formula atom, atom ~ Kn
                  a -> a -> formula
 mk_adder_test n k =
   let [x, y, c, s, c0, s0, c1, s1, c2, s2] =
-          map mk_knows ["x", "y", "c", "s", "c0", "s0", "c1", "s1", "c2", "s2"] in
+          List.map mk_knows ["x", "y", "c", "s", "c0", "s0", "c1", "s1", "c2", "s2"] in
   (((carryselect x y c0 c1 s0 s1 c s n k) .&.
     ((.~.) (c 0))) .&.
    (ripplecarry0 x y c2 s2 n)) .=>.
@@ -223,9 +224,9 @@ congruent_to x m n =
 
 prime :: (IsPropositional formula atom, Ord formula, atom ~ Knows Integer) => Integer -> formula
 prime p =
-  let [x, y, out] = map mk_knows ["x", "y", "out"] in
+  let [x, y, out] = List.map mk_knows ["x", "y", "out"] in
   let m i j = (x i) .&. (y j)
-      [u, v] = map mk_knows2 ["u", "v"] in
+      [u, v] = List.map mk_knows2 ["u", "v"] in
   let (n :: Integer) = bitlength p in
   (.~.) (multiplier m u v out (n - 1) .&. congruent_to out p (max n (2 * n - 2)))
 

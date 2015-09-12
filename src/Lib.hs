@@ -64,13 +64,13 @@ deriving instance Read a => Read (Failing a)
 deriving instance Eq a => Eq (Failing a)
 deriving instance Ord a => Ord (Failing a)
 
-(∅) :: Set.Set a
+(∅) :: Set a
 (∅) = Set.empty
 
-setAny :: forall a. Ord a => (a -> Bool) -> Set.Set a -> Bool
+setAny :: forall a. Ord a => (a -> Bool) -> Set a -> Bool
 setAny f s = Set.member True (Set.map f s)
 
-setAll :: forall a. Ord a => (a -> Bool) -> Set.Set a -> Bool
+setAll :: forall a. Ord a => (a -> Bool) -> Set a -> Bool
 setAll f s = not (Set.member False (Set.map f s))
 
 {-
@@ -220,17 +220,17 @@ let map f =
   mapf;;
 -}
 
-allpairs :: forall a b c. (Ord c) => (a -> b -> c) -> Set.Set a -> Set.Set b -> Set.Set c
+allpairs :: forall a b c. (Ord c) => (a -> b -> c) -> Set a -> Set b -> Set c
 -- allpairs f xs ys = Set.fromList (concatMap (\ z -> map (f z) (Set.toList ys)) (Set.toList xs))
 allpairs f xs ys = Set.fold (\ x zs -> Set.fold (\ y zs' -> Set.insert (f x y) zs') zs ys) Set.empty xs
 
-distrib' :: Ord a => Set.Set (Set.Set a) -> Set.Set (Set.Set a) -> Set.Set (Set.Set a)
+distrib' :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
 distrib' s1 s2 = allpairs (Set.union) s1 s2
 
 test01 :: Test
 test01 = TestCase $ assertEqual "itlist2" expected input
     where input = allpairs (,) (Set.fromList [1,2,3]) (Set.fromList [4,5,6])
-          expected = Set.fromList [(1,4),(1,5),(1,6),(2,4),(2,5),(2,6),(3,4),(3,5),(3,6)] :: Set.Set (Int, Int)
+          expected = Set.fromList [(1,4),(1,5),(1,6),(2,4),(2,5),(2,6),(3,4),(3,5),(3,6)] :: Set (Int, Int)
 
 {-
 let rec distinctpairs l =
@@ -364,7 +364,7 @@ tryfind f l =
       [] -> Failure ["tryfind"]
       h : t -> failing (\ _ -> tryfind f t) Success (f h)
 
-settryfind :: (t -> Failing a) -> Set.Set t -> Failing a
+settryfind :: (t -> Failing a) -> Set t -> Failing a
 settryfind f l =
     case Set.minView l of
       Nothing -> Failure ["settryfind"]
@@ -374,7 +374,7 @@ mapfilter :: (a -> Failing b) -> [a] -> [b]
 mapfilter f l = catMaybes (List.map (failing (const Nothing) Just . f) l) 
     -- filter (failing (const False) (const True)) (map f l)
 
-setmapfilter :: Ord b => (a -> Failing b) -> Set.Set a -> Set.Set b
+setmapfilter :: Ord b => (a -> Failing b) -> Set a -> Set b
 setmapfilter f s = Set.fold (\ a r -> failing (const r) (`Set.insert` r) (f a)) Set.empty s
 
 -- -------------------------------------------------------------------------
@@ -391,13 +391,13 @@ maximize f l = optimize (>) f l
 minimize :: forall a b. Ord b => (a -> b) -> [a] -> Maybe a
 minimize f l = optimize (<) f l
 
-optimize' :: forall a b. (b -> b -> Bool) -> (a -> b) -> Set.Set a -> Maybe a
+optimize' :: forall a b. (b -> b -> Bool) -> (a -> b) -> Set a -> Maybe a
 optimize' ord f s = optimize ord f (Set.toAscList s)
 
-maximize' :: forall a b. Ord b => (a -> b) -> Set.Set a -> Maybe a
+maximize' :: forall a b. Ord b => (a -> b) -> Set a -> Maybe a
 maximize' f s = optimize' (>) f s
 
-minimize' :: forall a b. Ord b => (a -> b) -> Set.Set a -> Maybe a
+minimize' :: forall a b. Ord b => (a -> b) -> Set a -> Maybe a
 minimize' f s = optimize' (<) f s
 
 -- -------------------------------------------------------------------------
@@ -470,7 +470,7 @@ let rec set_eq s1 s2 = (setify s1 = setify s2);;
 let insert x s = union [x] s;;
 -}
 
-image :: (Ord b, Ord a) => (a -> b) -> Set.Set a -> Set.Set b
+image :: (Ord b, Ord a) => (a -> b) -> Set a -> Set b
 image f s = Set.map f s
 
 {-
@@ -494,15 +494,15 @@ let rec mem x lis =
 -- Finding all subsets or all subsets of a given size.                       
 -- ------------------------------------------------------------------------- 
 
--- allsets :: Ord a => Int -> Set.Set a -> Set.Set (Set.Set a)
-allsets :: forall a b. (Num a, Eq a, Ord b) => a -> Set.Set b -> Set.Set (Set.Set b)
+-- allsets :: Ord a => Int -> Set a -> Set (Set a)
+allsets :: forall a b. (Num a, Eq a, Ord b) => a -> Set b -> Set (Set b)
 allsets 0 _ = Set.singleton Set.empty
 allsets m l =
     case Set.minView l of
       Nothing -> Set.empty
       Just (h, t) -> Set.union (Set.map (Set.insert h) (allsets (m - 1) t)) (allsets m t)
 
-allsubsets :: forall a. Ord a => Set.Set a -> Set.Set (Set.Set a)
+allsubsets :: forall a. Ord a => Set a -> Set (Set a)
 allsubsets s =
     maybe (Set.singleton Set.empty)
           (\ (x, t) -> 
@@ -511,7 +511,7 @@ allsubsets s =
           (Set.minView s)
 
 
-allnonemptysubsets :: forall a. Ord a => Set.Set a -> Set.Set (Set.Set a)
+allnonemptysubsets :: forall a. Ord a => Set a -> Set (Set a)
 allnonemptysubsets s = Set.delete Set.empty (allsubsets s)
 
 {-

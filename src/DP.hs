@@ -46,7 +46,7 @@ dp clauses =
                     Success x -> Success x
                     Failure _ -> resolution_rule clauses >>= dp
 
-one_literal_rule :: (IsLiteral lit atom, Ord lit) => Set.Set (Set.Set lit) -> Failing (Set.Set (Set.Set lit))
+one_literal_rule :: (IsLiteral lit atom, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
 one_literal_rule clauses =
     case Set.minView (Set.filter (\ cl -> Set.size cl == 1) clauses) of
       Nothing -> Failure ["one_literal_rule"]
@@ -56,7 +56,7 @@ one_literal_rule clauses =
           let clauses1 = Set.filter (\ cl -> not (Set.member u cl)) clauses in
           Success (Set.map (\ cl -> Set.delete u' cl) clauses1)
 
-affirmative_negative_rule :: (IsLiteral lit atom, Ord lit) => Set.Set (Set.Set lit) -> Failing (Set.Set (Set.Set lit))
+affirmative_negative_rule :: (IsLiteral lit atom, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
 affirmative_negative_rule clauses =
   let (neg',pos) = Set.partition negative (flatten clauses) in
   let neg = Set.map (.~.) neg' in
@@ -68,7 +68,7 @@ affirmative_negative_rule clauses =
   else Success (Set.filter (\ cl -> Set.null (Set.intersection cl pure)) clauses)
 
 resolve_on :: forall lit atom. (IsLiteral lit atom, Ord lit) =>
-              lit -> Set.Set (Set.Set lit) -> Set.Set (Set.Set lit)
+              lit -> Set (Set lit) -> Set (Set lit)
 resolve_on p clauses =
   let p' = (.~.) p
       (pos,notpos) = Set.partition (Set.member p) clauses in
@@ -79,14 +79,14 @@ resolve_on p clauses =
   Set.union other (Set.filter (not . trivial) res0)
 
 resolution_blowup :: forall formula. (IsNegatable formula, Ord formula) =>
-                     Set.Set (Set.Set formula) -> formula -> Int
+                     Set (Set formula) -> formula -> Int
 resolution_blowup cls l =
   let m = Set.size (Set.filter (Set.member l) cls)
       n = Set.size (Set.filter (Set.member ((.~.) l)) cls) in
   m * n - m - n
 
 resolution_rule :: forall lit atom. (IsLiteral lit atom, Ord lit) =>
-                   Set.Set (Set.Set lit) -> Failing (Set.Set (Set.Set lit))
+                   Set (Set lit) -> Failing (Set (Set lit))
 resolution_rule clauses =
     let pvs = Set.filter positive (flatten clauses) in
     case minimize' (resolution_blowup clauses) pvs of

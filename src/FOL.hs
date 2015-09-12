@@ -66,7 +66,7 @@ import Test.HUnit
 ---------------
 
 class (Ord v, IsString v, Data v) => IsVariable v where
-    variant :: v -> Set.Set v -> v
+    variant :: v -> Set v -> v
     -- ^ Return a variable based on v but different from any set
     -- element.  The result may be v itself if v is not a member of
     -- the set.
