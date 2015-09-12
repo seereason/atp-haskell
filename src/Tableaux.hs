@@ -37,32 +37,31 @@ import Test.HUnit
 
 
 -- | Unify literals (just pretend the toplevel relation is a function).
-unify_literals :: forall lit atom term predicate v f.
+unify_literals :: forall lit atom term predicate v function.
                   (IsLiteral lit atom,
                    IsAtom atom predicate term,
-                   IsTerm term v f,
+                   IsTerm term v function,
                    Eq term, Eq predicate) =>
                   Map v term -> lit -> lit -> Failing (Map v term)
 unify_literals env f1 f2 =
-    maybe err id (zipLiterals co tf at f1 f2)
+    maybe err id (zipLiterals ne tf at f1 f2)
     where
-      -- co :: lit -> lit -> Maybe (Failing (Map v term))
-      co p q = Just $ unify_literals env p q
+      ne p q = Just $ unify_literals env p q
       tf p q = if p == q then Just $ unify env [] else Nothing
       at :: atom -> atom -> Maybe (Failing (Map v term))
       at a1 a2 = Just $ unify_atoms env a1 a2
       err = Failure ["Can't unify literals"]
 
-unify_atoms :: forall atom term predicate v f.
+unify_atoms :: forall atom term predicate v function.
                (IsAtom atom predicate term,
-                IsTerm term v f, Eq term, Eq predicate) =>
+                IsTerm term v function, Eq term, Eq predicate) =>
                Map v term -> atom -> atom -> Failing (Map v term)
 unify_atoms env a1 a2 =
     let r = zipAtoms (\_ tpairs -> Just (unify env tpairs)) a1 a2 in
     maybe (Failure ["unify_atoms"]) id r
 {-
-unifyAtomsEq :: forall v f atom p term.
-                (AtomEq atom p term, Term term v f) =>
+unifyAtomsEq :: forall v function atom p term.
+                (AtomEq atom p term, Term term v function) =>
                 Map v term -> atom -> atom -> Failing (Map v term)
 unifyAtomsEq env a1 a2 =
     maybe err id (zipAtomsEq ap tf eq a1 a2)
@@ -77,10 +76,10 @@ unifyAtomsEq env a1 a2 =
 -}
 
 -- | Unify complementary literals.
-unify_complements :: forall lit atom term predicate v f.
+unify_complements :: forall lit atom term predicate v function.
                      (IsLiteral lit atom,
                       IsAtom atom predicate term,
-                      IsTerm term v f,
+                      IsTerm term v function,
                       Eq term, Eq predicate) =>
                      Map v term -> lit -> lit -> Failing (Map v term)
 unify_complements env p q = unify_literals env p ((.~.) q)
@@ -88,7 +87,7 @@ unify_complements env p q = unify_literals env p ((.~.) q)
 -- | Unify and refute a set of disjuncts.
 unify_refute :: (IsLiteral lit atom,
                  IsAtom atom predicate term,
-                 IsTerm term v f,
+                 IsTerm term v function,
                  Ord lit, Eq term, Eq predicate) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
@@ -101,10 +100,10 @@ unify_refute djs env =
             (pos,neg) = Set.partition positive d
 
 -- | Hence a Prawitz-like procedure (using unification on DNF).
-prawitz_loop :: forall atom v term predicate f lit.
+prawitz_loop :: forall atom v term predicate function lit.
                 (IsLiteral lit atom,
                  IsAtom atom predicate term,
-                 IsTerm term v f,
+                 IsTerm term v function,
                  Ord lit, Eq term, Eq predicate) =>
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
