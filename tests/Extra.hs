@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables #-}
 module Extra where
 
-import FOL (vt, fApp, (.=.), for_all, exists, IsAtom(appAtom), Predicate(Equals))
+import FOL (vt, fApp, (.=.), for_all, exists, IsAtom(makeAtom), Predicate(Equals))
 import Formulas
 import Prop hiding (nnf)
 import Skolem (HasSkolem(toSkolem), skolemize, runSkolem, MyAtom, MyFormula)
@@ -18,13 +18,13 @@ test06 =
         expected = (vt "x" .=. vt "x") .&. ((.~.) (fApp (toSkolem "x") [] .=. vt "x"))
         expected' :: MyFormula
         expected' = (((vt "x") .=. (vt "x"))) .&. ((.~.) (((fApp (toSkolem "x")[]) .=. (vt "x"))))
-        -- atoms = [appAtom equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x")[]) .=. (vt "x")-}] :: [MyAtom]
+        -- atoms = [makeAtom equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x")[]) .=. (vt "x")-}] :: [MyAtom]
         sk = runSkolem (skolemize id fm) :: MyFormula
         table = truthTable expected' :: TruthTable MyAtom in
     TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y"
                            (expected',
                             TruthTable
-                              [appAtom Equals [vt "x", vt "x"],appAtom Equals [fApp (toSkolem "x")[], vt "x"]]
+                              [makeAtom Equals [vt "x", vt "x"], makeAtom Equals [fApp (toSkolem "x")[], vt "x"]]
                               [([False,False],False),
                                ([False,True],False),
                                ([True,False],True),

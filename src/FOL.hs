@@ -16,11 +16,11 @@ module FOL
     -- * Functions
     , IsFunction, FName(FName)
     -- * Terms
-    , IsTerm(vt, fApp, foldTerm, zipTerms), Term(Var, FApply)
+    , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm, Term(Var, FApply)
     -- * Predicates
     , HasEquality(equals), Predicate(NamedPredicate, Equals)
     -- * Atoms
-    , IsAtom(appAtom, foldAtom), zipAtoms, pApp , (.=.), FOL(R)
+    , IsAtom(makeAtom, foldAtom), convertAtom, zipAtoms, pApp , (.=.), FOL(R)
     -- * Quantifiers
     , Quant((:!:), (:?:))
     -- Formula
@@ -141,6 +141,10 @@ class (IsVariable v, IsFunction function, Pretty term) => IsTerm term v function
     -- ^ Combine two terms if they are similar (i.e. two variables or
     -- two function applications.)
 
+-- | Convert between two instances of IsTerm
+convertTerm :: (IsTerm term1 v1 f1, IsTerm term2 v2 f2) => (v1 -> v2) -> (f1 -> f2) -> term1 -> term2
+convertTerm cv cf = foldTerm (vt . cv) (\f ts -> fApp (cf f) (map (convertTerm cv cf) ts))
+
 data Term function v
     = Var v
     | FApply function [Term function v]
@@ -214,7 +218,7 @@ instance Pretty Predicate where
 ----------
 
 class (Pretty atom, HasFixity atom, Pretty predicate) => IsAtom atom predicate term | atom -> predicate term where
-    appAtom :: predicate -> [term] -> atom
+    makeAtom :: predicate -> [term] -> atom
     foldAtom :: (predicate -> [term] -> r) -> atom -> r
 
 zipAtoms :: (IsAtom atom predicate term, Eq predicate) =>
@@ -228,14 +232,18 @@ zipAtoms f atom1 atom2 =
                                 then Nothing
                                 else f p1 (zip ts1 ts2)) atom2
 
+-- | Convert between two instances of IsAtom
+convertAtom :: (IsAtom atom1 p1 t1, IsAtom atom2 p2 t2) => (p1 -> p2) -> (t1 -> t2) -> atom1 -> atom2
+convertAtom cp ct = foldAtom (\p1 ts1 -> makeAtom (cp p1) (map ct ts1))
+
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord)
 
 instance (Pretty predicate, Show predicate, Show term) => Show (FOL predicate term) where
-    show (R p ts) = "appAtom " ++ show p ++ " [" ++ intercalate ", " (map show ts) ++ "]"
+    show (R p ts) = "makeAtom " ++ show p ++ " [" ++ intercalate ", " (map show ts) ++ "]"
 
 instance (Pretty term, Pretty predicate) => IsAtom (FOL predicate term) predicate term where
-    appAtom = R
+    makeAtom = R
     foldAtom f (R p ts) = f p ts
 
 -- | The type of the predicate determines how this atom is pretty
@@ -320,11 +328,11 @@ instance HasFixity atom => HasFixity (Formula v atom) where
 
 -- | Use a predicate to combine some terms into a formula.
 pApp :: (IsFormula formula atom, IsAtom atom predicate term) => predicate -> [term] -> formula
-pApp p args = atomic $ appAtom p args
+pApp p args = atomic $ makeAtom p args
 
 -- | Apply the equals predicate to two terms and build a formula.
 (.=.) :: (IsFormula formula atom, IsAtom atom predicate term, HasEquality predicate) => term -> term -> formula
-a .=. b = atomic (appAtom equals [a, b])
+a .=. b = atomic (makeAtom equals [a, b])
 
 infix 5 .=. -- , .!=., ≡, ≢
 
@@ -478,7 +486,7 @@ prettyFirstOrder pfix side fm =
 
 -- | Special case of applying a subfunction to the top *terms*.
 onformula :: (IsFormula formula r, IsAtom r predicate term) => (term -> term) -> formula -> formula
-onformula f = onatoms (foldAtom (\p a -> atomic $ appAtom p (map f a)))
+onformula f = onatoms (foldAtom (\p a -> atomic $ makeAtom p (map f a)))
 
 {-
 (* Trivial example of "x + y < z".                                           *)
@@ -802,7 +810,7 @@ tsubst sfn tm =
 
 -- | Substitution within terms.
 asubst :: (IsAtom atom predicate term, IsTerm term v function) => Map v term -> atom -> atom
-asubst sfn a = foldAtom (\p ts -> appAtom p (map (tsubst sfn) ts)) a
+asubst sfn a = foldAtom (\p ts -> makeAtom p (map (tsubst sfn) ts)) a
 
 -- | Substitution within quantifiers
 substq :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
