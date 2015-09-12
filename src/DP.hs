@@ -13,7 +13,6 @@ module DP
     , tests
     ) where
 
-import Control.Applicative.Error (Failing(..))
 import Data.Map as Map
 import Data.Set as Set
 import DefCNF hiding (tests)

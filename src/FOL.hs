@@ -45,7 +45,6 @@ module FOL
     , tests
     ) where
 
-import Data.Bool (bool)
 import Data.Data (Data)
 import Data.List (intercalate, intersperse)
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
@@ -58,7 +57,7 @@ import Lib (setAny, tryApplyD, undefine, (|->), Failing(..))
 import Lit (IsLiteral(foldLiteral))
 import Prop (IsPropositional(foldPropositional))
 import Prelude hiding (pred)
-import Pretty (Doc, FixityDirection(InfixN, InfixL, InfixR), HasFixity(fixity), Fixity(Fixity), parens, Pretty(pPrint), prettyShow, text, topFixity, (<>))
+import Pretty (Doc, Associativity(InfixN, InfixR, InfixA), HasFixity(fixity), Fixity(Fixity), parenthesize, Pretty(pPrint), prettyShow, text, rootFixity, Side(LHS, RHS, Unary), (<>))
 import Test.HUnit
 
 ---------------
@@ -300,12 +299,12 @@ instance HasFixity atom => HasFixity (Formula v atom) where
     fixity F = Fixity 10 InfixN
     fixity (Atom a) = fixity a
     fixity (Not _) = Fixity 5 InfixN
-    fixity (And _ _) = Fixity 4 InfixL
-    fixity (Or _ _) = Fixity 3 InfixL
+    fixity (And _ _) = Fixity 4 InfixA
+    fixity (Or _ _) = Fixity 3 InfixA
     fixity (Imp _ _) = Fixity 2 InfixR
-    fixity (Iff _ _) = Fixity 1 InfixL
-    fixity (Forall _ _) = Fixity 9 InfixN
-    fixity (Exists _ _) = Fixity 9 InfixN
+    fixity (Iff _ _) = Fixity 1 InfixA
+    fixity (Forall _ _) = Fixity 9 InfixR
+    fixity (Exists _ _) = Fixity 9 InfixR
 
 -- | Use a predicate to combine some terms into a formula.
 pApp :: (IsFormula formula atom, IsAtom atom predicate term) => predicate -> [term] -> formula
@@ -431,21 +430,22 @@ instance (IsAtom atom predicate term, IsTerm term v function) => IsFirstOrder (F
           Exists v p -> qu (:?:) v p
           _ -> foldPropositional co tf at fm
 
-instance (IsAtom atom predicate term, IsTerm term v function, IsVariable v, HasFixity atom, Pretty atom, Pretty v) => Pretty (Formula v atom) where
-    pPrint fm = prettyFirstOrder topFixity fm
+instance (IsAtom atom predicate term, IsTerm term v function, IsVariable v, HasFixity atom, Pretty atom, Pretty v
+         ) => Pretty (Formula v atom) where
+    pPrint fm = prettyFirstOrder rootFixity Unary fm
 
-prettyFirstOrder :: (IsFirstOrder formula atom v, Pretty atom, Pretty v, HasFixity formula) => Fixity -> formula -> Doc
-prettyFirstOrder pfix fm =
-    bool id parens (pfix > fix) $ foldFirstOrder qu co tf at fm
+prettyFirstOrder :: (IsFirstOrder formula atom v, Pretty atom, Pretty v, HasFixity formula) => Fixity -> Side -> formula -> Doc
+prettyFirstOrder pfix side fm =
+    parenthesize pfix fix side $ foldFirstOrder qu co tf at fm
         where
           fix = fixity fm
-          qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> prettyFirstOrder fix p
-          qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> prettyFirstOrder fix p
-          co ((:~:) f) = text "¬" <> prettyFirstOrder fix f
-          co (BinOp f (:&:) g) = prettyFirstOrder fix f <> text "∧" <> prettyFirstOrder fix g
-          co (BinOp f (:|:) g) = prettyFirstOrder fix f <> text "∨" <> prettyFirstOrder fix g
-          co (BinOp f (:=>:) g) = prettyFirstOrder fix f <> text "⇒" <> prettyFirstOrder fix g
-          co (BinOp f (:<=>:) g) = prettyFirstOrder fix f <> text "⇔" <> prettyFirstOrder fix g
+          qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> prettyFirstOrder fix RHS p
+          qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> prettyFirstOrder fix RHS p
+          co ((:~:) f) = text "¬" <> prettyFirstOrder fix Unary f
+          co (BinOp f (:&:) g) = prettyFirstOrder fix LHS f <> text "∧" <> prettyFirstOrder fix RHS g
+          co (BinOp f (:|:) g) = prettyFirstOrder fix LHS f <> text "∨" <> prettyFirstOrder fix RHS g
+          co (BinOp f (:=>:) g) = prettyFirstOrder fix LHS f <> text "⇒" <> prettyFirstOrder fix RHS g
+          co (BinOp f (:<=>:) g) = prettyFirstOrder fix LHS f <> text "⇔" <> prettyFirstOrder fix RHS g
           tf = pPrint
           at = pPrint
 

@@ -1,9 +1,18 @@
 -- | Some propositional formulas to test, and functions to generate classes.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, RankNTypes, ScopedTypeVariables, StandaloneDeriving, TypeFamilies, TypeSynonymInstances #-}
+
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+
 module PropExamples
-    ( Knows(K), Atom(P)
+    ( Knows(K)
     , mk_knows, mk_knows2
     , prime
     , ramsey
@@ -12,7 +21,7 @@ module PropExamples
 
 import Formulas
 import Lib (allsets)
-import Pretty (HasFixity(fixity), botFixity)
+import Pretty (HasFixity(fixity), leafFixity, prettyShow)
 import Prop hiding (tests)
 import Data.Bits (Bits, shiftR)
 import qualified Data.Set as Set
@@ -20,19 +29,7 @@ import Prelude hiding (sum)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
 
--- Generate assertion equivalent to R(s,t) <= n for the Ramsey number R(s,t)
-
-data Knows a = K String a (Maybe a) deriving (Eq, Ord, Show)
-
--- | Make a stylized variable and update the index.
-data Atom a = P a
-
-instance Pretty (Knows Integer) where
-    pPrint (K s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
-
-instance HasFixity (Knows Integer) where
-    fixity = const botFixity
-
+-- | Generate assertion equivalent to R(s,t) <= n for the Ramsey number R(s,t)
 ramsey :: forall formula atom.
           (IsPropositional formula atom, atom ~ Knows Integer, Ord formula) =>
           Integer -> Integer -> Integer -> formula
@@ -43,9 +40,21 @@ ramsey s t n =
   let e xs = let [a, b] = Set.toAscList xs in atomic (K "p" a (Just b)) in
   list_disj (Set.map (list_conj . Set.map e) yesgrps) .|. list_disj (Set.map (list_conj . Set.map (\ p -> (.~.)(e p))) nogrps)
 
+data Knows a = K String a (Maybe a) deriving (Eq, Ord, Show)
+
+instance Pretty (Knows Integer) where
+    pPrint (K s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
+
+instance HasFixity (Knows Integer) where
+    fixity = const leafFixity
+
+
 -- Some currently tractable examples. (p. 36)
 test01 :: Test
-test01 = TestList [TestCase (assertEqual "tautology (ramsey 3 3 5)" False (tautology (ramsey 3 3 5 :: PFormula (Knows Integer)))),
+test01 = TestList [TestCase (assertEqual "ramsey 3 3 4"
+                                         "(p1.2∧p1.3∧p2.3)∨(p1.2∧p1.4∧p2.4)∨(p1.3∧p1.4∧p3.4)∨(p2.3∧p2.4∧p3.4)∨(¬p1.2∧¬p1.3∧¬p2.3)∨(¬p1.2∧¬p1.4∧¬p2.4)∨(¬p1.3∧¬p1.4∧¬p3.4)∨(¬p2.3∧¬p2.4∧¬p3.4)"
+                                         (prettyShow (ramsey 3 3 4 :: PFormula (Knows Integer)))),
+                   TestCase (assertEqual "tautology (ramsey 3 3 5)" False (tautology (ramsey 3 3 5 :: PFormula (Knows Integer)))),
                    TestCase (assertEqual "tautology (ramsey 3 3 6)" True (tautology (ramsey 3 3 6 :: PFormula (Knows Integer))))]
 
 -- | Half adder.  (p. 66)
@@ -87,9 +96,6 @@ mk_knows :: forall formula a. IsPropositional formula (Knows a) => String -> a -
 mk_knows x i = atomic (K x i Nothing)
 mk_knows2 :: forall formula a. IsPropositional formula (Knows a) => String -> a -> a -> formula
 mk_knows2 x i j = atomic (K x i (Just j))
-
-mk_index :: forall formula a. IsPropositional formula (Atom a) => String -> a -> formula
-mk_index x i = atomic (P i)
 
 test02 =
     let [x, y, out, c] = map mk_knows ["X", "Y", "OUT", "C"] :: [Integer -> PFormula (Knows Integer)] in

@@ -1,6 +1,8 @@
 -- | Definitional CNF.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
+
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -8,52 +10,52 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
+
 module DefCNF
     ( NumAtom(ma, ai)
     , defcnfs
     , defcnf1
     , defcnf2
     , defcnf3
+    -- * Instance
+    , Atom(N)
     -- * Tests
     , tests
     ) where
 
 import Formulas as P
 import Lit (IsLiteral)
-import Pretty (HasFixity(fixity), botFixity)
-import Prop as P (IsPropositional, cnf', cnf_, foldPropositional, nenf, PFormula, simpcnf, list_conj, list_disj)
--- import PropExamples (Knows(K), mk_knows, Atom(P), N)
-import FOL (pApp)
+import Pretty (HasFixity(fixity), leafFixity)
+import Prop as P (IsPropositional, cnf', cnf_, foldPropositional, nenf, PFormula, simpcnf, list_conj, list_disj, Prop(P))
 import Data.Function (on)
 import Data.List as List
 import Data.Map as Map hiding (fromList)
 import Data.Set as Set
-import Skolem (MyFormula)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
-data Atom = P String Integer deriving (Eq, Ord, Show)
-
-instance Pretty Atom where
-    pPrint (P s n) = text (s ++ if n == 0 then "" else show n)
+-- | Example (p. 74)
+test01 :: Test
+test01 = TestCase $ assertEqual "cnf test (p. 74)"
+                                "(p∨q∨r)∧(p∨¬q∨¬r)∧(q∨¬p∨¬r)∧(r∨¬p∨¬q)"
+                                (let [p, q, r] = (List.map (atomic . P) ["p", "q", "r"]) in
+                                 prettyShow (cnf' (p .<=>. (q .<=>. r)) :: PFormula Prop))
 
 class NumAtom atom where
     ma :: Integer -> atom
     ai :: atom -> Integer
 
+data Atom = N String Integer deriving (Eq, Ord, Show)
+
+instance Pretty Atom where
+    pPrint (N s n) = text (s ++ if n == 0 then "" else show n)
+
 instance NumAtom Atom where
-    ma = P "p_"
-    ai (P _ n) = n
+    ma = N "p_"
+    ai (N _ n) = n
 
 instance HasFixity Atom where
-    fixity _ = botFixity
-
--- | Example (p. 74)
-test01 :: Test
-test01 = TestCase $ assertEqual "cnf test (p. 74)"
-                                "(p[]∨q[]∨r[])∧(p[]∨¬q[]∨¬r[])∧(q[]∨¬p[]∨¬r[])∧(r[]∨¬p[]∨¬q[])"
-                                (let (p, q, r) = (pApp "p" [], pApp "q" [], pApp "r" []) in
-                                 prettyShow (cnf' ((p .<=>. (q .<=>. r))) :: MyFormula))
+    fixity _ = leafFixity
 
 mkprop :: forall pf atom. (IsPropositional pf atom, NumAtom atom) => Integer -> (pf, Integer)
 mkprop n = (atomic (ma n :: atom), n + 1)
@@ -71,7 +73,8 @@ maincnf trip@(fm, _defs, _n) =
       tf _ = trip
       at _ = trip
 
-defstep :: (IsPropositional pf atom, NumAtom atom, Ord pf) => (pf -> pf -> pf) -> (pf, pf) -> (pf, Map.Map pf pf, Integer) -> (pf, Map.Map pf pf, Integer)
+defstep :: (IsPropositional pf atom, NumAtom atom, Ord pf) =>
+           (pf -> pf -> pf) -> (pf, pf) -> (pf, Map.Map pf pf, Integer) -> (pf, Map.Map pf pf, Integer)
 defstep op (p,q) (_fm, defs, n) =
   let (fm1,defs1,n1) = maincnf (p,defs,n) in
   let (fm2,defs2,n2) = maincnf (q,defs1,n1) in
@@ -101,7 +104,7 @@ defcnf1 fm = cnf_ id (mk_defcnf id maincnf fm :: Set (Set pf))
 test02 :: Test
 test02 =
     let fm :: PFormula Atom
-        fm = let (p, q, r, s) = (atomic (P "p" 0), atomic (P "q" 0), atomic (P "r" 0), atomic (P "s" 0)) in
+        fm = let (p, q, r, s) = (atomic (N "p" 0), atomic (N "q" 0), atomic (N "r" 0), atomic (N "s" 0)) in
              (p .|. (q .&. ((.~.) r))) .&. s in
     TestCase $ assertEqual "defcnf1 (p. 77)"
                            (sortBy (compare `on` length) . sort . List.map sort $

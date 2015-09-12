@@ -1,3 +1,4 @@
+:set -isrc:tests
 :set -XOverloadedStrings
 :set -XFlexibleContexts
 :set -XFlexibleInstances

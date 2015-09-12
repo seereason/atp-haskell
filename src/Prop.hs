@@ -46,12 +46,12 @@ module Prop
     , cnf', cnf_
     , trivial
     -- * Instance
+    , Prop(P, pname)
     , PFormula(F, T, Atom, Not, And, Or, Imp, Iff)
     -- * Tests
     , tests
     ) where
 
-import Data.Bool (bool)
 import Data.Foldable as Foldable (null)
 import Data.List as List (map)
 import Data.Map as Map (Map)
@@ -66,9 +66,11 @@ import Formulas (atom_union,
                  IsFormula(atomic, overatoms, onatoms), onatoms)
 import Lib (fpf, (|=>), allpairs, setAny)
 import Lit (IsLiteral(foldLiteral))
-import Pretty (botFixity, Doc, Fixity(Fixity), FixityDirection(InfixN, InfixL, InfixR), HasFixity(fixity), parens, Pretty(pPrint), prettyShow, text, topFixity)
+import Pretty (Fixity(Fixity), Associativity(InfixN, InfixR, InfixA), HasFixity(fixity),
+              leafFixity, parenthesize, rootFixity, Side(LHS, RHS, Unary))
 import Prelude hiding (negate, null)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
+import Text.PrettyPrint.HughesPJClass hiding ((<>))
 
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
@@ -122,19 +124,20 @@ literalFromPropositional ca =
       co ((:~:) p) = (.~.) (literalFromPropositional ca p)
       co _ = error "literalFromPropositional found binary operator"
 
-instance (Ord atom, Pretty atom, HasFixity atom) => Pretty (PFormula atom) where
-    pPrint fm = prettyPropositional topFixity fm
+instance (Ord atom, Pretty atom, HasFixity atom, Show atom) => Pretty (PFormula atom) where
+    pPrint fm = prettyPropositional rootFixity Unary fm
 
-prettyPropositional :: (IsPropositional formula atom, Pretty atom, HasFixity formula) => Fixity -> formula -> Doc
-prettyPropositional pfix fm =
-    bool id parens (pfix > fix) $ foldPropositional co tf at fm
+prettyPropositional :: (IsPropositional formula atom, Pretty atom, HasFixity formula, Show formula, Show atom) => Fixity -> Side -> formula -> Doc
+prettyPropositional pfix side fm =
+    parenthesize pfix fix side $ foldPropositional co tf at fm
+    -- bool id parens (trace ("fix=" ++ show fix ++ ", pfix= " ++ show pfix ++ ", fm=" ++ show fm) (pfix > fix)) $ foldPropositional co tf at fm
     where
       fix = fixity fm
-      co ((:~:) f) = text "¬" <> prettyPropositional fix f
-      co (BinOp f (:&:) g) = prettyPropositional fix f <> text "∧" <> prettyPropositional fix g
-      co (BinOp f (:|:) g) = prettyPropositional fix f <> text "∨" <> prettyPropositional fix g
-      co (BinOp f (:=>:) g) = prettyPropositional fix f <> text "⇒" <> prettyPropositional fix g
-      co (BinOp f (:<=>:) g) = prettyPropositional fix f <> text "⇔" <> prettyPropositional fix g
+      co ((:~:) f) = text "¬" <> prettyPropositional fix Unary f
+      co (BinOp f (:&:) g) = prettyPropositional fix LHS f <> text "∧" <> prettyPropositional fix RHS g
+      co (BinOp f (:|:) g) = prettyPropositional fix LHS f <> text "∨" <> prettyPropositional fix RHS g
+      co (BinOp f (:=>:) g) = prettyPropositional fix LHS f <> text "⇒" <> prettyPropositional fix RHS g
+      co (BinOp f (:<=>:) g) = prettyPropositional fix LHS f <> text "⇔" <> prettyPropositional fix RHS g
       tf = pPrint
       at = pPrint
 
@@ -153,7 +156,7 @@ instance Pretty Prop where
     pPrint (P s) = text s
 
 instance HasFixity Prop where
-    fixity _ = botFixity
+    fixity _ = leafFixity
 
 data PFormula atom
     = F
@@ -198,14 +201,14 @@ instance Show atom => Show (PFormula atom) where
     show (Iff f g) = "(" ++ show f ++ ") .<=>. (" ++ show g ++ ")"
 
 instance HasFixity atom => HasFixity (PFormula atom) where
-    fixity T = Fixity 10 InfixN
-    fixity F = Fixity 10 InfixN
+    fixity T = Fixity 0 InfixN
+    fixity F = Fixity 0 InfixN
     fixity (Atom a) = fixity a
     fixity (Not _) = Fixity 5 InfixN
-    fixity (And _ _) = Fixity 4 InfixL
-    fixity (Or _ _) = Fixity 3 InfixL
+    fixity (And _ _) = Fixity 4 InfixA
+    fixity (Or _ _) = Fixity 3 InfixA
     fixity (Imp _ _) = Fixity 2 InfixR
-    fixity (Iff _ _) = Fixity 1 InfixL
+    fixity (Iff _ _) = Fixity 1 InfixA
 
 instance IsFormula (PFormula atom) atom where
     atomic = Atom
@@ -255,15 +258,22 @@ instance IsLiteral (PFormula atom) atom where
 data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
 type TruthTableRow = ([Bool], Bool)
 
-test36 :: Test
-test36 = TestCase $ assertEqual "show propositional formula 1" expected input
-    where input = List.map prettyShow fms
-          expected = ["p∧q∨r",
-                      "p∧(q∨r)",
-                      "p∧q∨r"]
-          fms :: [PFormula Prop]
-          fms = [p .&. q .|. r, p .&. (q .|. r), (p .&. q) .|. r]
-          (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
+test00 :: Test
+test00 = TestCase $ assertEqual "parenthesization" expected input
+    where (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
+          input = List.map prettyShow
+                    [p .&. (q .|. r),
+                     (p .&. q) .|. r,
+                     p .&. q .|. r,
+                     (p .=>. q) .=>. r,
+                     p .=>. (q .=>. r),
+                     p .=>. q .=>. r]
+          expected = ["p∧(q∨r)",
+                      "(p∧q)∨r",
+                      "(p∧q)∨r",
+                      "(p⇒q)⇒r",
+                      "p⇒q⇒r",
+                      "p⇒q⇒r"]
 
 -- Testing the parser and printer.
 
@@ -272,7 +282,7 @@ test01 =
     let fm = atomic "p" .=>. atomic "q" .<=>. atomic "r" .&. atomic "s" .|. (atomic "t" .<=>. ((.~.) ((.~.) (atomic "u"))) .&. atomic "v") :: PFormula Prop
         input = (prettyShow fm, show fm)
         expected = (-- Pretty printed
-                    "p⇒q⇔r∧s∨(t⇔u∧v)",
+                    "p⇒q⇔(r∧s)∨(t⇔u∧v)",
                     -- Haskell expression
                     "((atomic (\"p\")) .=>. (atomic (\"q\"))) .<=>. (((atomic (\"r\")) .&. (atomic (\"s\"))) .|. ((atomic (\"t\")) .<=>. ((atomic (\"u\")) .&. (atomic (\"v\")))))") in
     TestCase $ assertEqual "Build Formula 1" expected input
@@ -824,7 +834,7 @@ dnf fm = list_disj (Set.toAscList (Set.map list_conj (simpdnf id fm)))
 test34 :: Test
 test34 = TestCase $ assertEqual "dnf (p. 56)" expected input
     where input = (prettyShow (dnf fm), tautology (Iff fm (dnf fm)))
-          expected = ("p∧¬r∨q∧r∧¬p",True)
+          expected = ("(p∧¬r)∨(q∧r∧¬p)",True)
           fm = let (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r")) in
                (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
 
@@ -853,12 +863,10 @@ test35 = TestCase $ assertEqual "cnf (p. 61)" expected input
     where input = (prettyShow (cnf' fm), tautology (Iff fm (cnf' fm)))
           expected = ("(p∨q)∧(p∨r)∧(¬p∨¬r)", True)
           fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
-          p = Atom (P "p")
-          q = Atom (P "q")
-          r = Atom (P "r")
+          [p, q, r] = [Atom (P "p"), Atom (P "q"), Atom (P "r")]
 
 tests :: Test
-tests = TestLabel "Prop" $ TestList [test36, test01, test02, test03, test04, {-test05,-}
+tests = TestLabel "Prop" $ TestList [test00, test01, test02, test03, test04, {-test05,-}
                                      test06, test07, test08, test09, test10,
                                      test11, test12, test13, test14, test15,
                                      test16, test17, test18, test19, test20,

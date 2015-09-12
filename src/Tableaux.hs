@@ -695,4 +695,4 @@ let davis_putnam_example = time splittab
 -}
 
 tests :: Test
-tests = TestList [test01]
+tests = TestList [{-test01-}]

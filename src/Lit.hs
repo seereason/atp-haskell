@@ -11,8 +11,7 @@ module Lit
 
 import Data.Monoid ((<>))
 import Formulas (HasBoolean(..), IsNegatable(..), IsFormula)
-import Language.Haskell.TH.Syntax as TH (Fixity(Fixity), FixityDirection(InfixN))
-import Pretty (Doc, HasFixity(fixity), nest, parens, Pretty(pPrint), text)
+import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), parenthesize, Pretty(pPrint), Side(Unary), text)
 import Prelude hiding (negate, null)
 
 -- | Literals are the building blocks of the clause and implicative normal
@@ -33,30 +32,29 @@ zipLiterals neg tf at fm1 fm2 =
       tf' x1 = foldLiteral (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
       at' a1 = foldLiteral (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
 
-prettyLit :: forall lit atom v. (IsLiteral lit atom, HasFixity atom) =>
+prettyLit :: forall lit atom v. (IsLiteral lit atom, HasFixity lit, HasFixity atom) =>
               (Fixity -> atom -> Doc)
            -> (v -> Doc)
            -> Fixity
            -> lit
            -> Doc
-prettyLit pa pv pprec lit =
-    parensIf (pprec > prec) $ foldLiteral neg tf at lit
+prettyLit pa pv pfix lit =
+    parenthesize pfix (fixity lit) Unary $ foldLiteral neg tf at lit
     where
       neg :: lit -> Doc
       neg x = text "¬" <> prettyLit pa pv (Fixity 6 InfixN) x
       tf = pPrint
-      at x = pa (Fixity 6 InfixN) x
-      parensIf False = id
-      parensIf _ = parens . nest 1
-      prec = fixityLiteral lit
+      at x = pa (fixity x {-Fixity 6 InfixN-}) x
 
-fixityLiteral :: (IsLiteral formula atom, HasFixity atom) => formula -> Fixity
+{-
+fixityLiteral :: (IsLiteral lit atom, HasFixity lit, HasFixity atom) => lit -> Fixity
 fixityLiteral formula =
     foldLiteral neg tf at formula
     where
       neg _ = Fixity 5 InfixN
       tf _ = Fixity 10 InfixN
       at = fixity
+-}
 
 -- foldAtomsLiteral :: IsLiteral lit atom => (r -> atom -> r) -> r -> lit -> r
 -- foldAtomsLiteral f i lit = overatoms (flip f) lit i
