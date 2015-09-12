@@ -185,6 +185,7 @@ test00 = TestCase $ assertEqual "print an expression"
 -- | Class of predicates that have an equality predicate.
 class HasEquality predicate where
     equals :: predicate
+    isEquals :: predicate -> Bool
 
 -- | This Predicate type includes an distinct Equals constructor, so
 -- that we can build a HasEquality instance for it.
@@ -197,6 +198,8 @@ data Predicate
 -- '.=.' combiner is used.
 instance HasEquality Predicate where
     equals = Equals
+    isEquals Equals = True
+    isEquals _ = False
 
 instance IsString Predicate where
     fromString = NamedPredicate
@@ -238,7 +241,7 @@ instance IsAtom (FOL predicate term) predicate term where
 -- | The type of the predicate determines how this atom is pretty
 -- printed - specifically, whether it is an instance of HasEquality.
 -- So we need to do some gymnastics to make this happen.
-instance (Eq predicate, Pretty predicate, Pretty term) => Pretty (FOL predicate term) where
+instance (Pretty predicate, Pretty term) => Pretty (FOL predicate term) where
     pPrint = foldAtom (\ p ts -> if pPrint p == text "="
                                  then error "illegal pretty printer for predicate"
                                  else pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]")
@@ -652,7 +655,7 @@ termval m v tm =
              (\f args -> funcApply m f (map (termval m v) args)) tm
 
 -- | Examples of particular interpretations.
-bool_interp :: (IsFunction function, Eq predicate, Show function, Show predicate, HasEquality predicate) =>
+bool_interp :: (IsFunction function, Show function, Show predicate, HasEquality predicate) =>
                Interp function predicate Bool
 bool_interp =
     Interp [False, True] func pred
@@ -662,10 +665,10 @@ bool_interp =
       func f [x,y] | f == fromString "+" = not(x == y)
       func f [x,y] | f == fromString "*" = x && y
       func f _ = error ("bool_interp - uninterpreted function: " ++ show f)
-      pred p [x,y] | p == equals = x == y
+      pred p [x,y] | isEquals p = x == y
       pred p _ = error ("bool_interp - uninterpreted predicate: " ++ show p)
 
-mod_interp :: (IsFunction function, Eq predicate, Show function, Show predicate, HasEquality predicate) =>
+mod_interp :: (IsFunction function, Show function, Show predicate, HasEquality predicate) =>
               Int -> Interp function predicate Int
 mod_interp n =
     Interp [0..(n-1)] func pred
@@ -675,7 +678,7 @@ mod_interp n =
       func f [x,y] | f == fromString "+" = (x + y) `mod` n
       func f [x,y] | f == fromString "*" = (x * y) `mod` n
       func f _ = error ("mod_interp - uninterpreted function: " ++ show f)
-      pred p [x,y] | p == equals = x == y
+      pred p [x,y] | isEquals p = x == y
       pred p _ = error ("mod_interp - uninterpreted predicate: " ++ show p)
 
 {-
