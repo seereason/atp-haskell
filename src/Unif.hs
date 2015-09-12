@@ -63,6 +63,7 @@ unify_and_apply eqs =
       Failure x -> Failure x
       Success i -> Success (List.map (\ (t1, t2) -> (tsubst i t1, tsubst i t2)) eqs)
 
+unify_and_apply' :: (Eq term, IsTerm term v function) => [(term, term)] -> Failing [(term, term)]
 unify_and_apply' eqs =
     mapM app eqs
         where

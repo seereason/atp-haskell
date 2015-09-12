@@ -26,6 +26,7 @@ module FOL
     -- Formula
     , IsFirstOrder(quant, foldFirstOrder), for_all, exists
     , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
+    , zipFirstOrder
     , convertFirstOrder
     , propositionalFromFirstOrder
     , onformula
@@ -380,6 +381,20 @@ class (IsPropositional formula atom, IsVariable v) => IsFirstOrder formula atom 
                    -> (Bool -> r)
                    -> (atom -> r)
                    -> formula -> r
+
+zipFirstOrder :: IsFirstOrder formula atom v =>
+                 (Quant -> v -> formula -> Quant -> v -> formula -> Maybe r)
+              -> (Combination formula -> Combination formula -> Maybe r)
+              -> (Bool -> Bool -> Maybe r)
+              -> (atom -> atom -> Maybe r)
+              -> formula -> formula -> Maybe r
+zipFirstOrder qu co tf at fm1 fm2 =
+    foldFirstOrder qu' co' tf' at' fm1
+    where
+      qu' op1 v1 p1 = foldFirstOrder (qu op1 v1 p1) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      co' c1 = foldFirstOrder (\ _ _ _ -> Nothing) (co c1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      tf' x1 = foldFirstOrder (\ _ _ _ -> Nothing) (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
+      at' atom1 = foldFirstOrder (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at atom1) fm2
 
 -- | Use foldPropositional to convert any instance of
 -- IsPropositional to any other by specifying the result type.

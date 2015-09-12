@@ -17,6 +17,7 @@ module Skolem
     , HasSkolem(toSkolem, fromSkolem)
     , askolemize
     , skolemize
+    , specialize
     , Function(Fn, Skolem)
     , MyTerm, MyAtom, MyFormula
     -- * Tests

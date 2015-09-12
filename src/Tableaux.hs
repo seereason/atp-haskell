@@ -1,8 +1,15 @@
 -- | Tableaux, seen as an optimized version of a Prawitz-like procedure.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
-{-# LANGUAGE CPP, GADTs, NoMonomorphismRestriction, OverloadedStrings, RankNTypes, ScopedTypeVariables, TupleSections #-}
+
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections #-}
 {-# OPTIONS_GHC -Wall #-}
+
 module Tableaux
     ( unify_literals
     , prawitz
@@ -194,6 +201,28 @@ let p60 = compare
 
 END_INTERACTIVE;;
 -}
+
+-- | Try f with higher and higher values of n until it succeeds, or
+-- optional maximum depth limit is exceeded.
+{-
+let rec deepen f n =
+  try print_string "Searching with depth limit ";
+      print_int n; print_newline(); f n
+  with Failure _ -> deepen f (n + 1);;
+-}
+deepen :: (Depth -> Failing t) -> Depth -> Maybe Depth -> Failing (t, Depth)
+deepen _ n (Just m) | n > m = Failure ["Exceeded maximum depth limit"]
+deepen f n m =
+    -- If no maximum depth limit is given print a trace of the
+    -- levels tried.  The assumption is that we are running
+    -- interactively.
+    let n' = maybe (trace ("Searching with depth limit " ++ show n) n) (\_ -> n) m in
+    case f n' of
+      Failure _ -> deepen f (n + 1) m
+      Success x -> Success (x, n)
+
+type Depth = Int
+
 -- | More standard tableau procedure, effectively doing DNF incrementally.
 {-
 let rec tableau (fms,lits,n) cont (env,k) =
@@ -217,9 +246,9 @@ tableau :: forall formula atom predicate function v term r.
             IsAtom atom predicate term,
             IsTerm term v function,
             Eq term, Eq predicate) =>
-           ([formula], [formula], Int)
-        -> ((Map v term, Int) -> Failing r)
-        -> (Map v term, Int)
+           ([formula], [formula], Depth)
+        -> ((Map v term, Depth) -> Failing r)
+        -> (Map v term, Depth)
         -> Failing r
 tableau (fms, lits, n) cont (env, k) =
     case fms of
@@ -252,40 +281,14 @@ tableau (fms, lits, n) cont (env, k) =
             Success r -> Success r
             Failure _ -> tableau (unexp, fm : lits, n) cont (env,k)
 
--- | Try f with higher and higher values of n until it succeeds, or
--- optional maximum depth limit is exceeded.
-{-
-let rec deepen f n =
-  try print_string "Searching with depth limit ";
-      print_int n; print_newline(); f n
-  with Failure _ -> deepen f (n + 1);;
--}
-#if 1
-deepen :: (Int -> Failing r) -> Int -> Failing r
-deepen f n =
-    case trace ("Searching with depth limit " ++ show n) (f n) of
-      Success r -> Success r
-      Failure _ -> deepen f (n + 1)
-#else
-deepen :: (Int -> Failing t) -> Int -> Maybe Int -> Failing (t, Int)
-deepen _ n (Just m) | n > m = Failure ["Exceeded maximum depth limit"]
-deepen f n m =
-    -- If no maximum depth limit is given print a trace of the
-    -- levels tried.  The assumption is that we are running
-    -- interactively.
-    let n' = maybe (trace ("Searching with depth limit " ++ show n) n) (const n) m in
-    case f n' of
-      Failure _ -> deepen f (n + 1) m
-      Success x -> Success (x, n)
-#endif
-
 tabrefute :: (IsFirstOrder formula atom v,
               IsAtom atom predicate term,
               Eq predicate, Eq term, IsTerm term v function) =>
-             [formula] -> Failing ((Map v term, Int), Int)
+             [formula] -> Failing ((Map v term, Depth), Depth)
 tabrefute fms =
   -- deepen (fun n -> tableau (fms,[],n) (fun x -> x) (undefined,0); n) 0;;
-  deepen (\n -> failing Failure (\r -> Success (r, n)) (tableau (fms,[],n) (\x -> Success x) (Map.empty,0))) 0
+  let r = deepen (\n -> failing Failure (\r -> Success (r, n)) (tableau (fms,[],n) (\x -> Success x) (Map.empty,0))) 0 (Just 5) in
+  failing Failure (Success . fst) r
 
 tab :: (IsFirstOrder formula atom v,
         IsAtom atom predicate term,
@@ -293,7 +296,7 @@ tab :: (IsFirstOrder formula atom v,
         HasSkolem function v,
         Eq formula, Eq term, Eq predicate,
         Pretty formula) =>
-       formula -> Failing ((Map v term, Int), Int)
+       formula -> Failing ((Map v term, Depth), Depth)
 tab fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
   if sfm == false then undefined else tabrefute (trace ("tabrefute " ++ prettyShow sfm) [sfm])
