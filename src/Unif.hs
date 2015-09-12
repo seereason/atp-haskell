@@ -72,16 +72,9 @@ unify_and_apply' eqs =
 test01 :: Test
 test01 = TestCase $ assertEqual "Unify tests" expected input
     where input = List.map unify_and_apply eqss
-          f = fApp "f"
-          g = fApp "g"
-          w = vt "w" :: MyTerm
-          x = vt "x" :: MyTerm
-          x_0 = vt "x0" :: MyTerm
-          x_1 = vt "x1" :: MyTerm
-          x_2 = vt "x2" :: MyTerm
-          x_3 = vt "x3" :: MyTerm
-          y = vt "y" :: MyTerm
-          z = vt "z" :: MyTerm
+          [f, g] = [fApp "f", fApp "g"]
+          [w, x, x_0, x_1, x_2, x_3, y, z] =
+              [vt "w", vt "x", vt "x0", vt "x1", vt "x2", vt "x3", vt "y", vt "z"] :: [MyTerm]
           expected = List.map Success $
                       [[(f [f [z],g [y]],
                          f [f [z],g [y]])],
