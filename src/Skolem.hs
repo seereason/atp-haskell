@@ -13,6 +13,7 @@ module Skolem
     -- * Skolem monad
     , SkolemM
     , runSkolem
+    , SkolemT
     , runSkolemT
     , HasSkolem(toSkolem, fromSkolem)
     , askolemize
