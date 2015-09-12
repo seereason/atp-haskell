@@ -372,12 +372,12 @@ instance (IsAtom atom predicate term, IsTerm term v function) => IsPropositional
           Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier"
 
 instance (IsAtom atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
-    foldLiteral co tf at fm =
+    foldLiteral ne tf at fm =
         case fm of
           T -> tf True
           F -> tf False
           Atom a -> at a
-          Not p -> co ((.~.) p)
+          Not p -> ne p
           And _ _ -> error $ "foldLiteral used on Formula with a quantifier"
           Or _ _ -> error $ "foldLiteral used on Formula with a quantifier"
           Imp _ _ -> error $ "foldLiteral used on Formula with a quantifier"
