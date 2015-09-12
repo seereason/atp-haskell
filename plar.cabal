@@ -34,7 +34,7 @@ Library
     Herbrand
     Unif
     Tableaux
-    -- Resolution
+    Resolution
     -- Prolog
     -- Meson
     -- Skolems
