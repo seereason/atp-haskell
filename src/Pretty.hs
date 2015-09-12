@@ -17,7 +17,7 @@ import Language.Haskell.TH.Syntax (maxPrecedence)
 import Language.Haskell.TH.Ppr (noPrec, Precedence)
 import Text.PrettyPrint.HughesPJClass (braces, brackets, Doc, Pretty(pPrint), nest, parens, prettyShow, text)
 import Data.List as List (intercalate, map, sort)
-import Data.Map as Map (Map, map, mapKeys)
+import Data.Map as Map (Map, map, mapKeys, toList)
 import Data.Set as Set (Set, map, toAscList)
 
 data Associativity
@@ -123,3 +123,6 @@ instance Show (Classy Int) where
 instance Pretty a => Pretty (Set a) where
     -- pPrint s = text "{" <> mconcat (intersperse (text ", ") (List.map pPrint (Set.toAscList s))) <> text "}"
     pPrint s = text "{" <> text (intercalate ", " (List.sort (List.map prettyShow (Set.toAscList s)))) <> text "}"
+
+instance (Pretty v, Pretty term) => Pretty (Map v term) where
+    pPrint = pPrint . Map.toList
