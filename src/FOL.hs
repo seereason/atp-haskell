@@ -65,7 +65,7 @@ import Test.HUnit
 -- VARIABLES --
 ---------------
 
-class (Ord v, IsString v, Data v) => IsVariable v where
+class (Ord v, IsString v, Data v, Pretty v) => IsVariable v where
     variant :: v -> Set v -> v
     -- ^ Return a variable based on v but different from any set
     -- element.  The result may be v itself if v is not a member of
@@ -106,7 +106,7 @@ instance Pretty V where
 -- FUNCTIONS --
 ---------------
 
-class (IsString function, Ord function) => IsFunction function
+class (IsString function, Ord function, Pretty function) => IsFunction function
 
 -- | A simple type to use as the function parameter of Term, FOL, etc.
 -- The only reason to use this instead of String is to get nicer
@@ -126,7 +126,7 @@ instance Pretty FName where pPrint (FName s) = text s
 -----------
 
 -- | Terms are built from variables and combined by functions to build the atoms of a formula.
-class (IsVariable v, IsFunction function) => IsTerm term v function | term -> v function where
+class (IsVariable v, IsFunction function, Pretty term) => IsTerm term v function | term -> v function where
     vt :: v -> term
     -- ^ Build a term which is a variable reference.
     fApp :: function -> [term] -> term
@@ -213,7 +213,7 @@ instance Pretty Predicate where
 -- ATOM --
 ----------
 
-class IsAtom atom predicate term | atom -> predicate term where
+class (Pretty atom, HasFixity atom, Pretty predicate) => IsAtom atom predicate term | atom -> predicate term where
     appAtom :: predicate -> [term] -> atom
     foldAtom :: (predicate -> [term] -> r) -> atom -> r
 
@@ -234,7 +234,7 @@ data FOL predicate term = R predicate [term] deriving (Eq, Ord)
 instance (Pretty predicate, Show predicate, Show term) => Show (FOL predicate term) where
     show (R p ts) = "appAtom " ++ show p ++ " [" ++ intercalate ", " (map show ts) ++ "]"
 
-instance IsAtom (FOL predicate term) predicate term where
+instance (Pretty term, Pretty predicate) => IsAtom (FOL predicate term) predicate term where
     appAtom = R
     foldAtom f (R p ts) = f p ts
 
@@ -385,7 +385,7 @@ instance (IsAtom atom predicate term, IsTerm term v function) => IsLiteral (Form
           Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier"
           Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier"
 
-class (IsPropositional formula atom, IsVariable v) => IsFirstOrder formula atom v | formula -> atom v where
+class (IsPropositional formula atom, IsVariable v, Pretty formula) => IsFirstOrder formula atom v | formula -> atom v where
     quant :: Quant -> v -> formula -> formula
     foldFirstOrder :: (Quant -> v -> formula -> r)
                    -> (Combination formula -> r)
@@ -448,7 +448,7 @@ for_all = quant (:!:)
 exists :: IsFirstOrder formula atom v => v -> formula -> formula
 exists = quant (:?:)
 
-instance (IsAtom atom predicate term, IsTerm term v function) => IsFirstOrder (Formula v atom) atom v where
+instance (IsAtom atom predicate term, IsTerm term v function, HasFixity atom) => IsFirstOrder (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldFirstOrder qu co tf at fm =

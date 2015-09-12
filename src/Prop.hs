@@ -85,7 +85,8 @@ class (IsFormula formula atom,
        IsLiteral formula atom,
        IsNegatable formula,
        IsCombinable formula,
-       HasBoolean formula
+       HasBoolean formula,
+       Pretty formula
       ) => IsPropositional formula atom where
     -- | Build an atomic formula from the atom type.
     -- | A fold function that distributes different sorts of formula
@@ -138,10 +139,10 @@ literalFromPropositional ca =
       co ((:~:) p) = (.~.) (literalFromPropositional ca p)
       co _ = error "literalFromPropositional found binary operator"
 
-instance (Ord atom, Pretty atom, HasFixity atom, Show atom) => Pretty (PFormula atom) where
+instance (Pretty atom, HasFixity atom) => Pretty (PFormula atom) where
     pPrint fm = prettyPropositional rootFixity Unary fm
 
-prettyPropositional :: (IsPropositional formula atom, Pretty atom, HasFixity formula, Show formula, Show atom) => Fixity -> Side -> formula -> Doc
+prettyPropositional :: (IsPropositional formula atom, Pretty atom, HasFixity formula) => Fixity -> Side -> formula -> Doc
 prettyPropositional pfix side fm =
     parenthesize pfix fix side $ foldPropositional co tf at fm
     -- bool id parens (trace ("fix=" ++ show fix ++ ", pfix= " ++ show pfix ++ ", fm=" ++ show fm) (pfix > fix)) $ foldPropositional co tf at fm
@@ -245,7 +246,7 @@ instance IsFormula (PFormula atom) atom where
         Iff p q -> Iff (onatoms f p) (onatoms f q)
         _ -> fm
 
-instance IsPropositional (PFormula atom) atom where
+instance (Pretty atom, HasFixity atom) => IsPropositional (PFormula atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -257,7 +258,7 @@ instance IsPropositional (PFormula atom) atom where
           Imp p q -> co (BinOp p (:=>:) q)
           Iff p q -> co (BinOp p (:<=>:) q)
 
-instance IsLiteral (PFormula atom) atom where
+instance (Pretty atom, HasFixity atom) => IsLiteral (PFormula atom) atom where
     foldLiteral ne tf at fm =
         case fm of
           T -> tf True
