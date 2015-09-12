@@ -2,6 +2,7 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -18,22 +19,23 @@ module Tableaux
     , tests
     ) where
 
-import Data.List as List (map)
-import Lib hiding (tests)
-import Formulas
-import Herbrand (davisputnam)
-import Lit
-import Pretty (Pretty, prettyShow)
-import Prop (simpdnf)
-import FOL hiding (tests)
-import Skolem (askolemize, HasSkolem, runSkolem, skolemize, MyTerm, MyFormula)
-import Unif (unify)
+import Data.List as List (intercalate, map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace (trace)
 import Prelude hiding (compare)
 import Test.HUnit
+
+import Lib hiding (tests)
+import Formulas
+import Herbrand (davisputnam)
+import Lit
+import Pretty (prettyShow)
+import Prop (simpdnf)
+import FOL hiding (tests)
+import Skolem (askolemize, HasSkolem, runSkolem, skolemize, MyTerm, MyFormula)
+import Unif (unify)
 
 
 -- | Unify literals (just pretend the toplevel relation is a function).
@@ -47,7 +49,7 @@ unify_literals env f1 f2 =
     maybe err id (zipLiterals ne tf at f1 f2)
     where
       ne p q = Just $ unify_literals env p q
-      tf p q = if p == q then Just $ unify env [] else Nothing
+      tf p q = if p == q then Just (unify env []) else Nothing
       at :: atom -> atom -> Maybe (Failing (Map v term))
       at a1 a2 = Just $ unify_atoms env a1 a2
       err = Failure ["Can't unify literals"]
@@ -107,13 +109,13 @@ prawitz_loop :: forall atom v term predicate function lit.
                  Ord lit, Eq term, Eq predicate) =>
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
-    let l = length fvs in
-    let newvars = List.map (\ k -> fromString ("_" ++ show (n * l + k))) [1..l] in
-    let inst = Map.fromList (zip fvs (List.map vt newvars)) in
+    let inst = Map.fromList (zip fvs (List.map newvar [1..])) in
     let djs1 = distrib' (Set.map (Set.map (onatoms (atomic . asubst inst))) djs0) djs in
     case unify_refute djs1 Map.empty of
       Failure _ -> prawitz_loop djs0 fvs djs1 (n + 1)
       Success env -> (env, n + 1)
+    where
+      newvar k = vt (fromString ("_" ++ show (n * length fvs + k)))
 
 prawitz :: forall formula atom term predicate function v.
            (IsFirstOrder formula atom v,
@@ -161,7 +163,7 @@ p19 = TestCase $ assertEqual "p19" expected input
       fm :: MyFormula
       fm = exists "x" (for_all "y" (for_all "z" ((pApp "P" [vt "y"] .=>. pApp "Q" [vt "z"]) .=>. pApp "P" [vt "x"] .=>. pApp "Q" [vt "x"])))
       input = compare fm
-      expected = (1, Success 1)
+      expected = (3, Success 3)
 
 {-
 START_INTERACTIVE;;
@@ -298,12 +300,11 @@ tab :: (IsFirstOrder formula atom v,
         IsAtom atom predicate term,
         IsTerm term v function,
         HasSkolem function v,
-        Eq formula, Eq term, Eq predicate,
-        Pretty formula) =>
+        Eq formula, Eq term, Eq predicate) =>
        formula -> Failing ((Map v term, Depth), Depth)
 tab fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
-  if sfm == false then undefined else tabrefute (trace ("tabrefute " ++ prettyShow sfm) [sfm])
+  if sfm == false then undefined else tabrefute [sfm]
 
 p38 :: Test
 p38 =
@@ -315,8 +316,16 @@ p38 =
              (for_all "x"
               (((.~.)(p[a]) .|. p[x] .|. (exists "z" (exists "w" (p[z] .&. r[x,w] .&. r[w,z])))) .&.
                ((.~.)(p[a]) .|. (.~.)(exists "y" (p[y] .&. r[x,y])) .|.
-               (exists "z" (exists "w" (p[z] .&. r[x,w] .&. r[w,z])))))) in
-    TestCase $ assertEqual "p38" (failing show show (tab fm)) ""
+               (exists "z" (exists "w" (p[z] .&. r[x,w] .&. r[w,z]))))))
+        expected = intercalate "\n"
+                     ["(([(_0, sKx), (_1, sKy), (_10, sKx), (_11, sKz [_13]),",
+                      "   (_12, sKw [_15]), (_13, sKx), (_14, sKy), (_15, sKx), (_16, sKy),",
+                      "   (_17, sKx), (_18, sKy), (_2, sKz [_0]), (_3, sKw [_0]),",
+                      "   (_4, sKz [_0]), (_5, sKw [_0]), (_6, sKz [_8]), (_7, sKw [_9]),",
+                      "   (_8, sKx), (_9, sKx)],",
+                      "  19),",
+                      " 4)"] in
+    TestCase $ assertEqual "p38, p. 178" expected (failing show prettyShow (tab fm))
 {-
 -- ------------------------------------------------------------------------- 
 -- Example.                                                                  
@@ -702,4 +711,4 @@ let davis_putnam_example = time splittab
 -}
 
 tests :: Test
-tests = TestList [{-p20, p19, p38-}]
+tests = TestList [p20, p19, p38]

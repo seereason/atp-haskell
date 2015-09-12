@@ -11,40 +11,36 @@ module Unif
     , tests
     ) where
 
-import Lib (Failing(Success, Failure), failing)
+import Data.Bool (bool)
+import Lib (Failing)
 import FOL (IsTerm(..), tsubst)
 import Skolem (MyTerm)
 import Data.List as List (map)
 import Data.Map as Map
 import Test.HUnit
 
--- | Main unification procedure
+-- | Main unification procedure.  Using the Monad instance of Failing here and in istriv.
 unify :: IsTerm term v f => Map v term -> [(term,term)] -> Failing (Map v term)
-unify env [] = Success env
+unify env [] = return env
 unify env ((a,b):oth) =
     foldTerm (vr b) (\ f fargs -> foldTerm (vr a) (fn f fargs) b) a
     where
       vr t x =
-          maybe (istriv env x t >>= \ trivial -> unify (if trivial then env else Map.insert x t env) oth)
-                (\ y -> unify env ((y, t) : oth))
+          maybe (istriv env x t >>= bool (unify (Map.insert x t env) oth) (unify env oth))
+                (\y -> unify env ((y, t) : oth)) -- x is bound to y, so unify y with t
                 (Map.lookup x env)
       fn f fargs g gargs =
           if f == g && length fargs == length gargs
           then unify env (zip fargs gargs ++ oth)
-          else Failure ["impossible unification"]
+          else fail "impossible unification"
 
 istriv :: IsTerm term v f => Map.Map v term -> v -> term -> Failing Bool
 istriv env x t =
-    foldTerm v f t
+    foldTerm vr fn t
     where
-      v y =
-          if x == y
-          then Success True
-          else maybe (Success False) (istriv env x) (Map.lookup y env)
-      f _ args =
-          if any (failing (const False) id . istriv env x) args
-          then Failure ["cyclic"]
-          else Success False
+      vr y | x == y = return True
+      vr y = maybe (return False) (istriv env x) (Map.lookup y env)
+      fn _ args = mapM (istriv env x) args >>= bool (return False) (fail "cyclic") . or
 
 -- | Solve to obtain a single instantiation.
 solve :: (IsTerm term v f, Eq term) => Map v term -> Map v term
@@ -54,20 +50,18 @@ solve env =
 
 -- | Unification reaching a final solved form (often this isn't needed).
 fullunify :: (IsTerm term v f, Eq term) => [(term,term)] -> Failing (Map v term)
-fullunify eqs = failing Failure (Success . solve) (unify Map.empty eqs)
+fullunify eqs = solve <$> unify Map.empty eqs
 
 -- | Examples.
 unify_and_apply :: (IsTerm term v f, Eq term) => [(term, term)] -> Failing [(term, term)]
 unify_and_apply eqs =
-    case fullunify eqs of
-      Failure x -> Failure x
-      Success i -> Success (List.map (\ (t1, t2) -> (tsubst i t1, tsubst i t2)) eqs)
+    fullunify eqs >>= \i -> return $ List.map (\ (t1, t2) -> (tsubst i t1, tsubst i t2)) eqs
 
 unify_and_apply' :: (Eq term, IsTerm term v function) => [(term, term)] -> Failing [(term, term)]
 unify_and_apply' eqs =
     mapM app eqs
         where
-          app (t1, t2) = failing Failure (\ i -> Success (tsubst i t1, tsubst i t2)) (fullunify eqs)
+          app (t1, t2) = fullunify eqs >>= \i -> return $ (tsubst i t1, tsubst i t2)
 
 test01 :: Test
 test01 = TestCase $ assertEqual "Unify tests" expected input
@@ -75,7 +69,7 @@ test01 = TestCase $ assertEqual "Unify tests" expected input
           [f, g] = [fApp "f", fApp "g"]
           [w, x, x_0, x_1, x_2, x_3, y, z] =
               [vt "w", vt "x", vt "x0", vt "x1", vt "x2", vt "x3", vt "y", vt "z"] :: [MyTerm]
-          expected = List.map Success $
+          expected = List.map return $
                       [[(f [f [z],g [y]],
                          f [f [z],g [y]])],
                        [(f [y,y],
@@ -108,4 +102,5 @@ unify_and_apply [<<|x_0|>>,<<|f(x_1,x_1)|>>;
 END_INTERACTIVE;;
 -}
 
+tests :: Test
 tests = TestList [test01]
