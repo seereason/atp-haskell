@@ -20,7 +20,7 @@ module FOL
     -- * Predicates
     , HasEquality(equals), Predicate(NamedPredicate, Equals)
     -- * Atoms
-    , IsAtom(appAtom, foldAtom, zipAtoms), pApp , (.=.), FOL(R)
+    , IsAtom(appAtom, foldAtom), zipAtoms, pApp , (.=.), FOL(R)
     -- * Quantifiers
     , Quant((:!:), (:?:))
     -- Formula
@@ -54,7 +54,7 @@ import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, 
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), (.~.), true, false, IsCombinable(..), IsFormula(..), onatoms)
-import Lib (setAny, tryApplyD, undefine, (|->), Failing(..))
+import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
 import Prop (IsPropositional(foldPropositional))
 import Prelude hiding (pred)
@@ -213,7 +213,17 @@ instance Pretty Predicate where
 class IsAtom atom predicate term | atom -> predicate term where
     appAtom :: predicate -> [term] -> atom
     foldAtom :: (predicate -> [term] -> r) -> atom -> r
-    zipAtoms :: Eq predicate => (predicate -> [(term, term)] -> Failing r) -> atom -> atom -> Failing r
+
+zipAtoms :: (IsAtom atom predicate term, Eq predicate) =>
+            (predicate -> [(term, term)] -> Maybe r)
+         -> atom -> atom -> Maybe r
+zipAtoms f atom1 atom2 =
+    foldAtom f' atom1
+    where
+      f' p1 ts1 = foldAtom (\p2 ts2 ->
+                                if p1 /= p2 || length ts1 /= length ts2
+                                then Nothing
+                                else f p1 (zip ts1 ts2)) atom2
 
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord)
@@ -224,8 +234,6 @@ instance (Pretty predicate, Show predicate, Show term) => Show (FOL predicate te
 instance IsAtom (FOL predicate term) predicate term where
     appAtom = R
     foldAtom f (R p ts) = f p ts
-    zipAtoms f (R p1 ts1) (R p2 ts2) =
-        if p1 == p2 && length ts1 == length ts2 then f p1 (zip ts1 ts2) else Failure ["zipAtoms"]
 
 -- | The type of the predicate determines how this atom is pretty
 -- printed - specifically, whether it is an instance of HasEquality.
@@ -382,6 +390,7 @@ class (IsPropositional formula atom, IsVariable v) => IsFirstOrder formula atom 
                    -> (atom -> r)
                    -> formula -> r
 
+-- | Combine two formulas if they are similar.
 zipFirstOrder :: IsFirstOrder formula atom v =>
                  (Quant -> v -> formula -> Quant -> v -> formula -> Maybe r)
               -> (Combination formula -> Combination formula -> Maybe r)

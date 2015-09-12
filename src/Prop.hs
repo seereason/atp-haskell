@@ -9,6 +9,7 @@
 module Prop
     ( IsPropositional(foldPropositional)
     , convertPropositional
+    , zipPropositional
     , propositionalFromLiteral
     , literalFromPropositional
     , prettyPropositional
@@ -95,6 +96,19 @@ class (IsFormula formula atom,
                       -> (Bool -> r)
                       -> (atom -> r)
                       -> formula -> r
+
+-- | Combine two formulas if they are similar.
+zipPropositional :: IsPropositional formula atom =>
+                    (Combination formula -> Combination formula -> Maybe r)
+                 -> (Bool -> Bool -> Maybe r)
+                 -> (atom -> atom -> Maybe r)
+                 -> formula -> formula -> Maybe r
+zipPropositional co tf at fm1 fm2 =
+    foldPropositional co' tf' at' fm1
+    where
+      co' c1 = foldPropositional (co c1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      tf' x1 = foldPropositional (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
+      at' atom1 = foldPropositional (\ _ -> Nothing) (\ _ -> Nothing) (at atom1) fm2
 
 -- | Use foldPropositional to convert any instance of
 -- IsPropositional to any other by specifying the result type.

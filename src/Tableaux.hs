@@ -56,7 +56,8 @@ unify_atoms :: forall atom term predicate v f.
                 IsTerm term v f, Eq term, Eq predicate) =>
                Map v term -> atom -> atom -> Failing (Map v term)
 unify_atoms env a1 a2 =
-    zipAtoms (\_ tpairs -> unify env tpairs) a1 a2
+    let r = zipAtoms (\p tpairs -> Just (unify env tpairs)) a1 a2 in
+    maybe (Failure ["unify_atoms"]) id r
 {-
 unifyAtomsEq :: forall v f atom p term.
                 (AtomEq atom p term, Term term v f) =>
