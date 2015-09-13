@@ -1,4 +1,5 @@
 :set -isrc:tests
+:set -XCPP
 :set -XOverloadedStrings
 :set -XFlexibleContexts
 :set -XFlexibleInstances
