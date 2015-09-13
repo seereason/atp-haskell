@@ -41,7 +41,7 @@ module FOL
     , fv
     , generalize
     -- * Substitution
-    , subst, substq, asubst, tsubst
+    , subst, substq, asubst, tsubst, lsubst
     -- * Tests
     , tests
     ) where
@@ -808,7 +808,16 @@ tsubst sfn tm =
              (\f args -> fApp f (map (tsubst sfn) args))
              tm
 
--- | Substitution within terms.
+-- | Substitution within a Literal
+lsubst :: (IsLiteral lit atom, IsAtom atom predicate term, IsTerm term v function) =>
+         Map v term -> lit -> lit
+lsubst subfn fm =
+    foldLiteral ne fromBool at fm
+    where
+      ne p = (.~.) (lsubst subfn p)
+      at = atomic . asubst subfn
+
+-- | Substitution within atoms.
 asubst :: (IsAtom atom predicate term, IsTerm term v function) => Map v term -> atom -> atom
 asubst sfn a = foldAtom (\p ts -> makeAtom p (map (tsubst sfn) ts)) a
 
