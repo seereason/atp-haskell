@@ -32,9 +32,9 @@ import Data.Monoid ((<>))
 import Data.Set as Set (empty, member, Set, singleton, toAscList, unions)
 import Data.String (IsString(fromString))
 import FOL hiding (tests)
-import Formulas
+import Formulas (Combination ((:~:), BinOp), BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), (.&.), (.|.), (.=>.), (.<=>.), false, true, atomic)
 --import Lib
-import Prop hiding (nnf, tests)
+import Prop (IsPropositional, psimplify1)
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
