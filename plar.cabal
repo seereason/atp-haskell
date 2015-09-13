@@ -35,8 +35,8 @@ Library
     Unif
     Tableaux
     Resolution
-    -- Prolog
-    -- Meson
+    Prolog
+    Meson
     -- Skolems
     -- Equal
     -- Cong
