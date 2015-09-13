@@ -376,8 +376,8 @@ instance (IsAtom atom predicate term, IsTerm term v function) => IsPropositional
           -- instance of IsPropositional, we see here that it is
           -- an error to use foldPropositional (IsPropositional's
           -- only method) on a Formula that has quantifiers.
-          Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier"
-          Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier"
+          Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow fm
+          Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow fm
 
 instance (IsAtom atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
     foldLiteral ne tf at fm =
@@ -386,12 +386,12 @@ instance (IsAtom atom predicate term, IsTerm term v function) => IsLiteral (Form
           F -> tf False
           Atom a -> at a
           Not p -> ne p
-          And _ _ -> error $ "foldLiteral used on Formula with a quantifier"
-          Or _ _ -> error $ "foldLiteral used on Formula with a quantifier"
-          Imp _ _ -> error $ "foldLiteral used on Formula with a quantifier"
-          Iff _ _ -> error $ "foldLiteral used on Formula with a quantifier"
-          Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier"
-          Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier"
+          And _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
+          Or _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
+          Imp _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
+          Iff _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
+          Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
+          Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
 
 class (IsPropositional formula atom, IsVariable v, Pretty formula) => IsFirstOrder formula atom v | formula -> atom v where
     quant :: Quant -> v -> formula -> formula
