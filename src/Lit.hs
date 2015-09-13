@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -10,7 +12,7 @@ module Lit
     ) where
 
 import Data.Monoid ((<>))
-import Formulas (HasBoolean(..), IsNegatable(..), IsFormula)
+import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms))
 import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), parenthesize, Pretty(pPrint), Side(Unary), text)
 import Prelude hiding (negate, null)
 
@@ -77,3 +79,32 @@ instance IsNegatable (LFormula atom) where
     naiveNegate = Not
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
+
+instance IsFormula (LFormula atom) atom where
+    atomic = Atom
+    overatoms f fm b =
+        case fm of
+          Atom a -> f a b
+          Not p -> overatoms f p b
+          _ -> b
+    onatoms f fm =
+        case fm of
+          Atom a -> f a
+          Not p -> Not (onatoms f p)
+          _ -> fm
+
+instance Pretty atom => IsLiteral (LFormula atom) atom where
+    foldLiteral ne tf at lit =
+        case lit of
+          F -> tf False
+          T -> tf True
+          Atom a -> at a
+          Not f -> ne f
+
+instance Pretty atom => Pretty (LFormula atom) where
+    pPrint fm =
+        foldLiteral ne tf at fm
+        where
+          ne p = text "¬" <> pPrint p
+          tf = pPrint
+          at = pPrint
