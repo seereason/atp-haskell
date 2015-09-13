@@ -107,9 +107,9 @@ zipPropositional :: IsPropositional formula atom =>
 zipPropositional co tf at fm1 fm2 =
     foldPropositional co' tf' at' fm1
     where
-      co' c1 = foldPropositional (co c1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
-      tf' x1 = foldPropositional (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
-      at' atom1 = foldPropositional (\ _ -> Nothing) (\ _ -> Nothing) (at atom1) fm2
+      co' c1 = foldPropositional     (co c1)     (\_ -> Nothing) (\_ -> Nothing) fm2
+      tf' x1 = foldPropositional (\_ -> Nothing)     (tf x1)     (\_ -> Nothing) fm2
+      at' a1 = foldPropositional (\_ -> Nothing) (\_ -> Nothing)     (at a1)     fm2
 
 -- | Use foldPropositional to convert any instance of
 -- IsPropositional to any other by specifying the result type.
@@ -570,10 +570,10 @@ test24 = TestCase $ assertEqual "psimplify 2 (p. 51)" expected input
 -- | Negation normal form.
 
 nnf :: IsPropositional formula atom => formula -> formula
-nnf fm = foldPropositional nnfCombine fromBool (\ _ -> fm) fm
+nnf fm = foldPropositional nnfCombine fromBool (\_ -> fm) fm
     where
       -- nnfCombine :: (IsPropositional formula atom) => formula -> Combination formula -> formula
-      nnfCombine ((:~:) p) = foldPropositional nnfNotCombine (fromBool . not) (\ _ -> fm) p
+      nnfCombine ((:~:) p) = foldPropositional nnfNotCombine (fromBool . not) (\_ -> fm) p
       nnfCombine (BinOp p (:=>:) q) = nnf ((.~.) p) .|. (nnf q)
       nnfCombine (BinOp p (:<=>:) q) =  (nnf p .&. nnf q) .|. (nnf ((.~.) p) .&. nnf ((.~.) q))
       nnfCombine (BinOp p (:&:) q) = nnf p .&. nnf q
@@ -617,9 +617,9 @@ nenf = nenf' . psimplify
 -- | Simple negation-pushing when we don't care to distinguish occurrences.
 nenf' :: IsPropositional formula atom => formula -> formula
 nenf' fm =
-    foldPropositional co (\ _ -> fm) (\ _ -> fm) fm
+    foldPropositional co (\_ -> fm) (\_ -> fm) fm
     where
-      co ((:~:) p) = foldPropositional co' (\ _ -> fm) (\ _ -> fm) p
+      co ((:~:) p) = foldPropositional co' (\_ -> fm) (\_ -> fm) p
       co (BinOp p (:&:) q) = nenf' p .&. nenf' q
       co (BinOp p (:|:) q) = nenf' p .|. nenf' q
       co (BinOp p (:=>:) q) = nenf' ((.~.) p) .|. nenf' q
