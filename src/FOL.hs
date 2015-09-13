@@ -50,7 +50,7 @@ import Data.Data (Data)
 import Data.List (intercalate, intersperse)
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
-import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
+import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), (.~.), true, false, IsCombinable(..), IsFormula(..), onatoms)
@@ -740,27 +740,12 @@ test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
 -- Free variables in terms and formulas.
 
 -- | Find the free variables in a formula.
-fv :: (IsFirstOrder formula atom v, IsAtom atom predicate term,  IsTerm term v function) =>
-      formula -> Set v
-fv fm =
-    foldFirstOrder qu co tf at fm
-    where
-      qu _ x p = difference (fv p) (singleton x)
-      co ((:~:) p) = fv p
-      co (BinOp p _ q) = union (fv p) (fv q)
-      tf _ = Set.empty
-      at = foldAtom (\_ args -> unions (map fvt args))
+fv :: (IsFormula formula atom, IsAtom atom predicate term,  IsTerm term v function) => formula -> Set v
+fv fm = overatoms (\a s -> foldAtom (\_ args -> unions (s : map fvt args)) a) fm Set.empty
 
 -- | Find the variables in a formula.
-var :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) => formula -> Set v
-var fm =
-    foldFirstOrder qu co tf at fm
-    where
-      qu _ x p = Set.insert x (var p)
-      co ((:~:) p) = var p
-      co (BinOp p _ q) = union (var p) (var q)
-      tf _ = Set.empty
-      at = foldAtom (\_ args -> unions (map fvt args))
+var :: (IsFormula formula atom, IsAtom atom predicate term, IsTerm term v function) => formula -> Set v
+var fm = overatoms (\a s -> foldAtom (\_ args -> unions (s : map fvt args)) a) fm Set.empty
 
 -- | Find the variables in a 'Term'.
 fvt :: IsTerm term v function => term -> Set v
