@@ -21,6 +21,7 @@ module Skolem
     , specialize
     , Function(Fn, Skolem)
     , MyTerm, MyAtom, MyFormula
+    , simpdnf', nnf'
     -- * Tests
     , tests
     ) where
@@ -29,14 +30,16 @@ import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT)
 import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
-import Data.Set as Set (empty, member, Set, singleton, toAscList, unions)
+import Data.Set as Set (empty, filter, isProperSubsetOf, member, Set, singleton, toAscList, union, unions)
 import Data.String (IsString(fromString))
-import FOL hiding (tests)
-import Formulas (Combination ((:~:), BinOp), BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), (.&.), (.|.), (.=>.), (.<=>.), false, true, atomic)
---import Lib
-import Prop (IsPropositional, psimplify1)
+import Debug.Trace
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
+
+import FOL hiding (tests)
+import Formulas (Combination ((:~:), BinOp), BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), HasBoolean (fromBool), (.&.), (.|.), (.=>.), (.<=>.), false, true, atomic)
+import Lib (setAny, distrib)
+import Prop (IsPropositional, psimplify1, trivial)
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
 simplify :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
@@ -157,7 +160,7 @@ pullq (l,r) fm qu op x y p q =
 -- Example.
 
 test03 :: Test
-test03 = TestCase $ assertEqual "pnf (p. 144)" expected input
+test03 = TestCase $ assertEqual "pnf (p. 144)" (prettyShow expected) (prettyShow input)
     where p = "P"
           q = "Q"
           r = "R"
@@ -369,6 +372,54 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
                      ((pApp q [fApp (Skolem "y") []]) .|.
                       (((.~.)(pApp p [vt "z"])) .|.
                        ((.~.)(pApp q [vt "z"]))))
+
+-- Implement the behavior of simpdnf in prop.ml
+
+simpdnf' :: (IsFirstOrder formula atom v, Ord formula, IsAtom atom predicate term, IsTerm term v function) => formula -> Set (Set formula)
+simpdnf' fm =
+    {-t2 $-}
+    foldFirstOrder (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) ({-t1-} fm)
+    where
+      tf False = Set.empty
+      tf True = Set.singleton Set.empty
+      go = let djs = Set.filter (not . trivial) (purednf' (nnf' fm)) in
+           Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
+      -- t1 x = trace ("simpdnf' (" ++ prettyShow x) x
+      -- t2 x = trace ("simpdnf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
+
+purednf' :: (IsFirstOrder formula atom v, Ord formula) => formula -> Set (Set formula)
+purednf' fm =
+    {-t4 $-}
+    foldFirstOrder qu co (\_ -> lf fm) (\_ -> lf fm) ({-t3-} fm)
+    where
+      lf = Set.singleton . Set.singleton
+      qu _ _ _ = lf fm
+      co (BinOp p (:&:) q) = distrib (purednf' p) (purednf' q)
+      co (BinOp p (:|:) q) = union (purednf' p) (purednf' q)
+      co _ = lf fm
+      -- t3 x = trace ("purednf' (" ++ prettyShow x) x
+      -- t4 x = trace ("purednf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
+
+-- | Negation normal form.
+nnf' :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) => formula -> formula
+nnf' = nnf1 . simplify
+
+nnf1 :: IsFirstOrder formula atom v => formula -> formula
+nnf1 fm = foldFirstOrder (\_ _ _ -> fm) nnfCombine fromBool (\_ -> fm) fm
+    where
+      -- nnfCombine :: (IsPropositional formula atom) => formula -> Combination formula -> formula
+      nnfCombine ((:~:) p) = foldFirstOrder (\_ _ _ -> fm) nnfNotCombine (fromBool . not) (\_ -> fm) p
+      nnfCombine (BinOp p (:=>:) q) = nnf1 ((.~.) p) .|. (nnf1 q)
+      nnfCombine (BinOp p (:<=>:) q) =  (nnf1 p .&. nnf1 q) .|. (nnf1 ((.~.) p) .&. nnf1 ((.~.) q))
+      nnfCombine (BinOp p (:&:) q) = nnf1 p .&. nnf1 q
+      nnfCombine (BinOp p (:|:) q) = nnf1 p .|. nnf1 q
+
+      -- nnfNotCombine :: (IsPropositional formula atom) => Combination formula -> formula
+      nnfNotCombine ((:~:) p) = nnf1 p
+      nnfNotCombine (BinOp p (:&:) q) = nnf1 ((.~.) p) .|. nnf1 ((.~.) q)
+      nnfNotCombine (BinOp p (:|:) q) = nnf1 ((.~.) p) .&. nnf1 ((.~.) q)
+      nnfNotCombine (BinOp p (:=>:) q) = nnf1 p .&. nnf1 ((.~.) q)
+      nnfNotCombine (BinOp p (:<=>:) q) = (nnf1 p .&. nnf1 ((.~.) q)) .|. nnf1 ((.~.) p) .&. nnf1 q
 
 tests :: Test
 tests = TestList [test01, test02, test03, test04, test05]
