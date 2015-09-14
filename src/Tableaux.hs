@@ -90,7 +90,7 @@ unify_complements env p q = unify_literals env p ((.~.) q)
 unify_refute :: (IsLiteral lit atom,
                  IsAtom atom predicate term,
                  IsTerm term v function,
-                 Ord lit, IsPredicate predicate) =>
+                 IsPredicate predicate) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
     case Set.minView djs of
@@ -106,7 +106,7 @@ prawitz_loop :: forall atom v term predicate function lit.
                 (IsLiteral lit atom,
                  IsAtom atom predicate term,
                  IsTerm term v function,
-                 Ord lit, IsPredicate predicate) =>
+                 IsPredicate predicate) =>
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
     let inst = Map.fromList (zip fvs (List.map newvar [1..])) in
@@ -122,7 +122,7 @@ prawitz :: forall formula atom term predicate function v.
             IsAtom atom predicate term,
             IsTerm term v function,
             HasSkolem function v,
-            Ord formula, IsPredicate predicate) =>
+            IsPredicate predicate) =>
            formula -> Int
 prawitz fm =
     snd (prawitz_loop dnf (Set.toList fvs) dnf0 0)
@@ -153,7 +153,7 @@ compare :: (IsFirstOrder formula atom v,
             IsAtom atom predicate term,
             IsTerm term v function,
             HasSkolem function v,
-            IsPredicate predicate, Ord formula
+            IsPredicate predicate
            ) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
@@ -300,7 +300,7 @@ tab :: (IsFirstOrder formula atom v,
         IsAtom atom predicate term,
         IsTerm term v function,
         HasSkolem function v,
-        Eq formula, IsPredicate predicate) =>
+        IsPredicate predicate) =>
        formula -> Failing ((Map v term, Depth), Depth)
 tab fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in

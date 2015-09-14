@@ -25,6 +25,8 @@ import Data.Typeable (Typeable)
 import Prelude hiding (negate)
 import Text.PrettyPrint.HughesPJClass (Doc, text)
 
+import Pretty (Pretty)
+
 -- |Types that need to have True and False elements.
 class HasBoolean p where
     asBool :: p -> Maybe Bool
@@ -172,7 +174,7 @@ binop a (:=>:) b = a .=>. b
 binop a (:<=>:) b = a .<=>. b
 
 -- | Class associating a formula type with its atom type.
-class IsFormula formula atom | formula -> atom where
+class (Eq formula, Ord formula, Pretty formula, Eq atom, Ord atom) => IsFormula formula atom | formula -> atom where
     atomic :: atom -> formula
     -- ^ Build a formula from an atom.
     overatoms :: (atom -> r -> r) -> formula -> r -> r

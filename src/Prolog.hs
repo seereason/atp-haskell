@@ -27,7 +27,7 @@ import FOL
 -- Rename a rule.                                                            
 -- ------------------------------------------------------------------------- 
 
-renamerule :: forall fof atom term predicate v f. (IsFirstOrder fof atom v, {-Formula fof term v,-} IsAtom atom predicate term, IsTerm term v f, Ord fof) =>
+renamerule :: forall fof atom term predicate v f. (IsFirstOrder fof atom v, IsAtom atom predicate term, IsTerm term v f) =>
               Int -> (Set.Set fof, fof) -> ((Set.Set fof, fof), Int)
 renamerule k (asm,c) =
     ((Set.map inst asm, inst c), k + Set.size fvs)

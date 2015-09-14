@@ -223,11 +223,11 @@ instance Pretty Predicate where
 -- ATOM --
 ----------
 
-class (Ord atom, Pretty atom, HasFixity atom, Pretty predicate) => IsAtom atom predicate term | atom -> predicate term where
+class (Ord atom, Pretty atom, HasFixity atom, IsPredicate predicate) => IsAtom atom predicate term | atom -> predicate term where
     makeAtom :: predicate -> [term] -> atom
     foldAtom :: (predicate -> [term] -> r) -> atom -> r
 
-zipAtoms :: (IsAtom atom predicate term, Eq predicate) =>
+zipAtoms :: IsAtom atom predicate term =>
             (predicate -> [(term, term)] -> Maybe r)
          -> atom -> atom -> Maybe r
 zipAtoms f atom1 atom2 =
@@ -349,7 +349,7 @@ a .=. b = atomic (makeAtom equals [a, b])
 
 infix 5 .=. -- , .!=., ≡, ≢
 
-instance IsFormula (Formula v atom) atom where
+instance (IsAtom atom predicate term, IsTerm term v function, Ord v, Ord atom) => IsFormula (Formula v atom) atom where
     atomic = Atom
     overatoms f fm b =
       case fm of

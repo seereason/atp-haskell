@@ -20,7 +20,7 @@ import Skolem (Arity, functions, HasSkolem, runSkolem, skolemize, MyFormula, MyT
 import Test.HUnit hiding (tried)
 
 -- | Propositional valuation.
-pholds :: (IsPropositional formula atom, Ord atom) => (atom -> Bool) -> formula -> Bool
+pholds :: IsPropositional formula atom => (atom -> Bool) -> formula -> Bool
 pholds d fm = eval fm d
 
 -- | Get the constants for Herbrand base, adding nullary one if necessary.
@@ -90,8 +90,7 @@ gilmore_loop :: forall lit atom term v function predicate.
                 (IsFirstOrder lit atom v,
                  IsLiteral lit atom,
                  IsTerm term v function,
-                 IsAtom atom predicate term,
-                 Ord lit) =>
+                 IsAtom atom predicate term) =>
                 Set (Set lit)
              -> Set term
              -> Set (function, Int)
@@ -112,7 +111,7 @@ gilmore :: forall formula atom predicate term function v.
             IsLiteral formula atom,
             IsTerm term v function,
             IsAtom atom predicate term,
-            HasSkolem function v, Ord formula) =>
+            HasSkolem function v) =>
            formula -> Failing Int
 gilmore fm =
   let (sfm :: formula) = runSkolem (skolemize id ((.~.) (generalize fm))) in
@@ -190,8 +189,7 @@ dp_mfn cjs0 ifn cjs = Set.union (Set.map (Set.map ifn) cjs0) cjs
 dp_loop :: (IsFirstOrder lit atom v,
             IsLiteral lit atom,
             IsTerm term v function,
-            IsAtom atom predicate term,
-            Ord lit) =>
+            IsAtom atom predicate term) =>
            Set (Set lit)
         -> Set term
         -> Set (function, Int)
@@ -210,7 +208,7 @@ davisputnam :: forall formula atom term v predicate function.
                 IsAtom atom predicate term,
                 IsString function,
                 HasSkolem function v,
-                Ord formula, Ord function) =>
+                Ord function) =>
                formula -> Failing Int
 davisputnam fm =
   let (sfm :: formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
@@ -236,7 +234,7 @@ davisputnam' :: forall formula atom predicate term v f.
                  IsTerm term v f,
                  IsAtom atom predicate term,
                  HasSkolem f v,
-                 Ord formula, Ord f) =>
+                 Ord f) =>
                 formula -> formula -> formula -> Failing Int
 davisputnam' _ _ fm =
     let (sfm :: formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
@@ -250,8 +248,7 @@ dp_refine_loop :: forall formula atom term v predicate function.
                   (IsFirstOrder formula atom v,
                    IsTerm term v function,
                    IsAtom atom predicate term,
-                   IsLiteral formula atom,
-                   Ord formula) =>
+                   IsLiteral formula atom) =>
                   Set (Set formula)
                -> Set term
                -> Set (function, Int)
@@ -268,8 +265,7 @@ dp_refine_loop cjs0 cntms funcs fvs n cjs tried tuples =
 dp_refine :: (IsFirstOrder formula atom v,
               IsAtom atom predicate term,
               IsTerm term v function,
-              IsLiteral formula atom,
-              Ord formula) =>
+              IsLiteral formula atom) =>
              Set (Set formula) -> [v] -> Set [term] -> Set [term] -> Failing (Set [term])
 dp_refine cjs0 fvs dknow need =
     case Set.minView dknow of

@@ -88,7 +88,7 @@ max_varindex :: NumAtom atom =>  atom -> Integer -> Integer
 max_varindex atom n = max n (ai atom)
 
 -- | Overall definitional CNF.
-mk_defcnf :: forall formula atom lit atom2. (IsPropositional formula atom, NumAtom atom, IsLiteral lit atom2, Ord lit) =>
+mk_defcnf :: forall formula atom lit atom2. (IsPropositional formula atom, NumAtom atom, IsLiteral lit atom2) =>
              (atom -> atom2) -> ((formula, Map formula formula, Integer) -> (formula, Map formula formula, Integer)) -> formula -> Set (Set lit)
 mk_defcnf ca fn fm =
   let (fm' :: formula) = nenf fm in
@@ -170,7 +170,7 @@ END_INTERACTIVE;;
 -}
 
 -- | Version that guarantees 3-CNF.
-defcnf3 :: (IsPropositional formula atom, NumAtom atom, IsLiteral formula atom, Ord formula) => formula -> formula
+defcnf3 :: (IsPropositional formula atom, NumAtom atom, IsLiteral formula atom) => formula -> formula
 defcnf3 = list_conj . Set.map list_disj . mk_defcnf id andcnf3
 
 andcnf3 :: (IsPropositional pf atom, NumAtom atom) => (pf, Map.Map pf pf, Integer) -> (pf, Map.Map pf pf, Integer)

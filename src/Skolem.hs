@@ -378,7 +378,7 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
 
 -- Implement the behavior of simpdnf in prop.ml
 
-simpdnf' :: (IsFirstOrder formula atom v, Ord formula, IsAtom atom predicate term, IsTerm term v function) => formula -> Set (Set formula)
+simpdnf' :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) => formula -> Set (Set formula)
 simpdnf' fm =
     {-t2 $-}
     foldFirstOrder (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) ({-t1-} fm)
@@ -390,7 +390,7 @@ simpdnf' fm =
       -- t1 x = trace ("simpdnf' (" ++ prettyShow x) x
       -- t2 x = trace ("simpdnf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
 
-purednf' :: (IsFirstOrder formula atom v, Ord formula) => formula -> Set (Set formula)
+purednf' :: IsFirstOrder formula atom v => formula -> Set (Set formula)
 purednf' fm =
     {-t4 $-}
     foldFirstOrder qu co (\_ -> lf fm) (\_ -> lf fm) ({-t3-} fm)

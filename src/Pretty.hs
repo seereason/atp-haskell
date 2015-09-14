@@ -90,7 +90,7 @@ parenthesize (Fixity pprec pdir) (Fixity prec _dir) side pp =
             (_, InfixA) -> pp
             (Unary, _) -> braces pp -- not sure
             (_, InfixN) -> error "Nested non-associative operators"
-
+{-
 -- | Wrapper to indicate we want show to render the expression using
 -- class methods to build a value, not the show derived for the
 -- specific instance.
@@ -119,6 +119,7 @@ instance Show (Classy Bool) where
 
 instance Show (Classy Int) where
     show = show . deClassy
+-}
 
 instance Pretty a => Pretty (Set a) where
     -- pPrint s = text "{" <> mconcat (intersperse (text ", ") (List.map pPrint (Set.toAscList s))) <> text "}"
