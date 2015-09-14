@@ -128,7 +128,7 @@ instance Pretty FName where pPrint (FName s) = text s
 -----------
 
 -- | Terms are built from variables and combined by functions to build the atoms of a formula.
-class (Ord term, Pretty term, IsVariable v, IsFunction function) => IsTerm term v function | term -> v function where
+class (Eq term, Ord term, Pretty term, IsVariable v, IsFunction function) => IsTerm term v function | term -> v function where
     vt :: v -> term
     -- ^ Build a term which is a variable reference.
     fApp :: function -> [term] -> term

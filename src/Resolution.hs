@@ -57,7 +57,7 @@ test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p
           -- fx = fApp (Skolem "x")
 
 -- | MGU of a set of literals.
-mgu :: forall lit atom predicate term v f. (IsLiteral lit atom, IsTerm term v f, IsAtom atom predicate term, Eq term, IsPredicate predicate) =>
+mgu :: forall lit atom predicate term v f. (IsLiteral lit atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate) =>
        Set lit -> Map v term -> Failing (Map v term)
 mgu l env =
     case Set.minView l of
@@ -67,7 +67,7 @@ mgu l env =
             _ -> Success (solve env)
       _ -> Success (solve env)
 
-unifiable :: (IsLiteral lit atom, IsTerm term v f, IsAtom atom predicate term, Eq term, IsPredicate predicate) =>
+unifiable :: (IsLiteral lit atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate) =>
              lit -> lit -> Bool
 unifiable p q = failing (const False) (const True) (unify_literals Map.empty p q)
 
@@ -93,7 +93,7 @@ rename pfx cls =
 resolvents :: (IsLiteral lit atom,
                IsTerm term v f,
                IsAtom atom predicate term,
-               Ord lit, Eq term, IsPredicate predicate) =>
+               Ord lit, IsPredicate predicate) =>
               Set lit -> Set lit -> lit -> Set lit -> Set lit
 resolvents cl1 cl2 p acc =
     if Set.null ps2 then acc else Set.fold doPair acc pairs
@@ -178,7 +178,7 @@ test02 =
 -- Matching of terms and literals.                                           
 -- ------------------------------------------------------------------------- 
 
-term_match :: forall term v f. (IsTerm term v f, Eq term) => Map v term -> [(term, term)] -> Failing (Map v term)
+term_match :: forall term v f. (IsTerm term v f) => Map v term -> [(term, term)] -> Failing (Map v term)
 term_match env [] = Success env
 term_match env ((p, q) : oth) =
     foldTerm v fn p
@@ -211,7 +211,7 @@ match_literals :: forall lit term f v atom predicate.
                   (IsLiteral lit atom,
                    IsAtom atom predicate term,
                    IsTerm term v f,
-                   IsPredicate predicate, Eq term) =>
+                   IsPredicate predicate) =>
                   Map v term -> lit -> lit -> Failing (Map v term)
 match_literals env t1 t2 =
     fromMaybe (fail "match_literals") (zipLiterals ne tf at t1 t2)
@@ -251,7 +251,7 @@ subsumes_clause :: forall lit term f v atom predicate.
                    (IsLiteral lit atom,
                     IsTerm term v f,
                     IsAtom atom predicate term,
-                    Eq term, IsPredicate predicate) =>
+                    IsPredicate predicate) =>
                    Set lit -> Set lit -> Bool
 subsumes_clause cls1 cls2 =
     failing (const False) (const True) (subsume Map.empty cls1)
@@ -271,7 +271,7 @@ replace :: forall lit term f v atom predicate.
            (IsLiteral lit atom,
             IsTerm term v f,
             IsAtom atom predicate term,
-            Ord lit, Eq term, IsPredicate predicate) =>
+            Ord lit, IsPredicate predicate) =>
            Set lit
         -> Set (Set lit)
         -> Set (Set lit)
@@ -286,7 +286,7 @@ incorporate :: forall lit term f v atom predicate.
                (IsLiteral lit atom,
                 IsAtom atom predicate term,
                 IsTerm term v f,
-                Ord lit, Eq term, IsPredicate predicate) =>
+                Ord lit, IsPredicate predicate) =>
                Set lit
             -> Set lit
             -> Set (Set lit)
@@ -357,7 +357,7 @@ presloop :: (IsLiteral lit atom,
              IsFirstOrder fof atom v, fof ~ lit,
              IsAtom atom predicate term,
              IsTerm term v f,
-             Ord lit, Eq term, IsPredicate predicate) =>
+             Ord lit, IsPredicate predicate) =>
             Set (Set lit) -> Set (Set lit) -> Failing Bool
 presloop used unused =
     case Set.minView unused of

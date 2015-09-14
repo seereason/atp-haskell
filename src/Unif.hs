@@ -43,21 +43,21 @@ istriv env x t =
       fn _ args = mapM (istriv env x) args >>= bool (return False) (fail "cyclic") . or
 
 -- | Solve to obtain a single instantiation.
-solve :: (IsTerm term v f, Eq term) => Map v term -> Map v term
+solve :: IsTerm term v f => Map v term -> Map v term
 solve env =
     if env' == env then env else solve env'
     where env' = Map.map (tsubst env) env
 
 -- | Unification reaching a final solved form (often this isn't needed).
-fullunify :: (IsTerm term v f, Eq term) => [(term,term)] -> Failing (Map v term)
+fullunify :: IsTerm term v f => [(term,term)] -> Failing (Map v term)
 fullunify eqs = solve <$> unify Map.empty eqs
 
 -- | Examples.
-unify_and_apply :: (IsTerm term v f, Eq term) => [(term, term)] -> Failing [(term, term)]
+unify_and_apply :: IsTerm term v f => [(term, term)] -> Failing [(term, term)]
 unify_and_apply eqs =
     fullunify eqs >>= \i -> return $ List.map (\ (t1, t2) -> (tsubst i t1, tsubst i t2)) eqs
 
-unify_and_apply' :: (Eq term, IsTerm term v function) => [(term, term)] -> Failing [(term, term)]
+unify_and_apply' :: IsTerm term v function => [(term, term)] -> Failing [(term, term)]
 unify_and_apply' eqs =
     mapM app eqs
         where

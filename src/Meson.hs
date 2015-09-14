@@ -163,7 +163,7 @@ contrapositives cls =
 -- The core of MESON: ancestor unification or Prolog-style extension.        
 -- ------------------------------------------------------------------------- 
 
-mexpand :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate, Ord fof, Eq term) =>
+mexpand :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate, Ord fof) =>
            Set (Set fof, fof)
         -> Set fof
         -> fof
@@ -190,7 +190,7 @@ mexpand rules ancestors g cont (env,n,k) =
 -- Full MESON procedure.                                                     
 -- ------------------------------------------------------------------------- 
 
-puremeson :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate, Ord fof, Eq term) =>
+puremeson :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate, Ord fof) =>
              Maybe Int -> fof -> Failing ((Map v term, Int, Int), Int)
 puremeson maxdl fm =
     deepen f 0 maxdl
