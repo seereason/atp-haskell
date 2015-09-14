@@ -75,8 +75,9 @@ unifiable p q = failing (const False) (const True) (unify_literals Map.empty p q
 -- Rename a clause.                                                          
 -- ------------------------------------------------------------------------- 
 
-rename :: forall lit atom term v f predicate.
-          (IsLiteral lit atom,
+rename :: forall fof lit atom term v f predicate.
+          (IsFirstOrder fof atom v, fof ~ lit,
+           IsLiteral lit atom,
            IsTerm term v f,
            IsAtom atom predicate term,
            Ord lit, Ord term, Ord v) => (v -> v) -> Set lit -> Set lit
@@ -108,8 +109,9 @@ resolvents cl1 cl2 p acc =
       -- ps2 :: Set fof
       ps2 = Set.filter (unifiable ((.~.) p)) cl2
 
-resolve_clauses :: forall lit atom predicate v term f.
-                   (IsLiteral lit atom,
+resolve_clauses :: forall fof lit atom predicate v term f.
+                   (IsFirstOrder fof atom v, fof ~ lit,
+                    IsLiteral lit atom,
                     IsTerm term v f,
                     IsAtom atom predicate term,
                     Ord lit, Ord term, Eq predicate) =>
@@ -337,8 +339,9 @@ resolution2 fm = askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_r
 -- Positive (P1) resolution.                                                 
 -- ------------------------------------------------------------------------- 
 
-presolve_clauses :: forall pf lit atom v term f predicate.
+presolve_clauses :: forall fof pf lit atom v term f predicate.
                     (lit ~ pf,
+                     IsFirstOrder fof atom v, fof ~ lit,
                      IsLiteral lit atom,
                      -- IsPropositional pf atom,
                      IsAtom atom predicate term,
@@ -351,6 +354,7 @@ presolve_clauses cls1 cls2 =
     else Set.empty
 
 presloop :: (IsLiteral lit atom,
+             IsFirstOrder fof atom v, fof ~ lit,
              IsAtom atom predicate term,
              IsTerm term v f,
              Ord lit, Ord term, Eq term, Eq predicate) =>
