@@ -198,9 +198,7 @@ dp_loop = herbloop dp_mfn dpll
 davisputnam :: forall formula atom term v predicate function.
                (IsLiteral formula atom,
                 IsFirstOrder formula atom predicate term v function,
-                IsString function,
-                HasSkolem function v,
-                Ord function) =>
+                HasSkolem function v) =>
                formula -> Failing Int
 davisputnam fm =
   let (sfm :: formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
@@ -223,8 +221,7 @@ davisputnam' :: forall formula atom predicate term v f.
                 (IsFirstOrder formula atom predicate term v f,
                  IsLiteral formula atom,
                  IsPropositional formula atom,
-                 HasSkolem f v,
-                 Ord f) =>
+                 HasSkolem f v) =>
                 formula -> formula -> formula -> Failing Int
 davisputnam' _ _ fm =
     let (sfm :: formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in

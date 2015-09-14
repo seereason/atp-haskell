@@ -80,7 +80,7 @@ instance IsNegatable (LFormula atom) where
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 
-instance IsFormula (LFormula atom) atom where
+instance (Ord atom, Pretty atom) => IsFormula (LFormula atom) atom where
     atomic = Atom
     overatoms f fm b =
         case fm of
@@ -93,7 +93,7 @@ instance IsFormula (LFormula atom) atom where
           Not p -> Not (onatoms f p)
           _ -> fm
 
-instance Pretty atom => IsLiteral (LFormula atom) atom where
+instance (Ord atom, Pretty atom) => IsLiteral (LFormula atom) atom where
     foldLiteral ne tf at lit =
         case lit of
           F -> tf False
@@ -101,7 +101,7 @@ instance Pretty atom => IsLiteral (LFormula atom) atom where
           Atom a -> at a
           Not f -> ne f
 
-instance Pretty atom => Pretty (LFormula atom) where
+instance (Ord atom, Pretty atom) => Pretty (LFormula atom) where
     pPrint fm =
         foldLiteral ne tf at fm
         where
