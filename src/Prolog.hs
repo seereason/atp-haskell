@@ -12,6 +12,7 @@ import Data.Logic.Harrison.FOL (fv, subst, list_conj)
 import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.String (fromString)
+import Test.HUnit
 
 import Lib
 import Prop
@@ -200,3 +201,6 @@ prolog badrules
  ***)
 END_INTERACTIVE;;                           
 -}
+
+tests :: Test
+tests = TestList []

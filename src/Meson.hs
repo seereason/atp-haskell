@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, RankNTypes, ScopedTypeVariables, TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, RankNTypes, ScopedTypeVariables, TypeFamilies #-}
 {-# OPTIONS_GHC -Wall #-}
 module Meson where
 
@@ -13,7 +13,7 @@ import Pretty (prettyShow)
 import Prop
 import Lit
 import FOL
-import Skolem (askolemize, HasSkolem, MyFormula, pnf, runSkolem, SkolemT, specialize, toSkolem)
+import Skolem (askolemize, HasSkolem, MyFormula, MyTerm, pnf, runSkolem, simpdnf', SkolemT, specialize, toSkolem)
 import Tableaux (deepen, unify_literals)
 import Resolution (davis_putnam_example_formula)
 import Prolog
@@ -44,8 +44,9 @@ import Data.Logic.Harrison.Tableaux (unify_literals, deepen)
 -- ------------------------------------------------------------------------- 
 
 test01 :: Test
-test01 = TestLabel "Data.Logic.Tests.Harrison.Meson" $ TestCase $ assertEqual "meson dp example (p. 220)" expected input
+test01 = TestLabel "Meson 1" $ TestCase $ assertEqual "meson dp example (p. 220)" expected input
     where input = runSkolem (meson (Just 10) (davis_putnam_example_formula :: MyFormula))
+          expected :: Set (Failing ((Map V MyTerm, Int, Int), Int))
           expected = Set.singleton (
                                     -- Success ((Map.empty, 0, 0), 8)
                                     Success ((Map.fromList [("_0",vt' "_6"),
@@ -69,7 +70,7 @@ test01 = TestLabel "Data.Logic.Tests.Harrison.Meson" $ TestCase $ assertEqual "m
 
 test02 :: Test
 test02 =
-    TestLabel "Data.Logic.Tests.Harrison.Meson" $
+    TestLabel "Meson 2" $
     TestList [TestCase (assertEqual "meson dp example, step 1 (p. 220)"
                                     (prettyShow (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
                                                                                   (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z]))))))))
@@ -104,7 +105,7 @@ test02 =
       (F(x,y) /\ G(x,y)) /\
       (~G(x,f_z(x,y)) \/ ~G(f_z(x,y),f_z(x,y))) >>]]
 -}
-                                    (Set.map (Set.map prettyShow) (simpdnf (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula))) :: MyFormula)))),
+                                    (Set.map (Set.map prettyShow) (simpdnf' (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula))) :: MyFormula) :: Set (Set MyFormula)))),
               TestCase (assertEqual "meson dp example, step 6 (p. 220)"
                                     (Set.map prettyShow
                                      (Set.fromList [for_all "x" . for_all "y" $
@@ -119,7 +120,7 @@ test02 =
      (F(x,y) /\ G(x,y)) /\ 
      (~G(x,f_z(x,y)) \/ ~G(f_z(x,y),f_z(x,y)))>>]
 -}
-                                    (Set.map prettyShow ((Set.map list_conj (simpdnf (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula)))))) :: Set.Set (MyFormula))))]
+                                    (Set.map prettyShow ((Set.map list_conj (simpdnf' (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula)))))) :: Set.Set (MyFormula))))]
     where f = pApp "F"
           g = pApp "G"
           sk1 = fApp (toSkolem "z")
@@ -162,7 +163,7 @@ contrapositives cls =
 -- The core of MESON: ancestor unification or Prolog-style extension.        
 -- ------------------------------------------------------------------------- 
 
-mexpand :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, Ord fof, Eq term) =>
+mexpand :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, Ord fof, Eq term, Eq predicate) =>
            Set (Set fof, fof)
         -> Set fof
         -> fof
@@ -189,7 +190,7 @@ mexpand rules ancestors g cont (env,n,k) =
 -- Full MESON procedure.                                                     
 -- ------------------------------------------------------------------------- 
 
-puremeson :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, Ord fof, Eq term) =>
+puremeson :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, Ord fof, Eq term, Eq predicate) =>
              Maybe Int -> fof -> Failing ((Map v term, Int, Int), Int)
 puremeson maxdl fm =
     deepen f 0 maxdl
@@ -201,11 +202,11 @@ puremeson maxdl fm =
 
 meson :: forall m fof atom predicate term f v.
          (IsFirstOrder fof atom v, IsPropositional fof atom, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term,
-          HasSkolem f v, Ord fof, Ord term, Monad m) =>
+          HasSkolem f v, Ord fof, Ord term, Eq predicate, Monad m) =>
          Maybe Int -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Int)))
 meson maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
-    return . Set.map (puremeson maxdl . list_conj) . (simpdnf id :: fof -> Set (Set fof))
+    return . Set.map (puremeson maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 {-
 -- ------------------------------------------------------------------------- 
@@ -651,3 +652,6 @@ meson <<~p /\ (p \/ q) /\ (r \/ s) /\ (~q \/ t \/ u) /\
         (~s \/ ~v) /\ (~s \/ ~w) ==> false>>;;
 END_INTERACTIVE;;
 -}
+
+tests :: Test
+tests = TestList [test01, test02]

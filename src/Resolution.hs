@@ -156,7 +156,7 @@ resolution1 :: forall m fof term function atom predicate v.
                 Ord fof, Ord term, Eq predicate,
                 Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
-resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution1 . list_conj) . (simpdnf id :: fof -> Set (Set fof))
+resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution1 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 -- | Simple example that works well.
 davis_putnam_example_formula :: MyFormula
@@ -170,9 +170,9 @@ davis_putnam_example_formula =
 
 test02 :: Test
 test02 =
-    TestCase $ assertEqual "Davis-Putnam example 1" Set.empty (runSkolem (resolution1 davis_putnam_example_formula))
+    TestCase $ assertEqual "Davis-Putnam example 1" expected (runSkolem (resolution1 davis_putnam_example_formula))
         where
-          expected = Set.empty :: Set (Failing Bool)
+          expected = Set.singleton (Success True) :: Set (Failing Bool)
 
 -- ------------------------------------------------------------------------- 
 -- Matching of terms and literals.                                           
@@ -333,7 +333,7 @@ resolution2 :: forall fof atom predicate term v function m.
                 HasSkolem function v,
                 Ord fof, Ord term, Eq predicate, Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
-resolution2 fm = askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_resolution2 . list_conj) . (simpdnf id :: fof -> Set (Set fof))
+resolution2 fm = askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_resolution2 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 -- ------------------------------------------------------------------------- 
 -- Positive (P1) resolution.                                                 
@@ -423,7 +423,7 @@ pure_resolution3 fm =
 resolution3 :: forall fof atom predicate term v f m. (IsLiteral fof atom, IsFirstOrder fof atom v, IsPropositional fof atom, IsTerm term v f, IsAtom atom predicate term, HasSkolem f v, Ord fof, Ord term, Eq predicate, Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
 resolution3 fm =
-    askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution3 . list_conj) . (simpdnf id :: fof -> Set (Set fof))
+    askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution3 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 -- The Pelletier examples again.
 p1 :: Test
