@@ -13,9 +13,20 @@ Cabal-version:    >= 1.9
 Build-Type:       Simple
 Extra-Source-Files: tests/Extra.hs
 
+flag tests-and-instances
+  Description:
+    Omit all the test cases and all the concrete types (Formula, FOL,
+    Term, V, Predicate, etc.)  This has been used for debugging to
+    make sure none of the type variables accidentally get bound to a
+    particular implementation.
+  Default: True
+  Manual: True
+
 Library
   Build-Depends: applicative-extras, base, containers, hashable, HUnit, mtl, pretty >= 1.1.2, syb, template-haskell
   GHC-options: -Wall -O2
+  if !flag(tests-and-instances)
+    CPP-Options: -DNOTESTS
   Hs-Source-Dirs: src
   Exposed-Modules:
     Lib
@@ -65,6 +76,8 @@ Library
     -- Limitations
 
 Test-Suite atp-haskell-tests
+  if !flag(tests-and-instances)
+    Buildable: False
   Type: exitcode-stdio-1.0
   Hs-Source-Dirs: tests
   Main-Is: Main.hs

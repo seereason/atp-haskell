@@ -1,11 +1,15 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, RankNTypes, ScopedTypeVariables, TypeFamilies #-}
+-- | Model elimination procedure (MESON version, based on Stickel's PTTP).
+--
+-- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
+
+{-# LANGUAGE CPP, FlexibleContexts, OverloadedStrings, RankNTypes, ScopedTypeVariables, TypeFamilies #-}
 {-# OPTIONS_GHC -Wall #-}
+
 module Meson where
 
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
-import Test.HUnit
 
 import Lib
 import Formulas
@@ -13,31 +17,14 @@ import Pretty (prettyShow)
 import Prop
 import Lit
 import FOL
-import Skolem (askolemize, HasSkolem, MyFormula, MyTerm, pnf, runSkolem, simpdnf', SkolemT, specialize, toSkolem)
+import Skolem (askolemize, HasSkolem, pnf, runSkolem, simpdnf', SkolemT, specialize, toSkolem)
 import Tableaux (deepen, unify_literals)
-import Resolution (davis_putnam_example_formula)
 import Prolog
-{-
-import Data.Logic.Classes.Atom (Atom)
-import Data.Logic.Classes.Constants (Constants, false)
-import Data.Logic.Classes.FirstOrder (FirstOrderFormula(..))
-import Data.Logic.Classes.Literal (Literal)
-import Data.Logic.Classes.Negate ((.~.), negative)
-import Data.Logic.Classes.Propositional (PropositionalFormula)
-import Data.Logic.Classes.Term (Term)
-import Data.Logic.Harrison.FOL (generalize, list_conj)
-import Data.Logic.Harrison.Lib (setAll, settryfind)
-import Data.Logic.Harrison.Normal (simpcnf, simpdnf)
-import Data.Logic.Harrison.Prolog (renamerule)
-import Data.Logic.Harrison.Skolem (SkolemT, pnf, specialize, askolemize)
-import Data.Logic.Harrison.Tableaux (unify_literals, deepen)
--}
 
--- =========================================================================
--- Model elimination procedure (MESON version, based on Stickel's PTTP).     
---                                                                           
--- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)  
--- ========================================================================= 
+#ifndef NOTESTS
+import Resolution (davis_putnam_example_formula)
+import Skolem (MyFormula, MyTerm)
+import Test.HUnit
 
 -- ------------------------------------------------------------------------- 
 -- Example of naivety of tableau prover.                                     
@@ -117,7 +104,7 @@ test02 =
 [<<forall x y.
      F(x,y) /\
      (~F(y,f_z(x,y)) \/ ~F(f_z(x,y),f_z(x,y))) \/
-     (F(x,y) /\ G(x,y)) /\ 
+     (F(x,y) /\ G(x,y)) &
      (~G(x,f_z(x,y)) \/ ~G(f_z(x,y),f_z(x,y)))>>]
 -}
                                     (Set.map prettyShow ((Set.map list_conj (simpdnf' (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula)))))) :: Set.Set (MyFormula))))]
@@ -149,12 +136,13 @@ tab <<~p /\ (p \/ q) /\ (r \/ s) /\ (~q \/ t \/ u) /\
       (~s \/ ~v) /\ (~s \/ ~w) ==> false>>;;
 END_INTERACTIVE;;
 -}
+#endif
 
 -- ------------------------------------------------------------------------- 
 -- Generation of contrapositives.                                            
 -- ------------------------------------------------------------------------- 
 
-contrapositives :: forall fof atom v. (IsFirstOrder fof atom v, Ord fof) => Set fof -> Set (Set fof, fof)
+contrapositives :: forall fof atom v. (IsFirstOrder' fof atom v, Ord fof) => Set fof -> Set (Set fof, fof)
 contrapositives cls =
     if setAll negative cls then Set.insert (Set.map (.~.) cls,false) base else base
     where base = Set.map (\ c -> (Set.map (.~.) (Set.delete c cls), c)) cls
@@ -163,7 +151,8 @@ contrapositives cls =
 -- The core of MESON: ancestor unification or Prolog-style extension.        
 -- ------------------------------------------------------------------------- 
 
-mexpand :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate) =>
+mexpand :: forall fof atom predicate term v f.
+           (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom, IsPredicate predicate) =>
            Set (Set fof, fof)
         -> Set fof
         -> fof
@@ -190,7 +179,7 @@ mexpand rules ancestors g cont (env,n,k) =
 -- Full MESON procedure.                                                     
 -- ------------------------------------------------------------------------- 
 
-puremeson :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate) =>
+puremeson :: forall fof atom predicate term v f. (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom, IsPredicate predicate) =>
              Maybe Int -> fof -> Failing ((Map v term, Int, Int), Int)
 puremeson maxdl fm =
     deepen f 0 maxdl
@@ -201,7 +190,7 @@ puremeson maxdl fm =
       cls = simpcnf id (specialize id (pnf fm) :: fof)
 
 meson :: forall m fof atom predicate term f v.
-         (IsFirstOrder fof atom v, IsPropositional fof atom, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate,
+         (IsFirstOrder fof atom predicate term v f, IsPropositional fof atom, IsLiteral fof atom, IsPredicate predicate,
           HasSkolem f v, Monad m) =>
          Maybe Int -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Int)))
 meson maxdl fm =
@@ -255,7 +244,10 @@ let puremeson fm =
 let meson fm =
   let fm1 = askolemize(Not(generalize fm)) in
   map (puremeson ** list_conj) (simpdnf fm1);;
+-}
 
+#ifndef NOTESTS
+{-
 -- ------------------------------------------------------------------------- 
 -- The Los problem (depth 20) and the Steamroller (depth 53) --- lengthier.  
 -- ------------------------------------------------------------------------- 
@@ -655,3 +647,4 @@ END_INTERACTIVE;;
 
 tests :: Test
 tests = TestList [test01, test02]
+#endif

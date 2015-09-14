@@ -20,13 +20,18 @@ module DefCNF
     -- * Instance
     , Atom(N)
     -- * Tests
+#ifndef NOTESTS
     , tests
+#endif
     ) where
 
 import Formulas as P
 import Lit (IsLiteral)
 import Pretty (HasFixity(fixity), leafFixity)
-import Prop as P (IsPropositional, cnf', cnf_, foldPropositional, nenf, PFormula, simpcnf, list_conj, list_disj, Prop(P))
+import Prop as P (IsPropositional, cnf', cnf_, foldPropositional, nenf, simpcnf, list_conj, list_disj)
+#ifndef NOTESTS
+import Prop (Prop(P), PFormula)
+#endif
 import Data.Function (on)
 import Data.List as List
 import Data.Map as Map hiding (fromList)
@@ -34,12 +39,14 @@ import Data.Set as Set
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
+#ifndef NOTESTS
 -- | Example (p. 74)
 test01 :: Test
 test01 = TestCase $ assertEqual "cnf test (p. 74)"
                                 "(p∨q∨r)∧(p∨¬q∨¬r)∧(q∨¬p∨¬r)∧(r∨¬p∨¬q)"
                                 (let [p, q, r] = (List.map (atomic . P) ["p", "q", "r"]) in
                                  prettyShow (cnf' (p .<=>. (q .<=>. r)) :: PFormula Prop))
+#endif
 
 class NumAtom atom where
     ma :: Integer -> atom
@@ -100,6 +107,7 @@ mk_defcnf ca fn fm =
 defcnf1 :: forall pf atom. (IsPropositional pf atom, NumAtom atom) => pf -> pf
 defcnf1 fm = cnf_ id (mk_defcnf id maincnf fm :: Set (Set pf))
 
+#ifndef NOTESTS
 -- Example.
 test02 :: Test
 test02 =
@@ -119,6 +127,7 @@ test02 =
                              ["s","¬p_3"],
                              ["¬p_1","¬r"]])
                            (strings (mk_defcnf id maincnf fm :: Set (Set (PFormula Atom))))
+#endif
 
 strings :: Pretty a => Set (Set a) -> [[String]]
 strings ss = sortBy (compare `on` length) . sort . Set.toList $ Set.map (sort . Set.toList . Set.map prettyShow) ss
@@ -180,5 +189,7 @@ andcnf3 trip@(fm,_defs,_n) =
       co (BinOp p (:&:) q) = subcnf andcnf3 (.&.) p q trip
       co _ = maincnf trip
 
+#ifndef NOTESTS
 tests :: Test
 tests = TestList [test01, test02]
+#endif

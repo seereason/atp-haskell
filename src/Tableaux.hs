@@ -2,6 +2,7 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -16,7 +17,9 @@ module Tableaux
     , prawitz
     , deepen
     -- , tab
+#ifndef NOTESTS
     , tests
+#endif
     ) where
 
 import Data.List as List (intercalate, map)
@@ -25,7 +28,6 @@ import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace (trace)
 import Prelude hiding (compare)
-import Test.HUnit
 
 import Lib hiding (tests)
 import Formulas
@@ -34,9 +36,13 @@ import Lit
 import Pretty (prettyShow)
 import Prop (simpdnf)
 import FOL hiding (tests)
-import Skolem (askolemize, HasSkolem, runSkolem, skolemize, MyTerm, MyFormula)
+import Skolem (askolemize, HasSkolem, runSkolem, skolemize)
 import Unif (unify)
 
+#ifndef NOTESTS
+import Test.HUnit
+import Skolem (MyTerm, MyFormula)
+#endif
 
 -- | Unify literals (just pretend the toplevel relation is a function).
 unify_literals :: forall lit atom term predicate v function.
@@ -118,9 +124,7 @@ prawitz_loop djs0 fvs djs n =
       newvar k = vt (fromString ("_" ++ show (n * length fvs + k)))
 
 prawitz :: forall formula atom term predicate function v.
-           (IsFirstOrder formula atom v,
-            IsAtom atom predicate term,
-            IsTerm term v function,
+           (IsFirstOrder formula atom predicate term v function,
             HasSkolem function v,
             IsPredicate predicate) =>
            formula -> Int
@@ -132,6 +136,7 @@ prawitz fm =
       fvs = overatoms (\ a s -> Set.union (fv (atomic a :: formula)) s) pf (Set.empty :: Set v)
       pf = runSkolem (skolemize id ((.~.)(generalize fm))) :: formula
 
+#ifndef NOTESTS
 -- ------------------------------------------------------------------------- 
 -- Examples.                                                                 
 -- ------------------------------------------------------------------------- 
@@ -144,19 +149,19 @@ p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
                (exists "x" (exists "y" (pApp "P" [vt "x"] .&. pApp "Q" [vt "y"]))) .=>. (exists "z" (pApp "R" [vt "z"]))
           input = prawitz fm
           expected = 2
+#endif
 
 -- ------------------------------------------------------------------------- 
 -- Comparison of number of ground instances.                                 
 -- ------------------------------------------------------------------------- 
 
-compare :: (IsFirstOrder formula atom v,
-            IsAtom atom predicate term,
-            IsTerm term v function,
+compare :: (IsFirstOrder formula atom predicate term v function,
             HasSkolem function v,
             IsPredicate predicate
            ) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
+#ifndef NOTESTS
 p19 :: Test
 p19 = TestCase $ assertEqual "p19" expected input
     where
@@ -207,6 +212,7 @@ let p60 = compare
 
 END_INTERACTIVE;;
 -}
+#endif
 
 -- | Try f with higher and higher values of n until it succeeds, or
 -- optional maximum depth limit is exceeded.
@@ -248,9 +254,7 @@ let rec tableau (fms,lits,n) cont (env,k) =
       with Failure _ -> tableau (unexp,fm::lits,n) cont (env,k);;
 -}
 tableau :: forall formula atom predicate function v term r.
-           (IsFirstOrder formula atom v,
-            IsAtom atom predicate term,
-            IsTerm term v function,
+           (IsFirstOrder formula atom predicate term v function,
             IsPredicate predicate) =>
            ([formula], [formula], Depth)
         -> ((Map v term, Depth) -> Failing r)
@@ -287,18 +291,14 @@ tableau (fms, lits, n) cont (env, k) =
             Success r -> Success r
             Failure _ -> tableau (unexp, fm : lits, n) cont (env,k)
 
-tabrefute :: (IsFirstOrder formula atom v,
-              IsAtom atom predicate term,
-              IsPredicate predicate, IsTerm term v function) =>
+tabrefute :: (IsFirstOrder formula atom predicate term v function, IsPredicate predicate) =>
              [formula] -> Failing ((Map v term, Depth), Depth)
 tabrefute fms =
   -- deepen (fun n -> tableau (fms,[],n) (fun x -> x) (undefined,0); n) 0;;
   let r = deepen (\n -> failing Failure (\r -> Success (r, n)) (tableau (fms,[],n) (\x -> Success x) (Map.empty,0))) 0 (Just 5) in
   failing Failure (Success . fst) r
 
-tab :: (IsFirstOrder formula atom v,
-        IsAtom atom predicate term,
-        IsTerm term v function,
+tab :: (IsFirstOrder formula atom predicate term v function,
         HasSkolem function v,
         IsPredicate predicate) =>
        formula -> Failing ((Map v term, Depth), Depth)
@@ -306,6 +306,7 @@ tab fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
   if sfm == false then undefined else tabrefute [sfm]
 
+#ifndef NOTESTS
 p38 :: Test
 p38 =
     let [p, r] = [pApp "P", pApp "R"] :: [[MyTerm] -> MyFormula]
@@ -341,13 +342,20 @@ let p38 = tab
      (~P[vt "a"] .|. ~(exists y. P[vt "y"] .&. R(x,y)) .|.
      (exists z w. P[vt "z"] .&. R(x,w) .&. R(w,z))))>>;;
 END_INTERACTIVE;;
-
+-}
+#endif
 -- ------------------------------------------------------------------------- 
 -- Try to split up the initial formula first; often a big improvement.       
 -- ------------------------------------------------------------------------- 
+splittab :: forall formula atom predicate term v function.
+            (IsFirstOrder formula atom predicate term v function, HasSkolem function v) => formula -> [Failing ((Map v term, Depth), Depth)]
 splittab fm =
-  List.map tabrefute (simpdnf id (runSkolem (askolemize((.~.)(generalize fm)))))
+  List.map tabrefute $ ssll (simpdnf id (runSkolem (askolemize((.~.)(generalize fm)))) :: Set (Set formula))
+      where ssll :: Set (Set a) -> [[a]]
+            ssll = List.map Set.toList . Set.toList
 
+#ifndef NOTESTS
+{-
 -- ------------------------------------------------------------------------- 
 -- Example: the Andrews challenge.                                           
 -- ------------------------------------------------------------------------- 
@@ -712,3 +720,4 @@ let davis_putnam_example = time splittab
 
 tests :: Test
 tests = TestList [p20, p19, p38]
+#endif

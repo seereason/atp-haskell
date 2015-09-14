@@ -11,20 +11,24 @@ import Data.String (IsString(..))
 import Debug.Trace
 import Lib (allpairs, distrib)
 import DP (dpll)
-import FOL (IsFirstOrder, IsTerm, fApp, subst, IsAtom, fv, generalize, exists, for_all, pApp, V, vt)
+import FOL (IsFirstOrder, IsTerm, fApp, subst, fv, generalize, exists, for_all, pApp, vt)
 import Formulas ((.~.), overatoms, atomic, (.=>.), (.&.), (.|.))
 import Lit (IsLiteral)
 import Pretty (prettyShow)
 import Prop (IsPropositional, eval, trivial, simpcnf, simpdnf)
-import Skolem (Arity, functions, HasSkolem, runSkolem, skolemize, MyFormula, MyTerm)
+import Skolem (Arity, functions, HasSkolem, runSkolem, skolemize)
+#ifndef NOTESTS
+import FOL (V)
+import Skolem (MyFormula, MyTerm)
 import Test.HUnit hiding (tried)
+#endif
 
 -- | Propositional valuation.
 pholds :: IsPropositional formula atom => (atom -> Bool) -> formula -> Bool
 pholds d fm = eval fm d
 
 -- | Get the constants for Herbrand base, adding nullary one if necessary.
-herbfuns :: (IsFirstOrder fof atom v, IsAtom atom predicate term, IsTerm term v function) =>
+herbfuns :: IsFirstOrder fof atom predicate term v function =>
             fof -> (Set (function, Arity), Set (function, Arity))
 herbfuns fm =
   let (cns,fns) = Set.partition (\ (_,ar) -> ar == 0) (functions fm) in
@@ -47,10 +51,7 @@ groundtuples cntms funcs n m =
       tuples k l = Set.union (allpairs (:) (groundterms cntms funcs k) (groundtuples cntms funcs (n - k) (m - 1))) l
 
 -- | Iterate modifier "mfn" over ground terms till "tfn" fails.
-herbloop :: forall lit v term formula atom predicate function.
-            (IsFirstOrder formula atom v,
-             IsAtom atom predicate term,
-             IsTerm term v function) =>
+herbloop :: IsFirstOrder formula atom predicate term v function =>
             (Set (Set lit) -> (formula -> formula) -> Set (Set lit) -> Set (Set lit))
          -> (Set (Set lit) -> Failing Bool)
          -> Set (Set lit)
@@ -70,7 +71,7 @@ herbloop mfn tfn fl0 cntms funcs fvs n fl tried tuples =
           herbloop mfn tfn fl0 cntms funcs fvs (n + 1) fl tried newtups
     Just (tup, tups) ->
         let fpf' = Map.fromList (zip fvs tup) in
-        let fl' = mfn fl0 (subst fpf' {-:: lit-}) fl in
+        let fl' = mfn fl0 (subst fpf') fl in
         case tfn fl' of
           Failure msgs -> Failure msgs
           Success x ->
@@ -86,11 +87,7 @@ subst' env fm =
 -}
 
 -- | Hence a simple Gilmore-type procedure.
-gilmore_loop :: forall lit atom term v function predicate.
-                (IsFirstOrder lit atom v,
-                 IsLiteral lit atom,
-                 IsTerm term v function,
-                 IsAtom atom predicate term) =>
+gilmore_loop :: (IsFirstOrder lit atom predicate term v function, IsLiteral lit atom) =>
                 Set (Set lit)
              -> Set term
              -> Set (function, Int)
@@ -106,11 +103,9 @@ gilmore_loop =
       mfn djs0 ifn djs = Set.filter (not . trivial) (distrib (Set.map (Set.map ifn) djs0) djs)
 
 gilmore :: forall formula atom predicate term function v.
-           (IsFirstOrder formula atom v,
+           (IsFirstOrder formula atom predicate term v function,
             IsPropositional formula atom,
             IsLiteral formula atom,
-            IsTerm term v function,
-            IsAtom atom predicate term,
             HasSkolem function v) =>
            formula -> Failing Int
 gilmore fm =
@@ -120,6 +115,7 @@ gilmore fm =
   let cntms = Set.map (\ (c,_) -> fApp c []) consts in
   gilmore_loop (simpdnf id sfm :: Set (Set formula)) cntms funcs (fvs) 0 (Set.singleton Set.empty) Set.empty Set.empty >>= return . Set.size
 
+#ifndef NOINSTS
 -- | First example and a little tracing.
 test01 :: Test
 test01 =
@@ -180,16 +176,14 @@ let p20 = gilmore
    ==> (exists x y. P(x) /\ Q(y)) ==> (exists z. R(z))>>;;
 
 -}
+#endif
 
 
 -- | The Davis-Putnam procedure for first order logic.
 dp_mfn :: Ord b => Set (Set a) -> (a -> b) -> Set (Set b) -> Set (Set b)
 dp_mfn cjs0 ifn cjs = Set.union (Set.map (Set.map ifn) cjs0) cjs
 
-dp_loop :: (IsFirstOrder lit atom v,
-            IsLiteral lit atom,
-            IsTerm term v function,
-            IsAtom atom predicate term) =>
+dp_loop :: (IsFirstOrder lit atom predicate term v function, IsLiteral lit atom) =>
            Set (Set lit)
         -> Set term
         -> Set (function, Int)
@@ -203,9 +197,7 @@ dp_loop = herbloop dp_mfn dpll
 
 davisputnam :: forall formula atom term v predicate function.
                (IsLiteral formula atom,
-                IsFirstOrder formula atom v,
-                IsTerm term v function,
-                IsAtom atom predicate term,
+                IsFirstOrder formula atom predicate term v function,
                 IsString function,
                 HasSkolem function v,
                 Ord function) =>
@@ -228,11 +220,9 @@ END_INTERACTIVE;;
 
 -- | Show how few of the instances we really need. Hence unification!
 davisputnam' :: forall formula atom predicate term v f.
-                (IsFirstOrder formula atom v,
+                (IsFirstOrder formula atom predicate term v f,
                  IsLiteral formula atom,
                  IsPropositional formula atom,
-                 IsTerm term v f,
-                 IsAtom atom predicate term,
                  HasSkolem f v,
                  Ord f) =>
                 formula -> formula -> formula -> Failing Int
@@ -244,11 +234,7 @@ davisputnam' _ _ fm =
     dp_refine_loop (simpcnf id sfm :: Set (Set formula)) cntms funcs fvs 0 Set.empty Set.empty Set.empty >>= return . Set.size
 
 -- | Try to cut out useless instantiations in final result.
-dp_refine_loop :: forall formula atom term v predicate function.
-                  (IsFirstOrder formula atom v,
-                   IsTerm term v function,
-                   IsAtom atom predicate term,
-                   IsLiteral formula atom) =>
+dp_refine_loop :: (IsFirstOrder formula atom predicate term v function, IsLiteral formula atom) =>
                   Set (Set formula)
                -> Set term
                -> Set (function, Int)
@@ -262,10 +248,7 @@ dp_refine_loop cjs0 cntms funcs fvs n cjs tried tuples =
     dp_loop cjs0 cntms funcs fvs n cjs tried tuples >>= \ tups ->
     dp_refine cjs0 fvs tups Set.empty
 
-dp_refine :: (IsFirstOrder formula atom v,
-              IsAtom atom predicate term,
-              IsTerm term v function,
-              IsLiteral formula atom) =>
+dp_refine :: (IsFirstOrder formula atom predicate term v function, IsLiteral formula atom) =>
              Set (Set formula) -> [v] -> Set [term] -> Set [term] -> Failing (Set [term])
 dp_refine cjs0 fvs dknow need =
     case Set.minView dknow of
@@ -292,5 +275,7 @@ let p29 = davisputnam'
 END_INTERACTIVE;;
 -}
 
+#ifndef NOINSTS
 tests :: Test
 tests = TestList [test01, test02]
+#endif

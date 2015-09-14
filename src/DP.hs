@@ -10,7 +10,9 @@ module DP
     , dplb
     , dplbsat
     , dplbtaut
+#ifndef NOTESTS
     , tests
+#endif
     ) where
 
 import Data.Map as Map
@@ -99,10 +101,12 @@ dpsat fm = dp (defcnfs fm :: Set (Set pf))
 dptaut :: forall pf atom. (IsPropositional pf atom, IsLiteral pf atom, NumAtom atom) => pf -> Failing Bool
 dptaut fm = not <$> dpsat (negate fm)
 
+#ifndef NOTESTS
 -- Examples.
 
 test01 :: Test
 test01 = TestCase (assertEqual "dptaut(prime 11) p. 84" (Success True) (dptaut (prime 11 :: PFormula (Knows Integer))))
+#endif
 
 -- | The same thing but with the DPLL procedure. (p. 84)
 dpll :: IsLiteral lit atom => Set (Set lit) -> Failing Bool
@@ -142,9 +146,11 @@ dplltaut :: forall pf. (IsPropositional pf (Knows Integer), IsLiteral pf (Knows 
             pf -> Failing Bool
 dplltaut fm = dpllsat (negate fm) >>= return . not
 
+#ifndef NOTESTS
 -- Example.
 test02 :: Test
 test02 = TestCase (assertEqual "dplltaut(prime 11)" (Success True) (dplltaut (prime 11 :: PFormula (Knows Integer))))
+#endif
 
 -- | Iterative implementation with explicit trail instead of recursion.
 dpli :: forall atomic pf. (IsPropositional pf atomic) =>
@@ -245,6 +251,7 @@ dplbtaut :: forall pf atom. (IsPropositional pf atom, IsLiteral pf atom, NumAtom
             pf -> Failing Bool
 dplbtaut fm = dplbsat (negate fm) >>= return . not
 
+#ifndef NOTESTS
 -- | Examples.
 test03 :: Test
 test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" (Success True) (dplitaut (prime 101 :: PFormula (Knows Integer)))),
@@ -252,3 +259,4 @@ test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" (Success True) (d
 
 tests :: Test
 tests = TestList [test01, test02, test03]
+#endif

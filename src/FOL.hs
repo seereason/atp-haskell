@@ -7,6 +7,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -14,20 +15,20 @@
 
 module FOL
     ( -- * Variables
-      IsVariable(variant, prefix, prettyVariable), variants, showVariable, V(V)
+      IsVariable(variant, prefix, prettyVariable), variants, showVariable
     -- * Functions
-    , IsFunction, FName(FName)
+    , IsFunction
     -- * Terms
-    , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm, Term(Var, FApply)
+    , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm
     -- * Predicates
-    , IsPredicate, HasEquality(equals), Predicate(NamedPredicate, Equals)
+    , IsPredicate, HasEquality(equals)
     -- * Atoms
-    , IsAtom(makeAtom, foldAtom), convertAtom, zipAtoms, pApp , (.=.), FOL(R)
+    , IsAtom(makeAtom, foldAtom), convertAtom, zipAtoms, pApp , (.=.)
     -- * Quantifiers
     , Quant((:!:), (:?:))
     -- Formula
-    , IsFirstOrder(quant, foldFirstOrder), for_all, exists
-    , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
+    , IsFirstOrder'(quant, foldFirstOrder), for_all, exists
+    , IsFirstOrder
     , zipFirstOrder
     , convertFirstOrder
     , propositionalFromFirstOrder
@@ -44,8 +45,17 @@ module FOL
     , generalize
     -- * Substitution
     , subst, substq, asubst, tsubst, lsubst
+#ifndef NOTESTS
+    -- * Instances
+    , V(V)
+    , FName(FName)
+    , Term(Var, FApply)
+    , Predicate(NamedPredicate, Equals)
+    , FOL(R)
+    , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     -- * Tests
     , tests
+#endif
     ) where
 
 import Data.Data (Data)
@@ -67,7 +77,7 @@ import Test.HUnit
 -- VARIABLES --
 ---------------
 
-class (Ord v, IsString v, Data v, Pretty v) => IsVariable v where
+class (Ord v, IsString v, Data v, Pretty v, Show v) => IsVariable v where
     variant :: v -> Set v -> v
     -- ^ Return a variable based on v but different from any set
     -- element.  The result may be v itself if v is not a member of
@@ -147,6 +157,10 @@ class (Eq term, Ord term, Pretty term, IsVariable v, IsFunction function) => IsT
 convertTerm :: (IsTerm term1 v1 f1, IsTerm term2 v2 f2) => (v1 -> v2) -> (f1 -> f2) -> term1 -> term2
 convertTerm cv cf = foldTerm (vt . cv) (\f ts -> fApp (cf f) (map (convertTerm cv cf) ts))
 
+showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
+showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp " ++ show fn ++ "[" ++ intercalate ", " (map showTerm ts) ++ "]")
+
+#ifndef NOINSTS
 data Term function v
     = Var v
     | FApply function [Term function v]
@@ -154,9 +168,6 @@ data Term function v
 
 instance (IsVariable v, Show v, IsFunction function, Show function) => Show (Term function v) where
     show = showTerm
-
-showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
-showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp " ++ show fn ++ "[" ++ intercalate ", " (map showTerm ts) ++ "]")
 
 instance (IsFunction function, IsVariable v) => IsTerm (Term function v) v function where
     vt = Var
@@ -183,6 +194,7 @@ test00 = TestCase $ assertEqual "print an expression"
                                 (prettyShow (fApp "sqrt" [fApp "-" [fApp "1" [],
                                                                      fApp "cos" [fApp "power" [fApp "+" [Var "x", Var "y"],
                                                                                                fApp "2" []]]]] :: Term FName V))
+#endif
 
 ---------------
 -- PREDICATE --
@@ -349,6 +361,7 @@ a .=. b = atomic (makeAtom equals [a, b])
 
 infix 5 .=. -- , .!=., ≡, ≢
 
+#ifndef NOINSTS
 instance (IsAtom atom predicate term, IsTerm term v function, Ord v, Ord atom) => IsFormula (Formula v atom) atom where
     atomic = Atom
     overatoms f fm b =
@@ -405,8 +418,9 @@ instance (IsAtom atom predicate term, IsTerm term v function) => IsLiteral (Form
           Iff _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
           Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
           Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
+#endif
 
-class (IsPropositional formula atom, IsVariable v, Pretty formula) => IsFirstOrder formula atom v | formula -> atom v where
+class (IsPropositional formula atom, IsVariable v, Pretty formula) => IsFirstOrder' formula atom v | formula -> atom v where
     quant :: Quant -> v -> formula -> formula
     foldFirstOrder :: (Quant -> v -> formula -> r)
                    -> (Combination formula -> r)
@@ -414,8 +428,12 @@ class (IsPropositional formula atom, IsVariable v, Pretty formula) => IsFirstOrd
                    -> (atom -> r)
                    -> formula -> r
 
+-- |Combine IsFirstOrder, IsAtom, IsTerm
+class (IsFirstOrder' formula atom v, IsAtom atom predicate term, IsTerm term v function, Show v
+      ) => IsFirstOrder formula atom predicate term v function
+
 -- | Combine two formulas if they are similar.
-zipFirstOrder :: IsFirstOrder formula atom v =>
+zipFirstOrder :: IsFirstOrder' formula atom v =>
                  (Quant -> v -> formula -> Quant -> v -> formula -> Maybe r)
               -> (Combination formula -> Combination formula -> Maybe r)
               -> (Bool -> Bool -> Maybe r)
@@ -432,7 +450,7 @@ zipFirstOrder qu co tf at fm1 fm2 =
 -- | Use foldPropositional to convert any instance of
 -- IsPropositional to any other by specifying the result type.
 convertFirstOrder :: forall f1 a1 v1 f2 a2 v2.
-                     (IsFirstOrder f1 a1 v1, IsFirstOrder f2 a2 v2) =>
+                     (IsFirstOrder' f1 a1 v1, IsFirstOrder' f2 a2 v2) =>
                      (a1 -> a2) -> (v1 -> v2) -> f1 -> f2
 convertFirstOrder ca cv f1 =
     foldFirstOrder qu co tf at f1
@@ -453,7 +471,7 @@ convertFirstOrder ca cv f1 =
 
 -- | Convert any first order formula to a propositional formula.  If
 -- we encounter a quantifier an error is raised.
-propositionalFromFirstOrder :: (IsFirstOrder fof atom1 v, IsPropositional pf atom2) => (atom1 -> atom2) -> fof -> pf
+propositionalFromFirstOrder :: (IsFirstOrder' fof atom1 v, IsPropositional pf atom2) => (atom1 -> atom2) -> fof -> pf
 propositionalFromFirstOrder ca fm =
     foldFirstOrder qu co fromBool (atomic . ca) fm
     where
@@ -464,12 +482,13 @@ propositionalFromFirstOrder ca fm =
       co (BinOp p (:=>:) q) = propositionalFromFirstOrder ca p .=>. propositionalFromFirstOrder ca q
       co (BinOp p (:<=>:) q) = propositionalFromFirstOrder ca p .<=>. propositionalFromFirstOrder ca q
 
-for_all :: IsFirstOrder formula atom v => v -> formula -> formula
+for_all :: IsFirstOrder' formula atom v => v -> formula -> formula
 for_all = quant (:!:)
-exists :: IsFirstOrder formula atom v => v -> formula -> formula
+exists :: IsFirstOrder' formula atom v => v -> formula -> formula
 exists = quant (:?:)
 
-instance (IsAtom atom predicate term, IsTerm term v function, HasFixity atom) => IsFirstOrder (Formula v atom) atom v where
+#ifndef NOINSTS
+instance (IsAtom atom predicate term, IsTerm term v function, HasFixity atom) => IsFirstOrder' (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldFirstOrder qu co tf at fm =
@@ -478,11 +497,20 @@ instance (IsAtom atom predicate term, IsTerm term v function, HasFixity atom) =>
           Exists v p -> qu (:?:) v p
           _ -> foldPropositional co tf at fm
 
+instance (IsVariable v,
+          IsPredicate predicate,
+          IsFunction function,
+          formula ~ Formula v atom,
+          atom ~ FOL predicate term,
+          term ~ Term function v
+         ) => IsFirstOrder formula atom predicate term v function
+
 instance (IsAtom atom predicate term, IsTerm term v function, IsVariable v, HasFixity atom, Pretty atom, Pretty v
          ) => Pretty (Formula v atom) where
     pPrint fm = prettyFirstOrder rootFixity Unary fm
+#endif
 
-prettyFirstOrder :: (IsFirstOrder formula atom v, Pretty atom, Pretty v, HasFixity formula) => Fixity -> Side -> formula -> Doc
+prettyFirstOrder :: (IsFirstOrder' formula atom v, Pretty atom, Pretty v, HasFixity formula) => Fixity -> Side -> formula -> Doc
 prettyFirstOrder pfix side fm =
     parenthesize pfix fix side $ foldFirstOrder qu co tf at fm
         where
@@ -648,7 +676,7 @@ END_INTERACTIVE;;
 -}
 
 -- | Semantics, implemented of course for finite domains only.
-holds :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function, Show v) =>
+holds :: IsFirstOrder formula atom predicate term v function =>
          Interp function predicate dom -> Map v dom -> formula -> Bool
 holds m v fm =
     foldFirstOrder qu co tf at fm
@@ -719,6 +747,7 @@ holds (mod_interp 3) undefined <<forall x. x = 0 ==> 1 = 0>>;;
 END_INTERACTIVE;;
 -}
 
+#ifndef NOINSTS
 type MyAtom = FOL Predicate (Term FName V)
 type MyFormula = Formula V MyAtom
 
@@ -749,6 +778,7 @@ test06 :: Test
 test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
     where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: MyFormula)
           expected = False
+#endif
 
 -- Free variables in terms and formulas.
 
@@ -757,7 +787,7 @@ test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
 fv :: (IsFormula formula atom, IsAtom atom predicate term,  IsTerm term v function) => formula -> Set v
 fv fm = overatoms (\a s -> foldAtom (\_ args -> unions (s : map fvt args)) a) fm Set.empty
 #else
-fv :: (IsFirstOrder formula atom v, IsAtom atom predicate term,  IsTerm term v function) => formula -> Set v
+fv :: IsFirstOrder formula atom predicate term v function => formula -> Set v
 fv fm =
     foldFirstOrder qu co tf at fm
     where
@@ -773,7 +803,7 @@ fv fm =
 var :: (IsFormula formula atom, IsAtom atom predicate term, IsTerm term v function) => formula -> Set v
 var fm = overatoms (\a s -> foldAtom (\_ args -> unions (s : map fvt args)) a) fm Set.empty
 #else
-var :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) => formula -> Set v
+var :: IsFirstOrder formula atom predicate term v function => formula -> Set v
 var fm =
     foldFirstOrder qu co tf at fm
     where
@@ -789,8 +819,7 @@ fvt :: IsTerm term v function => term -> Set v
 fvt tm = foldTerm singleton (\_ args -> unions (map fvt args)) tm
 
 -- | Universal closure of a formula.
-generalize :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
-              formula -> formula
+generalize :: IsFirstOrder formula atom predicate term v function => formula -> formula
 generalize fm = Set.fold for_all fm (fv fm)
 
 test07 :: Test
@@ -807,7 +836,7 @@ test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
           expected = "x''"
 
 -- | Substitution in formulas, with variable renaming.
-subst :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
+subst :: IsFirstOrder formula atom predicate term v function =>
          Map v term -> formula -> formula
 subst subfn fm =
     foldFirstOrder qu co tf at fm
@@ -844,7 +873,7 @@ asubst :: (IsAtom atom predicate term, IsTerm term v function) => Map v term -> 
 asubst sfn a = foldAtom (\p ts -> makeAtom p (map (tsubst sfn) ts)) a
 
 -- | Substitution within quantifiers
-substq :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) =>
+substq :: IsFirstOrder formula atom predicate term v function =>
           Map v term
        -> (v -> formula -> formula)
        -> v
@@ -856,6 +885,7 @@ substq subfn qu x p =
            then variant x (fv (subst (undefine x subfn) p)) else x in
   qu x' (subst ((x |-> vt x') subfn) p)
 
+#ifndef NOINSTS
 -- Examples.
 
 test10 :: Test
@@ -881,3 +911,4 @@ tests = TestLabel "FOL" $
         TestList [test00, test01, test02, test03, test04,
                   test05, test06, test07, test08, test09,
                   test10, test11]
+#endif

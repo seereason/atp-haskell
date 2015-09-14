@@ -1,23 +1,30 @@
 -- | Unification for first order terms.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
+
 {-# OPTIONS -Wall #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
+
 module Unif
     ( unify
     , solve
     , fullunify
     , unify_and_apply
+#ifndef NOTESTS
     , tests
+#endif
     ) where
 
 import Data.Bool (bool)
 import Lib (Failing)
 import FOL (IsTerm(..), tsubst)
-import Skolem (MyTerm)
 import Data.List as List (map)
 import Data.Map as Map
+#ifndef NOTESTS
+import Skolem (MyTerm)
 import Test.HUnit
+#endif
 
 -- | Main unification procedure.  Using the Monad instance of Failing here and in istriv.
 unify :: IsTerm term v f => Map v term -> [(term,term)] -> Failing (Map v term)
@@ -63,6 +70,7 @@ unify_and_apply' eqs =
         where
           app (t1, t2) = fullunify eqs >>= \i -> return $ (tsubst i t1, tsubst i t2)
 
+#ifndef NOTESTS
 test01 :: Test
 test01 = TestCase $ assertEqual "Unify tests" expected input
     where input = List.map unify_and_apply eqss
@@ -104,3 +112,4 @@ END_INTERACTIVE;;
 
 tests :: Test
 tests = TestList [test01]
+#endif

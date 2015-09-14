@@ -1,23 +1,17 @@
-{-# LANGUAGE FlexibleContexts, ScopedTypeVariables #-}
+{-# LANGUAGE CPP, FlexibleContexts, GADTs, ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall #-}
 module Prolog where
 
-{-
-import Data.Logic.Classes.Atom (Atom)
-import Data.Logic.Classes.FirstOrder (IsFirstOrder)
-import Data.Logic.Classes.Term (Term(vt))
-import Data.String (IsString (fromString))
-import Data.Logic.Harrison.FOL (fv, subst, list_conj)
--}
-import qualified Data.Map as Map
-import qualified Data.Set as Set
+import Data.List as List (map)
+import Data.Map as Map
+import Data.Set as Set
 import Data.String (fromString)
+#ifndef NOTESTS
 import Test.HUnit
+#endif
 
-import Lib
-import Prop
-import Lit
-import FOL
+import Prop (list_conj)
+import FOL (IsFirstOrder, IsPredicate, fv, vt, subst)
 
 -- ========================================================================= 
 -- Backchaining procedure for Horn clauses, and toy Prolog implementation.   
@@ -27,13 +21,15 @@ import FOL
 -- Rename a rule.                                                            
 -- ------------------------------------------------------------------------- 
 
-renamerule :: forall fof atom term predicate v f. (IsFirstOrder fof atom v, IsAtom atom predicate term, IsTerm term v f) =>
-              Int -> (Set.Set fof, fof) -> ((Set.Set fof, fof), Int)
+renamerule :: forall fof atom term predicate v f.
+              (IsFirstOrder fof atom predicate term v f, IsPredicate predicate {-,
+               fof ~ MyFormula, atom ~ MyAtom, term ~ MyTerm, v ~ V-}) =>
+              Int -> (Set fof, fof) -> ((Set fof, fof), Int)
 renamerule k (asm,c) =
     ((Set.map inst asm, inst c), k + Set.size fvs)
     where
-      fvs = fv (list_conj (Set.insert c asm)) :: Set.Set v
-      vvs = Map.fromList (map (\ (v, i) -> (v, vt (fromString ("_" ++ show i) :: v))) (zip (Set.toList fvs) [k..])) :: Map.Map v term
+      fvs = fv (list_conj (Set.insert c asm)) :: Set v
+      vvs = Map.fromList (List.map (\(v, i) -> (v, vt (fromString ("_" ++ show i) :: v) :: term)) (zip (Set.toList fvs) [k..])) :: Map v term
       inst = subst vvs :: fof -> fof
 
 {-
@@ -202,5 +198,7 @@ prolog badrules
 END_INTERACTIVE;;                           
 -}
 
+#ifndef NOTESTS
 tests :: Test
 tests = TestList []
+#endif
