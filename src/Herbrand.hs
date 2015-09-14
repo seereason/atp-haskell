@@ -115,7 +115,7 @@ gilmore fm =
   let cntms = Set.map (\ (c,_) -> fApp c []) consts in
   gilmore_loop (simpdnf id sfm :: Set (Set formula)) cntms funcs (fvs) 0 (Set.singleton Set.empty) Set.empty Set.empty >>= return . Set.size
 
-#ifndef NOINSTS
+#ifndef NOTESTS
 -- | First example and a little tracing.
 test01 :: Test
 test01 =
@@ -275,7 +275,7 @@ let p29 = davisputnam'
 END_INTERACTIVE;;
 -}
 
-#ifndef NOINSTS
+#ifndef NOTESTS
 tests :: Test
 tests = TestList [test01, test02]
 #endif

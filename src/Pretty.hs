@@ -17,8 +17,8 @@ import Language.Haskell.TH.Syntax (maxPrecedence)
 import Language.Haskell.TH.Ppr (noPrec, Precedence)
 import Text.PrettyPrint.HughesPJClass (braces, brackets, Doc, Pretty(pPrint), nest, parens, prettyShow, text)
 import Data.List as List (intercalate, map, sort)
-import Data.Map as Map (Map, map, mapKeys, toList)
-import Data.Set as Set (Set, map, toAscList)
+import Data.Map as Map (Map, toList)
+import Data.Set as Set (Set, toAscList)
 
 data Associativity
     = InfixL  -- Left-associative - a-b-c == (a-b)-c

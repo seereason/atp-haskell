@@ -98,6 +98,7 @@ variants v0 =
 showVariable :: IsVariable v => v -> String
 showVariable v = "(fromString (" ++ show (show (prettyVariable v)) ++ "))"
 
+#ifndef NOTESTS
 newtype V = V String deriving (Eq, Ord, Read, Data, Typeable)
 
 instance IsVariable V where
@@ -113,6 +114,7 @@ instance Show V where
 
 instance Pretty V where
     pPrint (V s) = text s
+#endif
 
 ---------------
 -- FUNCTIONS --
@@ -120,6 +122,7 @@ instance Pretty V where
 
 class (IsString function, Ord function, Pretty function) => IsFunction function
 
+#ifndef NOTESTS
 -- | A simple type to use as the function parameter of Term, FOL, etc.
 -- The only reason to use this instead of String is to get nicer
 -- pretty printing.
@@ -132,6 +135,7 @@ instance IsString FName where fromString = FName
 instance Show FName where show (FName s) = s
 
 instance Pretty FName where pPrint (FName s) = text s
+#endif
 
 -----------
 -- TERMS --
@@ -160,7 +164,7 @@ convertTerm cv cf = foldTerm (vt . cv) (\f ts -> fApp (cf f) (map (convertTerm c
 showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
 showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp " ++ show fn ++ "[" ++ intercalate ", " (map showTerm ts) ++ "]")
 
-#ifndef NOINSTS
+#ifndef NOTESTS
 data Term function v
     = Var v
     | FApply function [Term function v]
@@ -207,6 +211,7 @@ class HasEquality predicate where
     equals :: predicate
     isEquals :: predicate -> Bool
 
+#ifndef NOTESTS
 -- | This Predicate type includes an distinct Equals constructor, so
 -- that we can build a HasEquality instance for it.
 data Predicate
@@ -230,6 +235,7 @@ instance Pretty Predicate where
     pPrint Equals = text "="
     pPrint (NamedPredicate "=") = error "Use of = as a predicate name is prohibited"
     pPrint (NamedPredicate s) = text s
+#endif
 
 ----------
 -- ATOM --
@@ -254,6 +260,7 @@ zipAtoms f atom1 atom2 =
 convertAtom :: (IsAtom atom1 p1 t1, IsAtom atom2 p2 t2) => (p1 -> p2) -> (t1 -> t2) -> atom1 -> atom2
 convertAtom cp ct = foldAtom (\p1 ts1 -> makeAtom (cp p1) (map ct ts1))
 
+#ifndef NOTESTS
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord)
 
@@ -281,6 +288,7 @@ instance (IsPredicate predicate, Pretty term, Ord term) => Pretty (FOL predicate
 
 instance HasFixity (FOL predicate term) where
     fixity _ = Fixity 6 InfixN
+#endif
 
 ----------------
 -- QUANTIFIER --
@@ -295,6 +303,17 @@ data Quant
 -- FORMULAE --
 --------------
 
+-- | Use a predicate to combine some terms into a formula.
+pApp :: (IsFormula formula atom, IsAtom atom predicate term) => predicate -> [term] -> formula
+pApp p args = atomic $ makeAtom p args
+
+-- | Apply the equals predicate to two terms and build a formula.
+(.=.) :: (IsFormula formula atom, IsAtom atom predicate term, HasEquality predicate) => term -> term -> formula
+a .=. b = atomic (makeAtom equals [a, b])
+
+infix 5 .=. -- , .!=., ≡, ≢
+
+#ifndef NOTESTS
 data Formula v atom
     = F
     | T
@@ -351,17 +370,6 @@ instance HasFixity atom => HasFixity (Formula v atom) where
     fixity (Forall _ _) = Fixity 9 InfixR
     fixity (Exists _ _) = Fixity 9 InfixR
 
--- | Use a predicate to combine some terms into a formula.
-pApp :: (IsFormula formula atom, IsAtom atom predicate term) => predicate -> [term] -> formula
-pApp p args = atomic $ makeAtom p args
-
--- | Apply the equals predicate to two terms and build a formula.
-(.=.) :: (IsFormula formula atom, IsAtom atom predicate term, HasEquality predicate) => term -> term -> formula
-a .=. b = atomic (makeAtom equals [a, b])
-
-infix 5 .=. -- , .!=., ≡, ≢
-
-#ifndef NOINSTS
 instance (IsAtom atom predicate term, IsTerm term v function, Ord v, Ord atom) => IsFormula (Formula v atom) atom where
     atomic = Atom
     overatoms f fm b =
@@ -487,7 +495,7 @@ for_all = quant (:!:)
 exists :: IsFirstOrder' formula atom v => v -> formula -> formula
 exists = quant (:?:)
 
-#ifndef NOINSTS
+#ifndef NOTESTS
 instance (IsAtom atom predicate term, IsTerm term v function, HasFixity atom) => IsFirstOrder' (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
@@ -747,7 +755,7 @@ holds (mod_interp 3) undefined <<forall x. x = 0 ==> 1 = 0>>;;
 END_INTERACTIVE;;
 -}
 
-#ifndef NOINSTS
+#ifndef NOTESTS
 type MyAtom = FOL Predicate (Term FName V)
 type MyFormula = Formula V MyAtom
 
@@ -822,6 +830,7 @@ fvt tm = foldTerm singleton (\_ args -> unions (map fvt args)) tm
 generalize :: IsFirstOrder formula atom predicate term v function => formula -> formula
 generalize fm = Set.fold for_all fm (fv fm)
 
+#ifndef NOTESTS
 test07 :: Test
 test07 = TestCase $ assertEqual "variant 1 (p. 133)" expected input
     where input = variant "x" (Set.fromList ["y", "z"]) :: V
@@ -834,6 +843,7 @@ test09 :: Test
 test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
     where input = variant "x" (Set.fromList ["x", "x'"]) :: V
           expected = "x''"
+#endif
 
 -- | Substitution in formulas, with variable renaming.
 subst :: IsFirstOrder formula atom predicate term v function =>
@@ -885,7 +895,7 @@ substq subfn qu x p =
            then variant x (fv (subst (undefine x subfn) p)) else x in
   qu x' (subst ((x |-> vt x') subfn) p)
 
-#ifndef NOINSTS
+#ifndef NOTESTS
 -- Examples.
 
 test10 :: Test
