@@ -11,6 +11,7 @@ import Data.Logic.Harrison.FOL (fv, subst, list_conj)
 -}
 import qualified Data.Map as Map
 import qualified Data.Set as Set
+import Data.String (fromString)
 
 import Lib
 import Prop
@@ -25,13 +26,13 @@ import FOL
 -- Rename a rule.                                                            
 -- ------------------------------------------------------------------------- 
 
-renamerule :: forall fof atom term v f. (IsFirstOrder fof atom v, {-Formula fof term v,-} IsAtom atom predicate term, IsTerm term v f, Ord fof) =>
+renamerule :: forall fof atom term predicate v f. (IsFirstOrder fof atom v, {-Formula fof term v,-} IsAtom atom predicate term, IsTerm term v f, Ord fof) =>
               Int -> (Set.Set fof, fof) -> ((Set.Set fof, fof), Int)
 renamerule k (asm,c) =
     ((Set.map inst asm, inst c), k + Set.size fvs)
     where
       fvs = fv (list_conj (Set.insert c asm)) :: Set.Set v
-      vvs = Map.fromList (map (\ (v, i) -> (v, vt (fromString ("_" ++ show i)))) (zip (Set.toList fvs) [k..])) :: Map.Map v term
+      vvs = Map.fromList (map (\ (v, i) -> (v, vt (fromString ("_" ++ show i) :: v))) (zip (Set.toList fvs) [k..])) :: Map.Map v term
       inst = subst vvs :: fof -> fof
 
 {-

@@ -1,14 +1,20 @@
+-- | Resolution.
+--
+-- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
+
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, TypeSynonymInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall #-}
+
 module Resolution
     ( resolution1
     , resolution2
     , resolution3
     , presolution
     -- , matchAtomsEq
+    , davis_putnam_example_formula
     , Resolution.tests
     ) where
 
@@ -30,16 +36,27 @@ import Skolem
 import Tableaux (unify_literals)
 import Unif (solve)
 
--- ========================================================================= 
--- Resolution.                                                               
---                                                                           
--- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)  
--- ========================================================================= 
+-- | Barber's paradox is an example of why we need factoring.
 
--- ------------------------------------------------------------------------- 
--- MGU of a set of literals.                                                 
--- ------------------------------------------------------------------------- 
+test01 :: Test
+test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p. 181)")
+                    (prettyShow expected)
+                    (prettyShow input)
+    where shaves = pApp "shaves" :: [MyTerm] -> MyFormula
+          [b, x] = [vt "b", vt "x"] :: [MyTerm]
+          fx = fApp (Skolem "x") :: [MyTerm] -> MyTerm
+          barb = exists "b" (for_all "x" (shaves [b, x] .<=>. (.~.)(shaves [x, x]))) :: MyFormula
+          input :: Set (Set MyFormula)
+          input = simpcnf id (runSkolem (skolemize id ((.~.)barb)) :: MyFormula)
+          -- This is not exactly what is in the book
+          expected :: Set (Set MyFormula)
+          expected = Set.fromList [Set.fromList [shaves [b,     fx [b]], (.~.)(shaves [fx [b],fx [b]])],
+                                   Set.fromList [shaves [fx [b],fx [b]], (.~.)(shaves [b,     fx [b]])]]
+          -- x = vt (fromString "x")
+          -- b = vt (fromString "b")
+          -- fx = fApp (Skolem "x")
 
+-- | MGU of a set of literals.
 mgu :: forall lit atom predicate term v f. (IsLiteral lit atom, IsTerm term v f, IsAtom atom predicate term, Eq term, Eq predicate) =>
        Set lit -> Map v term -> Failing (Map v term)
 mgu l env =
@@ -138,6 +155,22 @@ resolution1 :: forall m fof term function atom predicate v.
                 Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
 resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution1 . list_conj) . (simpdnf id :: fof -> Set (Set fof))
+
+-- | Simple example that works well.
+davis_putnam_example_formula :: MyFormula
+davis_putnam_example_formula =
+    exists "x" . exists "y" .for_all "z" $
+              (f [x, y] .=>. (f [y, z] .&. f [z, z])) .&.
+              ((f [x, y] .&. g [x, y]) .=>. (g [x, z] .&. g [z, z]))
+    where
+      [x, y, z] = [vt "x", vt "y", vt "z"] :: [MyTerm]
+      [g, f] = [pApp "G", pApp "F"] :: [[MyTerm] -> MyFormula]
+
+test02 :: Test
+test02 =
+    TestCase $ assertEqual "Davis-Putnam example 1" Set.empty (runSkolem (resolution1 davis_putnam_example_formula))
+        where
+          expected = Set.empty :: Set (Failing Bool)
 
 -- ------------------------------------------------------------------------- 
 -- Matching of terms and literals.                                           
@@ -347,13 +380,13 @@ pure_presolution :: forall fof pf lit atom predicate v term f.
                      IsTerm term v f,
                      Ord fof, Ord term, Eq predicate) =>
                     fof -> Failing Bool
-pure_presolution fm = presloop Set.empty (simpcnf id (t1 (specialize id (t2 (pnf fm :: fof)) :: pf)) :: Set (Set lit))
+pure_presolution fm = presloop Set.empty (simpcnf id (specialize id (pnf fm :: fof) :: pf) :: Set (Set lit))
 
-t1 x = trace ("specialize -> " ++ prettyShow x) x
-t2 x = trace ("pnf -> " ++ prettyShow x) x
-t3 x = trace ("simpdnf -> " ++ prettyShow x) x
-t4 x = trace ("fm = " ++ prettyShow x) x
-t5 x = trace ("generalize -> " ++ prettyShow x) x
+-- t1 x = trace ("specialize -> " ++ prettyShow x) x
+-- t2 x = trace ("pnf -> " ++ prettyShow x) x
+-- t3 x = trace ("simpdnf -> " ++ prettyShow x) x
+-- t4 x = trace ("fm = " ++ prettyShow x) x
+-- t5 x = trace ("generalize -> " ++ prettyShow x) x
 
 presolution :: forall fof pf atom predicate term v f m.
                (IsFirstOrder fof atom v,
@@ -365,7 +398,7 @@ presolution :: forall fof pf atom predicate term v f m.
                 Ord fof, Ord term, Eq predicate, Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
 presolution fm =
-    askolemize ((.~.) (generalize (t4 fm))) >>= return . Set.map (pure_presolution . list_conj . t3) . (simpdnf id :: fof -> Set (Set fof)) . t5
+    askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_presolution . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 -- list_conj :: (Foldable t, HasBoolean formula, IsCombinable formula) => t formula -> formula
 -- simpdnf :: (IsPropositional formula atom, IsLiteral lit atom2, Ord lit) => (atom -> atom2) -> formula -> Set (Set lit)
@@ -1131,8 +1164,8 @@ los =
              (for_all "x" $ for_all "y" $ p[x,y] .|. q[x,y])
              .=>. (for_all "x" $ for_all "y" $ p[x,y]) .|. (for_all "x" $ for_all "y" $ q[x,y]) :: MyFormula
         result = {-time-} runSkolem (presolution fm)
-        expected = Set.empty in
+        expected = Set.singleton (Success True) in
     TestCase $ assertEqual "los (p. 198)" expected result
 
 tests :: Test
-tests = TestList [p1, los]
+tests = TestList [test01, test02, p1, los]
