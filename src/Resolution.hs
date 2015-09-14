@@ -57,7 +57,7 @@ test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p
           -- fx = fApp (Skolem "x")
 
 -- | MGU of a set of literals.
-mgu :: forall lit atom predicate term v f. (IsLiteral lit atom, IsTerm term v f, IsAtom atom predicate term, Eq term, Eq predicate) =>
+mgu :: forall lit atom predicate term v f. (IsLiteral lit atom, IsTerm term v f, IsAtom atom predicate term, Eq term, IsPredicate predicate) =>
        Set lit -> Map v term -> Failing (Map v term)
 mgu l env =
     case Set.minView l of
@@ -67,7 +67,7 @@ mgu l env =
             _ -> Success (solve env)
       _ -> Success (solve env)
 
-unifiable :: (IsLiteral lit atom, IsTerm term v f, IsAtom atom predicate term, Eq term, Eq predicate) =>
+unifiable :: (IsLiteral lit atom, IsTerm term v f, IsAtom atom predicate term, Eq term, IsPredicate predicate) =>
              lit -> lit -> Bool
 unifiable p q = failing (const False) (const True) (unify_literals Map.empty p q)
 
@@ -93,7 +93,7 @@ rename pfx cls =
 resolvents :: (IsLiteral lit atom,
                IsTerm term v f,
                IsAtom atom predicate term,
-               Ord lit, Eq term, Eq predicate) =>
+               Ord lit, Eq term, IsPredicate predicate) =>
               Set lit -> Set lit -> lit -> Set lit -> Set lit
 resolvents cl1 cl2 p acc =
     if Set.null ps2 then acc else Set.fold doPair acc pairs
@@ -114,7 +114,7 @@ resolve_clauses :: forall fof lit atom predicate v term f.
                     IsLiteral lit atom,
                     IsTerm term v f,
                     IsAtom atom predicate term,
-                    Ord lit, Eq predicate) =>
+                    Ord lit, IsPredicate predicate) =>
                    Set lit -> Set lit -> Set lit
 resolve_clauses cls1 cls2 =
     let cls1' = rename (prefix "x") cls1
@@ -125,7 +125,7 @@ resolve_clauses cls1 cls2 =
 -- Basic "Argonne" loop.                                                     
 -- ------------------------------------------------------------------------- 
 
-resloop1 :: forall atom predicate v term f fof. (IsLiteral fof atom, IsFirstOrder fof atom v, IsTerm term v f, IsAtom atom predicate term, Ord fof, Eq predicate) =>
+resloop1 :: forall atom predicate v term f fof. (IsLiteral fof atom, IsFirstOrder fof atom v, IsTerm term v f, IsAtom atom predicate term, Ord fof, IsPredicate predicate) =>
             Set (Set fof) -> Set (Set fof) -> Failing Bool
 resloop1 used unused =
     maybe (Failure ["No proof found"]) step (Set.minView unused)
@@ -142,7 +142,7 @@ pure_resolution1 :: forall fof atom predicate v term function.
                      IsLiteral fof atom,
                      IsTerm term v function,
                      IsAtom atom predicate term,
-                     Ord fof, Eq predicate) =>
+                     Ord fof, IsPredicate predicate) =>
                     fof -> Failing Bool
 pure_resolution1 fm = resloop1 Set.empty (simpcnf id (specialize id (pnf fm) :: fof) :: Set (Set fof))
 
@@ -153,7 +153,7 @@ resolution1 :: forall m fof term function atom predicate v.
                 IsTerm term v function,
                 IsAtom atom predicate term,
                 HasSkolem function v,
-                Ord fof, Eq predicate,
+                Ord fof, IsPredicate predicate,
                 Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
 resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution1 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
@@ -211,7 +211,7 @@ match_literals :: forall lit term f v atom predicate.
                   (IsLiteral lit atom,
                    IsAtom atom predicate term,
                    IsTerm term v f,
-                   Eq predicate, Eq term) =>
+                   IsPredicate predicate, Eq term) =>
                   Map v term -> lit -> lit -> Failing (Map v term)
 match_literals env t1 t2 =
     fromMaybe (fail "match_literals") (zipLiterals ne tf at t1 t2)
@@ -251,7 +251,7 @@ subsumes_clause :: forall lit term f v atom predicate.
                    (IsLiteral lit atom,
                     IsTerm term v f,
                     IsAtom atom predicate term,
-                    Eq term, Eq predicate) =>
+                    Eq term, IsPredicate predicate) =>
                    Set lit -> Set lit -> Bool
 subsumes_clause cls1 cls2 =
     failing (const False) (const True) (subsume Map.empty cls1)
@@ -271,7 +271,7 @@ replace :: forall lit term f v atom predicate.
            (IsLiteral lit atom,
             IsTerm term v f,
             IsAtom atom predicate term,
-            Ord lit, Eq term, Eq predicate) =>
+            Ord lit, Eq term, IsPredicate predicate) =>
            Set lit
         -> Set (Set lit)
         -> Set (Set lit)
@@ -286,7 +286,7 @@ incorporate :: forall lit term f v atom predicate.
                (IsLiteral lit atom,
                 IsAtom atom predicate term,
                 IsTerm term v f,
-                Ord lit, Eq term, Eq predicate) =>
+                Ord lit, Eq term, IsPredicate predicate) =>
                Set lit
             -> Set lit
             -> Set (Set lit)
@@ -301,7 +301,7 @@ resloop2 :: forall fof term f v atom predicate.
              IsLiteral fof atom,
              IsAtom atom predicate term,
              IsTerm term v f,
-             Ord fof, Eq predicate) =>
+             Ord fof, IsPredicate predicate) =>
             Set (Set fof)
          -> Set (Set fof)
          -> Failing Bool
@@ -320,7 +320,7 @@ pure_resolution2 :: forall fof atom predicate v term f.
                      IsFirstOrder fof atom v,
                      IsAtom atom predicate term,
                      IsTerm term v f,
-                     Ord fof, Eq predicate) =>
+                     Ord fof, IsPredicate predicate) =>
                     fof -> Failing Bool
 pure_resolution2 fm = resloop2 Set.empty (simpcnf id (specialize id (pnf fm) :: fof) :: Set (Set fof))
 
@@ -331,7 +331,7 @@ resolution2 :: forall fof atom predicate term v function m.
                 IsTerm term v function,
                 IsAtom atom predicate term,
                 HasSkolem function v,
-                Ord fof, Eq predicate, Monad m) =>
+                Ord fof, IsPredicate predicate, Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
 resolution2 fm = askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_resolution2 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
@@ -346,7 +346,7 @@ presolve_clauses :: forall fof pf lit atom v term f predicate.
                      -- IsPropositional pf atom,
                      IsAtom atom predicate term,
                      IsTerm term v f,
-                     Ord lit, Eq predicate) =>
+                     Ord lit, IsPredicate predicate) =>
                     Set lit -> Set lit -> Set lit
 presolve_clauses cls1 cls2 =
     if setAll positive cls1 || setAll positive cls2
@@ -357,7 +357,7 @@ presloop :: (IsLiteral lit atom,
              IsFirstOrder fof atom v, fof ~ lit,
              IsAtom atom predicate term,
              IsTerm term v f,
-             Ord lit, Eq term, Eq predicate) =>
+             Ord lit, Eq term, IsPredicate predicate) =>
             Set (Set lit) -> Set (Set lit) -> Failing Bool
 presloop used unused =
     case Set.minView unused of
@@ -382,7 +382,7 @@ pure_presolution :: forall fof pf lit atom predicate v term f.
                      -- pf ~ PFormula atom,
                      IsAtom atom predicate term,
                      IsTerm term v f,
-                     Ord fof, Eq predicate) =>
+                     Ord fof, IsPredicate predicate) =>
                     fof -> Failing Bool
 pure_presolution fm = presloop Set.empty (simpcnf id (specialize id (pnf fm :: fof) :: pf) :: Set (Set lit))
 
@@ -399,7 +399,7 @@ presolution :: forall fof pf atom predicate term v f m.
                 IsAtom atom predicate term,
                 IsTerm term v f,
                 HasSkolem f v,
-                Ord fof, Eq predicate, Monad m) =>
+                Ord fof, IsPredicate predicate, Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
 presolution fm =
     askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_presolution . list_conj) . (simpdnf' :: fof -> Set (Set fof))
@@ -415,12 +415,12 @@ presolution fm =
 -- ------------------------------------------------------------------------- 
 
 pure_resolution3 :: forall fof atom v f predicate term.
-                    (IsLiteral fof atom, IsFirstOrder fof atom v, IsTerm term v f, IsAtom atom predicate term, Ord fof, Eq predicate) =>
+                    (IsLiteral fof atom, IsFirstOrder fof atom v, IsTerm term v f, IsAtom atom predicate term, Ord fof, IsPredicate predicate) =>
                     fof -> Failing Bool
 pure_resolution3 fm =
     uncurry resloop2 (Set.partition (setAny positive) (simpcnf id (specialize id (pnf fm) :: fof) :: Set (Set fof)))
 
-resolution3 :: forall fof atom predicate term v f m. (IsLiteral fof atom, IsFirstOrder fof atom v, IsPropositional fof atom, IsTerm term v f, IsAtom atom predicate term, HasSkolem f v, Ord fof, Eq predicate, Monad m) =>
+resolution3 :: forall fof atom predicate term v f m. (IsLiteral fof atom, IsFirstOrder fof atom v, IsPropositional fof atom, IsTerm term v f, IsAtom atom predicate term, HasSkolem f v, Ord fof, IsPredicate predicate, Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
 resolution3 fm =
     askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution3 . list_conj) . (simpdnf' :: fof -> Set (Set fof))

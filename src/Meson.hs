@@ -163,7 +163,7 @@ contrapositives cls =
 -- The core of MESON: ancestor unification or Prolog-style extension.        
 -- ------------------------------------------------------------------------- 
 
-mexpand :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, Ord fof, Eq term, Eq predicate) =>
+mexpand :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate, Ord fof, Eq term) =>
            Set (Set fof, fof)
         -> Set fof
         -> fof
@@ -190,7 +190,7 @@ mexpand rules ancestors g cont (env,n,k) =
 -- Full MESON procedure.                                                     
 -- ------------------------------------------------------------------------- 
 
-puremeson :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, Ord fof, Eq term, Eq predicate) =>
+puremeson :: forall fof atom predicate term v f. (IsFirstOrder fof atom v, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate, Ord fof, Eq term) =>
              Maybe Int -> fof -> Failing ((Map v term, Int, Int), Int)
 puremeson maxdl fm =
     deepen f 0 maxdl
@@ -201,8 +201,8 @@ puremeson maxdl fm =
       cls = simpcnf id (specialize id (pnf fm) :: fof)
 
 meson :: forall m fof atom predicate term f v.
-         (IsFirstOrder fof atom v, IsPropositional fof atom, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term,
-          HasSkolem f v, Ord fof, Eq predicate, Monad m) =>
+         (IsFirstOrder fof atom v, IsPropositional fof atom, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term, IsPredicate predicate,
+          HasSkolem f v, Ord fof, Monad m) =>
          Maybe Int -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Int)))
 meson maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=

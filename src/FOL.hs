@@ -20,7 +20,7 @@ module FOL
     -- * Terms
     , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm, Term(Var, FApply)
     -- * Predicates
-    , HasEquality(equals), Predicate(NamedPredicate, Equals)
+    , IsPredicate, HasEquality(equals), Predicate(NamedPredicate, Equals)
     -- * Atoms
     , IsAtom(makeAtom, foldAtom), convertAtom, zipAtoms, pApp , (.=.), FOL(R)
     -- * Quantifiers
@@ -188,6 +188,8 @@ test00 = TestCase $ assertEqual "print an expression"
 -- PREDICATE --
 ----------------
 
+class (IsString predicate, Eq predicate, Pretty predicate) => IsPredicate predicate
+
 -- | Class of predicates that have an equality predicate.
 class HasEquality predicate where
     equals :: predicate
@@ -199,6 +201,8 @@ data Predicate
     = NamedPredicate String
     | Equals
     deriving (Eq, Ord, Show)
+
+instance IsPredicate Predicate
 
 -- | Predicates with a 'HasEquality' instance are needed whenever the
 -- '.=.' combiner is used.

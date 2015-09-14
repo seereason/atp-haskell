@@ -43,7 +43,7 @@ unify_literals :: forall lit atom term predicate v function.
                   (IsLiteral lit atom,
                    IsAtom atom predicate term,
                    IsTerm term v function,
-                   Eq term, Eq predicate) =>
+                   Eq term, IsPredicate predicate) =>
                   Map v term -> lit -> lit -> Failing (Map v term)
 unify_literals env f1 f2 =
     maybe err id (zipLiterals ne tf at f1 f2)
@@ -56,7 +56,7 @@ unify_literals env f1 f2 =
 
 unify_atoms :: forall atom term predicate v function.
                (IsAtom atom predicate term,
-                IsTerm term v function, Eq term, Eq predicate) =>
+                IsTerm term v function, Eq term, IsPredicate predicate) =>
                Map v term -> atom -> atom -> Failing (Map v term)
 unify_atoms env a1 a2 =
     let r = zipAtoms (\_ tpairs -> Just (unify env tpairs)) a1 a2 in
@@ -82,7 +82,7 @@ unify_complements :: forall lit atom term predicate v function.
                      (IsLiteral lit atom,
                       IsAtom atom predicate term,
                       IsTerm term v function,
-                      Eq term, Eq predicate) =>
+                      Eq term, IsPredicate predicate) =>
                      Map v term -> lit -> lit -> Failing (Map v term)
 unify_complements env p q = unify_literals env p ((.~.) q)
 
@@ -90,7 +90,7 @@ unify_complements env p q = unify_literals env p ((.~.) q)
 unify_refute :: (IsLiteral lit atom,
                  IsAtom atom predicate term,
                  IsTerm term v function,
-                 Ord lit, Eq term, Eq predicate) =>
+                 Ord lit, Eq term, IsPredicate predicate) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
     case Set.minView djs of
@@ -106,7 +106,7 @@ prawitz_loop :: forall atom v term predicate function lit.
                 (IsLiteral lit atom,
                  IsAtom atom predicate term,
                  IsTerm term v function,
-                 Ord lit, Eq term, Eq predicate) =>
+                 Ord lit, Eq term, IsPredicate predicate) =>
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
     let inst = Map.fromList (zip fvs (List.map newvar [1..])) in
@@ -122,7 +122,7 @@ prawitz :: forall formula atom term predicate function v.
             IsAtom atom predicate term,
             IsTerm term v function,
             HasSkolem function v,
-            Ord formula, Eq term, Eq predicate) =>
+            Ord formula, Eq term, IsPredicate predicate) =>
            formula -> Int
 prawitz fm =
     snd (prawitz_loop dnf (Set.toList fvs) dnf0 0)
@@ -153,7 +153,7 @@ compare :: (IsFirstOrder formula atom v,
             IsAtom atom predicate term,
             IsTerm term v function,
             HasSkolem function v,
-            Eq predicate, Ord formula
+            IsPredicate predicate, Ord formula
            ) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
@@ -251,7 +251,7 @@ tableau :: forall formula atom predicate function v term r.
            (IsFirstOrder formula atom v,
             IsAtom atom predicate term,
             IsTerm term v function,
-            Eq term, Eq predicate) =>
+            Eq term, IsPredicate predicate) =>
            ([formula], [formula], Depth)
         -> ((Map v term, Depth) -> Failing r)
         -> (Map v term, Depth)
@@ -289,7 +289,7 @@ tableau (fms, lits, n) cont (env, k) =
 
 tabrefute :: (IsFirstOrder formula atom v,
               IsAtom atom predicate term,
-              Eq predicate, Eq term, IsTerm term v function) =>
+              IsPredicate predicate, Eq term, IsTerm term v function) =>
              [formula] -> Failing ((Map v term, Depth), Depth)
 tabrefute fms =
   -- deepen (fun n -> tableau (fms,[],n) (fun x -> x) (undefined,0); n) 0;;
@@ -300,7 +300,7 @@ tab :: (IsFirstOrder formula atom v,
         IsAtom atom predicate term,
         IsTerm term v function,
         HasSkolem function v,
-        Eq formula, Eq term, Eq predicate) =>
+        Eq formula, Eq term, IsPredicate predicate) =>
        formula -> Failing ((Map v term, Depth), Depth)
 tab fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
