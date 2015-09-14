@@ -31,14 +31,14 @@ herbfuns fm =
   if Set.null cns then (Set.singleton (fromString "c",0),fns) else (cns,fns)
 
 -- | Enumeration of ground terms and m-tuples, ordered by total fns.
-groundterms :: forall term v f. (IsTerm term v f, Ord term) => Set term -> Set (f, Arity) -> Int -> Set term
+groundterms :: IsTerm term v f => Set term -> Set (f, Arity) -> Int -> Set term
 groundterms cntms _ 0 = cntms
 groundterms cntms funcs n =
     Set.fold terms Set.empty funcs
     where
       terms (f,m) l = Set.union (Set.map (fApp f) (groundtuples cntms funcs (n - 1) m)) l
 
-groundtuples :: forall term v f. (IsTerm term v f, Ord term) => Set term -> Set (f, Int) -> Int -> Int -> Set [term]
+groundtuples :: IsTerm term v f => Set term -> Set (f, Int) -> Int -> Int -> Set [term]
 groundtuples _ _ 0 0 = Set.singleton []
 groundtuples _ _ _ 0 = Set.empty
 groundtuples cntms funcs n m =
@@ -50,8 +50,7 @@ groundtuples cntms funcs n m =
 herbloop :: forall lit v term formula atom predicate function.
             (IsFirstOrder formula atom v,
              IsAtom atom predicate term,
-             IsTerm term v function,
-             Ord term) =>
+             IsTerm term v function) =>
             (Set (Set lit) -> (formula -> formula) -> Set (Set lit) -> Set (Set lit))
          -> (Set (Set lit) -> Failing Bool)
          -> Set (Set lit)
@@ -92,7 +91,7 @@ gilmore_loop :: forall lit atom term v function predicate.
                  IsLiteral lit atom,
                  IsTerm term v function,
                  IsAtom atom predicate term,
-                 Ord lit, Ord term) =>
+                 Ord lit) =>
                 Set (Set lit)
              -> Set term
              -> Set (function, Int)
@@ -113,8 +112,7 @@ gilmore :: forall formula atom predicate term function v.
             IsLiteral formula atom,
             IsTerm term v function,
             IsAtom atom predicate term,
-            HasSkolem function v,
-            Ord term, Ord formula) =>
+            HasSkolem function v, Ord formula) =>
            formula -> Failing Int
 gilmore fm =
   let (sfm :: formula) = runSkolem (skolemize id ((.~.) (generalize fm))) in
@@ -193,7 +191,7 @@ dp_loop :: (IsFirstOrder lit atom v,
             IsLiteral lit atom,
             IsTerm term v function,
             IsAtom atom predicate term,
-            Ord lit, Ord term) =>
+            Ord lit) =>
            Set (Set lit)
         -> Set term
         -> Set (function, Int)
@@ -212,7 +210,7 @@ davisputnam :: forall formula atom term v predicate function.
                 IsAtom atom predicate term,
                 IsString function,
                 HasSkolem function v,
-                Ord formula, Ord term, Ord function) =>
+                Ord formula, Ord function) =>
                formula -> Failing Int
 davisputnam fm =
   let (sfm :: formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
@@ -238,7 +236,7 @@ davisputnam' :: forall formula atom predicate term v f.
                  IsTerm term v f,
                  IsAtom atom predicate term,
                  HasSkolem f v,
-                 Ord formula, Ord term, Ord f) =>
+                 Ord formula, Ord f) =>
                 formula -> formula -> formula -> Failing Int
 davisputnam' _ _ fm =
     let (sfm :: formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
@@ -253,7 +251,7 @@ dp_refine_loop :: forall formula atom term v predicate function.
                    IsTerm term v function,
                    IsAtom atom predicate term,
                    IsLiteral formula atom,
-                   Ord formula, Ord term) =>
+                   Ord formula) =>
                   Set (Set formula)
                -> Set term
                -> Set (function, Int)
@@ -271,7 +269,7 @@ dp_refine :: (IsFirstOrder formula atom v,
               IsAtom atom predicate term,
               IsTerm term v function,
               IsLiteral formula atom,
-              Ord formula, Ord term) =>
+              Ord formula) =>
              Set (Set formula) -> [v] -> Set [term] -> Set [term] -> Failing (Set [term])
 dp_refine cjs0 fvs dknow need =
     case Set.minView dknow of

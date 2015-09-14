@@ -202,7 +202,7 @@ puremeson maxdl fm =
 
 meson :: forall m fof atom predicate term f v.
          (IsFirstOrder fof atom v, IsPropositional fof atom, IsLiteral fof atom, IsTerm term v f, IsAtom atom predicate term,
-          HasSkolem f v, Ord fof, Ord term, Eq predicate, Monad m) =>
+          HasSkolem f v, Ord fof, Eq predicate, Monad m) =>
          Maybe Int -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Int)))
 meson maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=

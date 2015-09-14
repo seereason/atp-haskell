@@ -153,7 +153,7 @@ compare :: (IsFirstOrder formula atom v,
             IsAtom atom predicate term,
             IsTerm term v function,
             HasSkolem function v,
-            Eq predicate, Ord formula, Ord term
+            Eq predicate, Ord formula
            ) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
