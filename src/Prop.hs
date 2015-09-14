@@ -570,21 +570,24 @@ test24 = TestCase $ assertEqual "psimplify 2 (p. 51)" expected input
 -- | Negation normal form.
 
 nnf :: IsPropositional formula atom => formula -> formula
-nnf fm = foldPropositional nnfCombine fromBool (\_ -> fm) fm
+nnf = nnf1 . psimplify
+
+nnf1 :: IsPropositional formula atom => formula -> formula
+nnf1 fm = foldPropositional nnfCombine fromBool (\_ -> fm) fm
     where
       -- nnfCombine :: (IsPropositional formula atom) => formula -> Combination formula -> formula
       nnfCombine ((:~:) p) = foldPropositional nnfNotCombine (fromBool . not) (\_ -> fm) p
-      nnfCombine (BinOp p (:=>:) q) = nnf ((.~.) p) .|. (nnf q)
-      nnfCombine (BinOp p (:<=>:) q) =  (nnf p .&. nnf q) .|. (nnf ((.~.) p) .&. nnf ((.~.) q))
-      nnfCombine (BinOp p (:&:) q) = nnf p .&. nnf q
-      nnfCombine (BinOp p (:|:) q) = nnf p .|. nnf q
+      nnfCombine (BinOp p (:=>:) q) = nnf1 ((.~.) p) .|. (nnf1 q)
+      nnfCombine (BinOp p (:<=>:) q) =  (nnf1 p .&. nnf1 q) .|. (nnf1 ((.~.) p) .&. nnf1 ((.~.) q))
+      nnfCombine (BinOp p (:&:) q) = nnf1 p .&. nnf1 q
+      nnfCombine (BinOp p (:|:) q) = nnf1 p .|. nnf1 q
 
       -- nnfNotCombine :: (IsPropositional formula atom) => Combination formula -> formula
-      nnfNotCombine ((:~:) p) = nnf p
-      nnfNotCombine (BinOp p (:&:) q) = nnf ((.~.) p) .|. nnf ((.~.) q)
-      nnfNotCombine (BinOp p (:|:) q) = nnf ((.~.) p) .&. nnf ((.~.) q)
-      nnfNotCombine (BinOp p (:=>:) q) = nnf p .&. nnf ((.~.) q)
-      nnfNotCombine (BinOp p (:<=>:) q) = (nnf p .&. nnf ((.~.) q)) .|. nnf ((.~.) p) .&. nnf q
+      nnfNotCombine ((:~:) p) = nnf1 p
+      nnfNotCombine (BinOp p (:&:) q) = nnf1 ((.~.) p) .|. nnf1 ((.~.) q)
+      nnfNotCombine (BinOp p (:|:) q) = nnf1 ((.~.) p) .&. nnf1 ((.~.) q)
+      nnfNotCombine (BinOp p (:=>:) q) = nnf1 p .&. nnf1 ((.~.) q)
+      nnfNotCombine (BinOp p (:<=>:) q) = (nnf1 p .&. nnf1 ((.~.) q)) .|. nnf1 ((.~.) p) .&. nnf1 q
 
 -- Example of NNF function in action.
 
