@@ -27,7 +27,7 @@ module FOL
     -- * Quantifiers
     , Quant((:!:), (:?:))
     -- Formula
-    , IsFirstOrder'(quant, foldFirstOrder), for_all, exists
+    , IsQuantified(quant, foldQuantified), for_all, exists
     , IsFirstOrder
     , zipFirstOrder
     , convertFirstOrder
@@ -428,40 +428,40 @@ instance (IsAtom atom predicate term, IsTerm term v function) => IsLiteral (Form
           Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
 #endif
 
-class (IsPropositional formula atom, IsVariable v, Pretty formula) => IsFirstOrder' formula atom v | formula -> atom v where
+class (IsPropositional formula atom, IsVariable v, Pretty formula) => IsQuantified formula atom v | formula -> atom v where
     quant :: Quant -> v -> formula -> formula
-    foldFirstOrder :: (Quant -> v -> formula -> r)
+    foldQuantified :: (Quant -> v -> formula -> r)
                    -> (Combination formula -> r)
                    -> (Bool -> r)
                    -> (atom -> r)
                    -> formula -> r
 
 -- |Combine IsFirstOrder, IsAtom, IsTerm
-class (IsFirstOrder' formula atom v, IsAtom atom predicate term, IsTerm term v function, Show v
+class (IsQuantified formula atom v, IsAtom atom predicate term, IsTerm term v function, Show v
       ) => IsFirstOrder formula atom predicate term v function
 
 -- | Combine two formulas if they are similar.
-zipFirstOrder :: IsFirstOrder' formula atom v =>
+zipFirstOrder :: IsQuantified formula atom v =>
                  (Quant -> v -> formula -> Quant -> v -> formula -> Maybe r)
               -> (Combination formula -> Combination formula -> Maybe r)
               -> (Bool -> Bool -> Maybe r)
               -> (atom -> atom -> Maybe r)
               -> formula -> formula -> Maybe r
 zipFirstOrder qu co tf at fm1 fm2 =
-    foldFirstOrder qu' co' tf' at' fm1
+    foldQuantified qu' co' tf' at' fm1
     where
-      qu' op1 v1 p1 = foldFirstOrder (qu op1 v1 p1) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
-      co' c1 = foldFirstOrder (\ _ _ _ -> Nothing) (co c1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
-      tf' x1 = foldFirstOrder (\ _ _ _ -> Nothing) (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
-      at' atom1 = foldFirstOrder (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at atom1) fm2
+      qu' op1 v1 p1 = foldQuantified (qu op1 v1 p1) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      co' c1 = foldQuantified (\ _ _ _ -> Nothing) (co c1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      tf' x1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
+      at' atom1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at atom1) fm2
 
 -- | Use foldPropositional to convert any instance of
 -- IsPropositional to any other by specifying the result type.
 convertFirstOrder :: forall f1 a1 v1 f2 a2 v2.
-                     (IsFirstOrder' f1 a1 v1, IsFirstOrder' f2 a2 v2) =>
+                     (IsQuantified f1 a1 v1, IsQuantified f2 a2 v2) =>
                      (a1 -> a2) -> (v1 -> v2) -> f1 -> f2
 convertFirstOrder ca cv f1 =
-    foldFirstOrder qu co tf at f1
+    foldQuantified qu co tf at f1
     where
       qu :: Quant -> v1 -> f1 -> f2
       qu (:!:) x p = for_all (cv x) (convertFirstOrder ca cv p :: f2)
@@ -479,9 +479,9 @@ convertFirstOrder ca cv f1 =
 
 -- | Convert any first order formula to a propositional formula.  If
 -- we encounter a quantifier an error is raised.
-propositionalFromFirstOrder :: (IsFirstOrder' fof atom1 v, IsPropositional pf atom2) => (atom1 -> atom2) -> fof -> pf
+propositionalFromFirstOrder :: (IsQuantified fof atom1 v, IsPropositional pf atom2) => (atom1 -> atom2) -> fof -> pf
 propositionalFromFirstOrder ca fm =
-    foldFirstOrder qu co fromBool (atomic . ca) fm
+    foldQuantified qu co fromBool (atomic . ca) fm
     where
       qu _ _ _ = error "propositionalFromFirstOrder: found quantifier"
       co ((:~:) p) = (.~.) (propositionalFromFirstOrder ca p)
@@ -490,16 +490,16 @@ propositionalFromFirstOrder ca fm =
       co (BinOp p (:=>:) q) = propositionalFromFirstOrder ca p .=>. propositionalFromFirstOrder ca q
       co (BinOp p (:<=>:) q) = propositionalFromFirstOrder ca p .<=>. propositionalFromFirstOrder ca q
 
-for_all :: IsFirstOrder' formula atom v => v -> formula -> formula
+for_all :: IsQuantified formula atom v => v -> formula -> formula
 for_all = quant (:!:)
-exists :: IsFirstOrder' formula atom v => v -> formula -> formula
+exists :: IsQuantified formula atom v => v -> formula -> formula
 exists = quant (:?:)
 
 #ifndef NOTESTS
-instance (IsAtom atom predicate term, IsTerm term v function, HasFixity atom) => IsFirstOrder' (Formula v atom) atom v where
+instance (IsAtom atom predicate term, IsTerm term v function, HasFixity atom) => IsQuantified (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
-    foldFirstOrder qu co tf at fm =
+    foldQuantified qu co tf at fm =
         case fm of
           Forall v p -> qu (:!:) v p
           Exists v p -> qu (:?:) v p
@@ -518,9 +518,9 @@ instance (IsAtom atom predicate term, IsTerm term v function, IsVariable v, HasF
     pPrint fm = prettyFirstOrder rootFixity Unary fm
 #endif
 
-prettyFirstOrder :: (IsFirstOrder' formula atom v, Pretty atom, Pretty v, HasFixity formula) => Fixity -> Side -> formula -> Doc
+prettyFirstOrder :: (IsQuantified formula atom v, Pretty atom, Pretty v, HasFixity formula) => Fixity -> Side -> formula -> Doc
 prettyFirstOrder pfix side fm =
-    parenthesize pfix fix side $ foldFirstOrder qu co tf at fm
+    parenthesize pfix fix side $ foldQuantified qu co tf at fm
         where
           fix = fixity fm
           qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> prettyFirstOrder fix RHS p
@@ -687,7 +687,7 @@ END_INTERACTIVE;;
 holds :: IsFirstOrder formula atom predicate term v function =>
          Interp function predicate dom -> Map v dom -> formula -> Bool
 holds m v fm =
-    foldFirstOrder qu co tf at fm
+    foldQuantified qu co tf at fm
     where
       qu (:!:) x p = and (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- >>= return . any (== True)
       qu (:?:) x p = or (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- return . all (== True)?
@@ -797,7 +797,7 @@ fv fm = overatoms (\a s -> foldAtom (\_ args -> unions (s : map fvt args)) a) fm
 #else
 fv :: IsFirstOrder formula atom predicate term v function => formula -> Set v
 fv fm =
-    foldFirstOrder qu co tf at fm
+    foldQuantified qu co tf at fm
     where
       qu _ x p = difference (fv p) (singleton x)
       co ((:~:) p) = fv p
@@ -813,7 +813,7 @@ var fm = overatoms (\a s -> foldAtom (\_ args -> unions (s : map fvt args)) a) f
 #else
 var :: IsFirstOrder formula atom predicate term v function => formula -> Set v
 var fm =
-    foldFirstOrder qu co tf at fm
+    foldQuantified qu co tf at fm
     where
       qu _ x p = Set.insert x (var p)
       co ((:~:) p) = var p
@@ -849,7 +849,7 @@ test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
 subst :: IsFirstOrder formula atom predicate term v function =>
          Map v term -> formula -> formula
 subst subfn fm =
-    foldFirstOrder qu co tf at fm
+    foldQuantified qu co tf at fm
     where
       qu (:!:) x p = substq subfn for_all x p
       qu (:?:) x p = substq subfn exists x p

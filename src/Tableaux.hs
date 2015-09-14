@@ -265,7 +265,7 @@ tableau (fms, lits, n) cont (env, k) =
       _ | n < 0 -> Failure ["no proof at this level"]
       [] -> Failure ["tableau: no proof"]
       (fm : unexp) ->
-          foldFirstOrder qu co (\_ -> go fm unexp) (\_ -> go fm unexp) fm
+          foldQuantified qu co (\_ -> go fm unexp) (\_ -> go fm unexp) fm
           where
             qu :: Quant -> v -> formula -> Failing r
             qu (:!:) x p =

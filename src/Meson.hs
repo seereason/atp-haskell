@@ -142,7 +142,7 @@ END_INTERACTIVE;;
 -- Generation of contrapositives.                                            
 -- ------------------------------------------------------------------------- 
 
-contrapositives :: forall fof atom v. (IsFirstOrder' fof atom v, Ord fof) => Set fof -> Set (Set fof, fof)
+contrapositives :: forall fof atom v. (IsQuantified fof atom v, Ord fof) => Set fof -> Set (Set fof, fof)
 contrapositives cls =
     if setAll negative cls then Set.insert (Set.map (.~.) cls,false) base else base
     where base = Set.map (\ c -> (Set.map (.~.) (Set.delete c cls), c)) cls
