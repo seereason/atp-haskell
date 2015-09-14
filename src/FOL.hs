@@ -251,9 +251,16 @@ instance (Pretty term, Pretty predicate) => IsAtom (FOL predicate term) predicat
 -- printed - specifically, whether it is an instance of HasEquality.
 -- So we need to do some gymnastics to make this happen.
 instance (Pretty predicate, Pretty term) => Pretty (FOL predicate term) where
+#if 1
     pPrint = foldAtom (\ p ts -> if pPrint p == text "="
                                  then error "illegal pretty printer for predicate"
                                  else pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]")
+#else
+    pPrint = foldAtom f
+        where
+          f p [lhs, rhs] | pPrint p == text "=" = pPrint lhs <> text " .=. " <> pPrint rhs
+          f p ts = pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
+#endif
 
 instance HasFixity (FOL predicate term) where
     fixity _ = Fixity 6 InfixN
