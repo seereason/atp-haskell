@@ -81,7 +81,8 @@ import Text.PrettyPrint.HughesPJClass hiding ((<>))
 -- raise errors in the implementation if a non-atomic formula somehow
 -- appears where an atomic formula is expected (i.e. as an argument to
 -- atomic or to the third argument of foldPropositional.)
-class (IsFormula formula atom,
+class (Ord formula,
+       IsFormula formula atom,
        IsLiteral formula atom,
        IsNegatable formula,
        IsCombinable formula,
@@ -139,7 +140,7 @@ literalFromPropositional ca =
       co ((:~:) p) = (.~.) (literalFromPropositional ca p)
       co _ = error "literalFromPropositional found binary operator"
 
-instance (Pretty atom, HasFixity atom) => Pretty (PFormula atom) where
+instance (Pretty atom, HasFixity atom, Ord atom) => Pretty (PFormula atom) where
     pPrint fm = prettyPropositional rootFixity Unary fm
 
 prettyPropositional :: (IsPropositional formula atom, Pretty atom, HasFixity formula) => Fixity -> Side -> formula -> Doc
@@ -246,7 +247,7 @@ instance IsFormula (PFormula atom) atom where
         Iff p q -> Iff (onatoms f p) (onatoms f q)
         _ -> fm
 
-instance (Pretty atom, HasFixity atom) => IsPropositional (PFormula atom) atom where
+instance (Pretty atom, HasFixity atom, Ord atom) => IsPropositional (PFormula atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -865,7 +866,7 @@ simpcnf ca fm =
       go = let cjs = Set.filter (not . trivial) (purecnf ca fm) in
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
-cnf_ :: forall pf atom lit atom2. (IsPropositional pf atom, Ord pf, IsLiteral lit atom2, Ord lit) => (atom2 -> atom) -> Set (Set.Set lit) -> pf
+cnf_ :: forall pf atom lit atom2. (IsPropositional pf atom, IsLiteral lit atom2, Ord lit) => (atom2 -> atom) -> Set (Set.Set lit) -> pf
 cnf_ ca = list_conj . Set.map (list_disj . Set.map (propositionalFromLiteral ca))
 
 cnf' :: (IsPropositional formula atom, Ord formula) => formula -> formula
