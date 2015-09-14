@@ -9,7 +9,7 @@ import qualified Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace
-import Lib (allpairs, distrib')
+import Lib (allpairs, distrib)
 import DP (dpll)
 import FOL (IsFirstOrder, IsTerm, fApp, subst, IsAtom, fv, generalize, exists, for_all, pApp, V, vt)
 import Formulas ((.~.), overatoms, atomic, (.=>.), (.&.), (.|.))
@@ -105,7 +105,7 @@ gilmore_loop :: forall lit atom term v function predicate.
 gilmore_loop =
     herbloop mfn (Success . not . Set.null)
     where
-      mfn djs0 ifn djs = Set.filter (not . trivial) (distrib' (Set.map (Set.map ifn) djs0) djs)
+      mfn djs0 ifn djs = Set.filter (not . trivial) (distrib (Set.map (Set.map ifn) djs0) djs)
 
 gilmore :: forall formula atom predicate term function v.
            (IsFirstOrder formula atom v,

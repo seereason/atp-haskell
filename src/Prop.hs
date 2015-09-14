@@ -65,7 +65,7 @@ import Formulas (atom_union,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  IsFormula(atomic, overatoms, onatoms), onatoms)
-import Lib (fpf, (|=>), allpairs, setAny)
+import Lib (distrib, fpf, (|=>), allpairs, setAny)
 import Lit (IsLiteral(foldLiteral))
 import Pretty (Fixity(Fixity), Associativity(InfixN, InfixR, InfixA), HasFixity(fixity),
               leafFixity, parenthesize, rootFixity, Side(LHS, RHS, Unary))
@@ -788,16 +788,12 @@ test31 = TestCase $ assertEqual "rawdnf (p. 58)" expected input
                       ((atomic (P "q")) .&. (atomic (P "r"))) .&. ((.~.)(atomic (P "r"))))
           (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
 
--- | A version using a set of sets representation.
-distrib2 :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
-distrib2 s1 s2 = allpairs union s1 s2
-
 purednf :: (IsPropositional formula atom, IsLiteral lit atom2, Ord lit) => (atom -> atom2) -> formula -> Set (Set lit)
 purednf ca fm =
     foldPropositional co (\_ -> l2f fm) (\_ -> l2f fm) fm
     where
       l2f = singleton . singleton . literalFromPropositional ca
-      co (BinOp p (:&:) q) = distrib2 (purednf ca p) (purednf ca q)
+      co (BinOp p (:&:) q) = distrib (purednf ca p) (purednf ca q)
       co (BinOp p (:|:) q) = union (purednf ca p) (purednf ca q)
       co _ = l2f fm
 

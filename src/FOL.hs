@@ -10,6 +10,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
+
 module FOL
     ( -- * Variables
       IsVariable(variant, prefix, prettyVariable), variants, showVariable, V(V)
@@ -50,7 +51,7 @@ import Data.Data (Data)
 import Data.List (intercalate, intersperse)
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
-import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, unions)
+import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), (.~.), true, false, IsCombinable(..), IsFormula(..), onatoms)
@@ -740,12 +741,36 @@ test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
 -- Free variables in terms and formulas.
 
 -- | Find the free variables in a formula.
+#if 0
 fv :: (IsFormula formula atom, IsAtom atom predicate term,  IsTerm term v function) => formula -> Set v
 fv fm = overatoms (\a s -> foldAtom (\_ args -> unions (s : map fvt args)) a) fm Set.empty
+#else
+fv :: (IsFirstOrder formula atom v, IsAtom atom predicate term,  IsTerm term v function) => formula -> Set v
+fv fm =
+    foldFirstOrder qu co tf at fm
+    where
+      qu _ x p = difference (fv p) (singleton x)
+      co ((:~:) p) = fv p
+      co (BinOp p _ q) = union (fv p) (fv q)
+      tf _ = Set.empty
+      at = foldAtom (\_ args -> unions (map fvt args))
+#endif
 
 -- | Find the variables in a formula.
+#if 0
 var :: (IsFormula formula atom, IsAtom atom predicate term, IsTerm term v function) => formula -> Set v
 var fm = overatoms (\a s -> foldAtom (\_ args -> unions (s : map fvt args)) a) fm Set.empty
+#else
+var :: (IsFirstOrder formula atom v, IsAtom atom predicate term, IsTerm term v function) => formula -> Set v
+var fm =
+    foldFirstOrder qu co tf at fm
+    where
+      qu _ x p = Set.insert x (var p)
+      co ((:~:) p) = var p
+      co (BinOp p _ q) = union (var p) (var q)
+      tf _ = Set.empty
+      at = foldAtom (\_ args -> unions (map fvt args))
+#endif
 
 -- | Find the variables in a 'Term'.
 fvt :: IsTerm term v function => term -> Set v
@@ -823,19 +848,21 @@ substq subfn qu x p =
 
 test10 :: Test
 test10 =
-    let [x, x', y] = [vt "x", vt "x'", vt "y"] in
-    TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x. x = y>>;;"
-                           (for_all "x'" (x' .=. x) :: MyFormula)
-                           (subst (Map.fromList [("y", x)])
-                                  (for_all "x" ((x .=. y))))
+    let [x, x', y] = [vt "x", vt "x'", vt "y"]
+        fm = for_all "x" ((x .=. y)) :: MyFormula
+        expected = for_all "x'" (x' .=. x) :: MyFormula in
+    TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow fm ++ " (p. 134)")
+                           expected
+                           (subst (Map.fromList [("y", x)]) fm)
 
 test11 :: Test
 test11 =
-    let [x, x', x'', y] = [vt "x", vt "x'", vt "x''", vt "y"] in
-    TestCase $ assertEqual "subst (\"y\" |=> Var \"x\") <<forall x x'. x = y ==> x = x'>>;;"
-                           (for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: MyFormula)
-                           (subst (Map.fromList [("y", x)])
-                                  (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))))
+    let [x, x', x'', y] = [vt "x", vt "x'", vt "x''", vt "y"]
+        fm = (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))) :: MyFormula
+        expected = for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: MyFormula in
+    TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow fm ++ " (p. 134)")
+                           expected
+                           (subst (Map.fromList [("y", x)]) fm)
 
 tests :: Test
 tests = TestLabel "FOL" $

@@ -20,7 +20,7 @@ module Lib
     -- , exists
     , tryApplyD
     , allpairs
-    , distrib'
+    , distrib
     , image
     , optimize
     , minimize
@@ -224,8 +224,8 @@ allpairs :: forall a b c. (Ord c) => (a -> b -> c) -> Set a -> Set b -> Set c
 -- allpairs f xs ys = Set.fromList (concatMap (\ z -> map (f z) (Set.toList ys)) (Set.toList xs))
 allpairs f xs ys = Set.fold (\ x zs -> Set.fold (\ y zs' -> Set.insert (f x y) zs') zs ys) Set.empty xs
 
-distrib' :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
-distrib' s1 s2 = allpairs (Set.union) s1 s2
+distrib :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
+distrib s1 s2 = allpairs (Set.union) s1 s2
 
 test01 :: Test
 test01 = TestCase $ assertEqual "itlist2" expected input
