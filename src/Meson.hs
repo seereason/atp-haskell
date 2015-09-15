@@ -26,9 +26,9 @@ import Resolution (davis_putnam_example_formula)
 import Skolem (MyFormula, MyTerm)
 import Test.HUnit
 
--- ------------------------------------------------------------------------- 
--- Example of naivety of tableau prover.                                     
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Example of naivety of tableau prover.
+-- -------------------------------------------------------------------------
 
 test01 :: Test
 test01 = TestLabel "Meson 1" $ TestCase $ assertEqual "meson dp example (p. 220)" expected input
@@ -126,10 +126,10 @@ tab <<forall a. ~(P(a) /\ (forall y z. Q(y) \/ R(z)) /\ ~P(a))>>;;
 
 tab <<forall a. ~(P(a) /\ ~P(a) /\ (forall y z. Q(y) \/ R(z)))>>;;
 
--- ------------------------------------------------------------------------- 
--- The interesting example where tableaux connections make the proof longer. 
--- Unfortuntely this gets hammered by normalization first...                 
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- The interesting example where tableaux connections make the proof longer.
+-- Unfortuntely this gets hammered by normalization first...
+-- -------------------------------------------------------------------------
 
 tab <<~p /\ (p \/ q) /\ (r \/ s) /\ (~q \/ t \/ u) /\
       (~r \/ ~t) /\ (~r \/ ~u) /\ (~q \/ v \/ w) /\
@@ -138,18 +138,18 @@ END_INTERACTIVE;;
 -}
 #endif
 
--- ------------------------------------------------------------------------- 
--- Generation of contrapositives.                                            
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Generation of contrapositives.
+-- -------------------------------------------------------------------------
 
 contrapositives :: IsQuantified fof atom v => Set fof -> Set (Set fof, fof)
 contrapositives cls =
     if setAll negative cls then Set.insert (Set.map (.~.) cls,false) base else base
     where base = Set.map (\ c -> (Set.map (.~.) (Set.delete c cls), c)) cls
 
--- ------------------------------------------------------------------------- 
--- The core of MESON: ancestor unification or Prolog-style extension.        
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- The core of MESON: ancestor unification or Prolog-style extension.
+-- -------------------------------------------------------------------------
 
 mexpand :: (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom, IsPredicate predicate) =>
            Set (Set fof, fof)
@@ -174,9 +174,9 @@ mexpand rules ancestors g cont (env,n,k) =
             mexpand' = Set.fold (mexpand rules (Set.insert g ancestors)) cont asm
             ((asm, c), k') = renamerule k rule
 
--- ------------------------------------------------------------------------- 
--- Full MESON procedure.                                                     
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Full MESON procedure.
+-- -------------------------------------------------------------------------
 
 puremeson :: forall fof atom predicate term v f.
              (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom, IsPredicate predicate) =>
@@ -198,9 +198,9 @@ meson maxdl fm =
     return . Set.map (puremeson maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 {-
--- ------------------------------------------------------------------------- 
--- With repetition checking and divide-and-conquer search.                   
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- With repetition checking and divide-and-conquer search.
+-- -------------------------------------------------------------------------
 
 let rec equal env fm1 fm2 =
   try unify_literals env (fm1,fm2) == env with Failure _ -> false;;
@@ -248,9 +248,9 @@ let meson fm =
 
 #ifndef NOTESTS
 {-
--- ------------------------------------------------------------------------- 
--- The Los problem (depth 20) and the Steamroller (depth 53) --- lengthier.  
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- The Los problem (depth 20) and the Steamroller (depth 53) --- lengthier.
+-- -------------------------------------------------------------------------
 
 START_INTERACTIVE;;
 {- ***********
@@ -287,9 +287,9 @@ let steamroller = meson
 *************** -}
 
 
--- ------------------------------------------------------------------------- 
--- Test it.                                                                  
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Test it.
+-- -------------------------------------------------------------------------
 
 let prop_1 = time meson
  <<p ==> q <=> ~q ==> ~p>>;;
@@ -342,9 +342,9 @@ let prop_16 = time meson
 let prop_17 = time meson
  <<p /\ (q ==> r) ==> s <=> (~p \/ q \/ s) /\ (~p \/ ~r \/ s)>>;;
 
--- ------------------------------------------------------------------------- 
--- Monadic Predicate Logic.                                                  
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Monadic Predicate Logic.
+-- -------------------------------------------------------------------------
 
 let p18 = time meson
  <<exists y. forall x. P(y) ==> P(x)>>;;
@@ -434,9 +434,9 @@ let p34 = time meson
 let p35 = time meson
  <<exists x y. P(x,y) ==> (forall x y. P(x,y))>>;;
 
--- ------------------------------------------------------------------------- 
---  Full predicate logic (without Identity and Functions)                    
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+--  Full predicate logic (without Identity and Functions)
+-- -------------------------------------------------------------------------
 
 let p36 = time meson
  <<(forall x. exists y. P(x,y)) /\
@@ -503,9 +503,9 @@ let p46 = time meson
    (forall x y. P(x) /\ P(y) /\ H(x,y) ==> ~J(y,x)) ==>
    (forall x. P(x) ==> G(x))>>;;
 
--- ------------------------------------------------------------------------- 
--- Example from Manthey and Bry, CADE-9.                                     
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Example from Manthey and Bry, CADE-9.
+-- -------------------------------------------------------------------------
 
 let p55 = time meson
  <<lives(agatha) /\ lives(butler) /\ lives(charles) /\
@@ -527,9 +527,9 @@ let p57 = time meson
   (forall (x) y z. P(x,y) /\ P(y,z) ==> P(x,z))
   ==> P(f(a,b),f(a,c))>>;;
 
--- ------------------------------------------------------------------------- 
--- See info-hol, circa 1500.                                                 
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- See info-hol, circa 1500.
+-- -------------------------------------------------------------------------
 
 let p58 = time meson
  <<forall P Q R. forall x. exists v. exists w. forall y. forall z.
@@ -542,9 +542,9 @@ let p60 = time meson
  <<forall x. P(x,f(x)) <=>
             exists y. (forall z. P(z,y) ==> P(z,f(x))) /\ P(x,y)>>;;
 
--- ------------------------------------------------------------------------- 
--- From Gilmore's classic paper.                                             
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- From Gilmore's classic paper.
+-- -------------------------------------------------------------------------
 
 {- ** Amazingly, this still seems non-trivial... in HOL it works at depth 45!
 
@@ -615,9 +615,9 @@ let gilmore_9 = time meson
 
  ** -}
 
--- ------------------------------------------------------------------------- 
--- Translation of Gilmore procedure using separate definitions.              
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Translation of Gilmore procedure using separate definitions.
+-- -------------------------------------------------------------------------
 
 let gilmore_9a = time meson
  <<(forall x y. P(x,y) <=>
@@ -626,18 +626,18 @@ let gilmore_9a = time meson
              (P(y,x) ==> (P(x,z) ==> P(x,y))) /\
              (P(x,y) ==> (~P(x,z) ==> P(y,x) /\ P(z,y)))>>;;
 
--- ------------------------------------------------------------------------- 
--- Example from Davis-Putnam papers where Gilmore procedure is poor.         
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Example from Davis-Putnam papers where Gilmore procedure is poor.
+-- -------------------------------------------------------------------------
 
 let davis_putnam_example = time meson
  <<exists x. exists y. forall z.
         (F(x,y) ==> (F(y,z) /\ F(z,z))) /\
         ((F(x,y) /\ G(x,y)) ==> (G(x,z) /\ G(z,z)))>>;;
 
--- ------------------------------------------------------------------------- 
--- The "connections make things worse" example once again.                   
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- The "connections make things worse" example once again.
+-- -------------------------------------------------------------------------
 
 meson <<~p /\ (p \/ q) /\ (r \/ s) /\ (~q \/ t \/ u) /\
         (~r \/ ~t) /\ (~r \/ ~u) /\ (~q \/ v \/ w) /\

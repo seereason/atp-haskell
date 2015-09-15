@@ -13,13 +13,13 @@ import Test.HUnit
 import Prop (list_conj)
 import FOL (IsFirstOrder, IsPredicate, fv, vt, subst)
 
--- ========================================================================= 
--- Backchaining procedure for Horn clauses, and toy Prolog implementation.   
--- ========================================================================= 
+-- =========================================================================
+-- Backchaining procedure for Horn clauses, and toy Prolog implementation.
+-- =========================================================================
 
--- ------------------------------------------------------------------------- 
--- Rename a rule.                                                            
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Rename a rule.
+-- -------------------------------------------------------------------------
 
 renamerule :: forall fof atom term predicate v f.
               (IsFirstOrder fof atom predicate term v f, IsPredicate predicate {-,
@@ -195,7 +195,7 @@ prolog badrules
   "sort(S(S(S(S(0))))::S(0)::0::S(S(0))::S(0)::nil,X)";;
 
  ***)
-END_INTERACTIVE;;                           
+END_INTERACTIVE;;
 -}
 
 #ifndef NOTESTS

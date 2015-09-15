@@ -371,14 +371,14 @@ settryfind f l =
       Just (h, t) -> failing (\ _ -> settryfind f t) Success (f h)
 
 mapfilter :: (a -> Failing b) -> [a] -> [b]
-mapfilter f l = catMaybes (List.map (failing (const Nothing) Just . f) l) 
+mapfilter f l = catMaybes (List.map (failing (const Nothing) Just . f) l)
     -- filter (failing (const False) (const True)) (map f l)
 
 setmapfilter :: Ord b => (a -> Failing b) -> Set a -> Set b
 setmapfilter f s = Set.fold (\ a r -> failing (const r) (`Set.insert` r) (f a)) Set.empty s
 
 -- -------------------------------------------------------------------------
--- Find list member that maximizes or minimizes a function.                 
+-- Find list member that maximizes or minimizes a function.
 -- -------------------------------------------------------------------------
 
 optimize :: forall a b. (b -> b -> Bool) -> (a -> b) -> [a] -> Maybe a
@@ -401,7 +401,7 @@ minimize' :: forall a b. Ord b => (a -> b) -> Set a -> Maybe a
 minimize' f s = optimize' (<) f s
 
 -- -------------------------------------------------------------------------
--- Set operations on ordered lists.                                         
+-- Set operations on ordered lists.
 -- -------------------------------------------------------------------------
 {-
 let setify =
@@ -490,9 +490,9 @@ let rec mem x lis =
   | (h::t) -> Pervasives.compare x h = 0 or mem x t;;
 -}
 
--- ------------------------------------------------------------------------- 
--- Finding all subsets or all subsets of a given size.                       
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Finding all subsets or all subsets of a given size.
+-- -------------------------------------------------------------------------
 
 -- allsets :: Ord a => Int -> Set a -> Set (Set a)
 allsets :: forall a b. (Num a, Eq a, Ord b) => a -> Set b -> Set (Set b)
@@ -505,7 +505,7 @@ allsets m l =
 allsubsets :: forall a. Ord a => Set a -> Set (Set a)
 allsubsets s =
     maybe (Set.singleton Set.empty)
-          (\ (x, t) -> 
+          (\ (x, t) ->
                let res = allsubsets t in
                Set.union res (Set.map (Set.insert x) res))
           (Set.minView s)
@@ -542,12 +542,12 @@ let time f x =
 -}
 
 -- -------------------------------------------------------------------------
--- Polymorphic finite partial functions via Patricia trees.                 
---                                                                          
--- The point of this strange representation is that it is canonical (equal  
--- functions have the same encoding) yet reasonably efficient on average.   
---                                                                          
--- Idea due to Diego Olivier Fernandez Pons (OCaml list, 2003/11/10).       
+-- Polymorphic finite partial functions via Patricia trees.
+--
+-- The point of this strange representation is that it is canonical (equal
+-- functions have the same encoding) yet reasonably efficient on average.
+--
+-- Idea due to Diego Olivier Fernandez Pons (OCaml list, 2003/11/10).
 -- -------------------------------------------------------------------------
 
 data Func a b
@@ -556,14 +556,14 @@ data Func a b
     | Branch Int Int (Func a b) (Func a b)
 
 -- -------------------------------------------------------------------------
--- Undefined function.                                                      
+-- Undefined function.
 -- -------------------------------------------------------------------------
 
 undefinedFunction :: Func a b
 undefinedFunction = Empty
 
 -- -------------------------------------------------------------------------
--- In case of equality comparison worries, better use this.                 
+-- In case of equality comparison worries, better use this.
 -- -------------------------------------------------------------------------
 
 isUndefined :: Func a b -> Bool
@@ -571,7 +571,7 @@ isUndefined Empty = True
 isUndefined _ = False
 
 -- -------------------------------------------------------------------------
--- Operation analogous to "map" for functions.                                  
+-- Operation analogous to "map" for functions.
 -- -------------------------------------------------------------------------
 
 mapf :: (b -> c) -> Func a b -> Func a c
@@ -628,7 +628,7 @@ ran :: Ord b => Func a b -> Set b
 ran f = Set.fromList (foldlFn (\ a _x y -> y : a) [] f)
 
 -- -------------------------------------------------------------------------
--- Application.                                                             
+-- Application.
 -- -------------------------------------------------------------------------
 
 applyD :: Ord k => Map.Map k a -> k -> a -> Map.Map k a
@@ -761,14 +761,14 @@ let (|->),combine =
 -}
 
 -- -------------------------------------------------------------------------
--- Special case of point function.                                          
+-- Special case of point function.
 -- -------------------------------------------------------------------------
 
 (|=>) :: Ord k => k -> a -> Map.Map k a
 x |=> y = Map.fromList [(x, y)]
 
 -- -------------------------------------------------------------------------
--- Idiom for a mapping zipping domain and range lists.                      
+-- Idiom for a mapping zipping domain and range lists.
 -- -------------------------------------------------------------------------
 
 (|->) :: Ord k => k -> a -> Map.Map k a -> Map.Map k a
@@ -778,7 +778,7 @@ fpf :: Ord a => Map.Map a b -> a -> Maybe b
 fpf m a = Map.lookup a m
 
 -- -------------------------------------------------------------------------
--- Grab an arbitrary element.                                               
+-- Grab an arbitrary element.
 -- -------------------------------------------------------------------------
 
 choose :: Map.Map k a -> (k, a)
