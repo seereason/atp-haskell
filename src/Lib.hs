@@ -1,5 +1,11 @@
-{-# LANGUAGE DeriveDataTypeable, RankNTypes, ScopedTypeVariables, StandaloneDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wall -fno-warn-unused-binds #-}
+
 module Lib
     ( Failing(Success, Failure)
     , failing
@@ -25,9 +31,6 @@ module Lib
     , optimize
     , minimize
     , maximize
-    , optimize'
-    , minimize'
-    , maximize'
     , can
     , allsets
     , allsubsets
@@ -38,18 +41,23 @@ module Lib
     , tests
     ) where
 
-import Control.Applicative.Error
+import Control.Applicative.Error (Failing (Success, Failure))
+import Data.Foldable as Foldable
+import Data.Function (on)
 import Data.Generics
-import Data.List as List (foldr, map)
+import Data.List as List (map)
 import Data.Map as Map (delete, findMin, fromList, insert, lookup, Map, member)
 import Data.Maybe
 import Data.Set as Set
-import Test.HUnit (Test(TestCase, TestList, TestLabel), assertEqual)
+import Test.HUnit
 
 failing :: ([String] -> b) -> (a -> b) -> Failing a -> b
 failing f _ (Failure errs) = f errs
 failing _ f (Success a)    = f a
 
+-- Declare a Monad instance for Failing so we can chain a series of
+-- Failing actions with >> or >>=.  If any action fails the subsequent
+-- actions in the chain will be aborted.
 instance Monad Failing where
   return = Success
   m >>= f =
@@ -64,14 +72,29 @@ deriving instance Read a => Read (Failing a)
 deriving instance Eq a => Eq (Failing a)
 deriving instance Ord a => Ord (Failing a)
 
-(∅) :: Set a
-(∅) = Set.empty
+-- | A simple class, slightly more powerful than Foldable, so we can
+-- write functions that operate on the elements of a set or a list.
+class SetLike c where
+    view :: forall a. c a -> Maybe (a, c a)
+    map :: forall a b. Ord b => (a -> b) -> c a -> c b
 
-setAny :: forall a. Ord a => (a -> Bool) -> Set a -> Bool
-setAny f s = Set.member True (Set.map f s)
+instance SetLike Set where
+    view = Set.minView
+    map = Set.map
 
-setAll :: forall a. Ord a => (a -> Bool) -> Set a -> Bool
-setAll f s = not (Set.member False (Set.map f s))
+instance SetLike [] where
+    view [] = Nothing
+    view (h : t) = Just (h, t)
+    map = List.map
+
+(∅) :: (Monoid (c a), SetLike c) => c a
+(∅) = mempty
+
+setAny :: Foldable t => (a -> Bool) -> t a -> Bool
+setAny = any
+
+setAll :: Foldable t => (a -> Bool) -> t a -> Bool
+setAll = all
 
 {-
 (* ========================================================================= *)
@@ -152,20 +175,21 @@ let tl l =
 
 -- (^) = (++)
 
-itlist :: (a -> b -> b) -> [a] -> b -> b
--- itlist f xs z = foldr f z xs
-itlist f xs z = List.foldr f z xs
+itlist :: Foldable t => (a -> b -> b) -> t a -> b -> b
+itlist f xs z = Foldable.foldr f z xs
 
-end_itlist :: (t -> t -> t) -> [t] -> t
--- end_itlist = foldr1
-end_itlist = foldr1
+end_itlist :: Foldable t => (a -> a -> a) -> t a -> a
+end_itlist = Foldable.foldr1
 
-itlist2 :: (t -> t1 -> Failing t2 -> Failing t2) -> [t] -> [t1] -> Failing t2 -> Failing t2
-itlist2 f l1 l2 b =
-  case (l1,l2) of
-    ([],[]) -> b
-    (h1 : t1, h2 : t2) -> f h1 h2 (itlist2 f t1 t2 b)
-    _ -> Failure ["itlist2"]
+itlist2 :: (SetLike s, SetLike t) =>
+           (a -> b -> Failing r -> Failing r) ->
+           s a -> t b -> Failing r -> Failing r
+itlist2 f s t r =
+    case (view s, view t) of
+      (Nothing, Nothing) -> r
+      (Just (a, s'), Just (b, t')) ->
+          f a b (itlist2 f s' t' r)
+      _ -> Failure ["itlist2"]
 
 {-
 let rec zip l1 l2 =
@@ -221,14 +245,13 @@ let map f =
 -}
 
 allpairs :: forall a b c. (Ord c) => (a -> b -> c) -> Set a -> Set b -> Set c
--- allpairs f xs ys = Set.fromList (concatMap (\ z -> map (f z) (Set.toList ys)) (Set.toList xs))
 allpairs f xs ys = Set.fold (\ x zs -> Set.fold (\ y zs' -> Set.insert (f x y) zs') zs ys) Set.empty xs
 
 distrib :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
 distrib s1 s2 = allpairs (Set.union) s1 s2
 
 test01 :: Test
-test01 = TestCase $ assertEqual "itlist2" expected input
+test01 = TestCase $ assertEqual "allpairs" expected input
     where input = allpairs (,) (Set.fromList [1,2,3]) (Set.fromList [4,5,6])
           expected = Set.fromList [(1,4),(1,5),(1,6),(2,4),(2,5),(2,6),(3,4),(3,5),(3,6)] :: Set (Int, Int)
 
@@ -359,10 +382,17 @@ let repetitions =
 
 tryfind :: (t -> Failing a) -> [t] -> Failing a
 tryfind _ [] = Failure ["tryfind"]
-tryfind f l =
-    case l of
-      [] -> Failure ["tryfind"]
-      h : t -> failing (\ _ -> tryfind f t) Success (f h)
+tryfind f (h : t) = failing (\_ -> tryfind f t) Success (f h)
+
+test02 :: Test
+test02 =
+    TestCase $
+    assertEqual
+      "tryfind on infinite list"
+      (Success 3 :: Failing Int)
+      (tryfind (\x -> if x == 3
+                      then Success 3
+                      else Failure ["test02"]) ([1..] :: [Int]))
 
 settryfind :: (t -> Failing a) -> Set t -> Failing a
 settryfind f l =
@@ -381,24 +411,15 @@ setmapfilter f s = Set.fold (\ a r -> failing (const r) (`Set.insert` r) (f a)) 
 -- Find list member that maximizes or minimizes a function.
 -- -------------------------------------------------------------------------
 
-optimize :: forall a b. (b -> b -> Bool) -> (a -> b) -> [a] -> Maybe a
-optimize _ _ [] = Nothing
-optimize ord f l = Just (fst (foldr1 (\ p@(_,y) p'@(_,y') -> if ord y y' then p else p') (List.map (\ x -> (x,f x)) l)))
+optimize :: forall s a b. (SetLike s, Foldable s) => (b -> b -> Ordering) -> (a -> b) -> s a -> Maybe a
+optimize _ _ l | isNothing (view l) = Nothing
+optimize ord f l = let (cmp :: a -> a -> Ordering) = ord `on` f in Just (Foldable.maximumBy cmp l)
 
-maximize :: forall a b. Ord b => (a -> b) -> [a] -> Maybe a
-maximize f l = optimize (>) f l
+maximize :: (Ord b, SetLike s, Foldable s) => (a -> b) -> s a -> Maybe a
+maximize = optimize compare
 
-minimize :: forall a b. Ord b => (a -> b) -> [a] -> Maybe a
-minimize f l = optimize (<) f l
-
-optimize' :: forall a b. (b -> b -> Bool) -> (a -> b) -> Set a -> Maybe a
-optimize' ord f s = optimize ord f (Set.toAscList s)
-
-maximize' :: forall a b. Ord b => (a -> b) -> Set a -> Maybe a
-maximize' f s = optimize' (>) f s
-
-minimize' :: forall a b. Ord b => (a -> b) -> Set a -> Maybe a
-minimize' f s = optimize' (<) f s
+minimize :: (Ord b, SetLike s, Foldable s) => (a -> b) -> s a -> Maybe a
+minimize = optimize (flip compare)
 
 -- -------------------------------------------------------------------------
 -- Set operations on ordered lists.

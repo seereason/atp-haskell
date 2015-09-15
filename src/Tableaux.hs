@@ -286,7 +286,7 @@ tabrefute :: IsFirstOrder formula atom predicate term v function =>
              [formula] -> Failing ((Map v term, Depth), Depth)
 tabrefute fms =
   -- deepen (fun n -> tableau (fms,[],n) (fun x -> x) (undefined,0); n) 0;;
-  let r = deepen (\n -> failing Failure (\r -> Success (r, n)) (tableau (fms,[],n) (\x -> Success x) (Map.empty,0))) 0 (Just 5) in
+  let r = deepen (\n -> (,n) <$> tableau (fms,[],n) (\x -> Success x) (Map.empty,0)) 0 (Just 5) in
   failing Failure (Success . fst) r
 
 tab :: (IsFirstOrder formula atom predicate term v function, HasSkolem function v) =>

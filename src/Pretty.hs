@@ -90,36 +90,6 @@ parenthesize (Fixity pprec pdir) (Fixity prec _dir) side pp =
             (_, InfixA) -> pp
             (Unary, _) -> braces pp -- not sure
             (_, InfixN) -> error "Nested non-associative operators"
-{-
--- | Wrapper to indicate we want show to render the expression using
--- class methods to build a value, not the show derived for the
--- specific instance.
-newtype Classy a = Classy {deClassy :: a} deriving (Eq, Ord)
-
-instance Show (Classy a) => Show (Classy [a]) where
-    show = show . List.map Classy . deClassy
-
-instance (Show (Classy a), Show (Classy b)) => Show (Classy (a, b)) where
-    show (Classy (a, b)) = show (Classy a, Classy b)
-
-instance (Show (Classy a), Show (Classy b), Show (Classy c)) => Show (Classy (a, b, c)) where
-    show (Classy (a, b, c)) = show (Classy a, Classy b, Classy c)
-
-instance (Show (Classy a), Show (Classy b), Show (Classy c), Show (Classy d)) => Show (Classy (a, b, c, d)) where
-    show (Classy (a, b, c, d)) = show (Classy a, Classy b, Classy c, Classy d)
-
-instance (Ord a, Show (Classy a)) => Show (Classy (Set a)) where
-    show (Classy s) = show (Set.map Classy s)
-
-instance (Ord k, Show (Classy k), Show (Classy v)) => Show (Classy (Map k v)) where
-    show (Classy mp) = show . Map.mapKeys Classy . Map.map Classy $ mp
-
-instance Show (Classy Bool) where
-    show = show . deClassy
-
-instance Show (Classy Int) where
-    show = show . deClassy
--}
 
 instance Pretty a => Pretty (Set a) where
     -- pPrint s = text "{" <> mconcat (intersperse (text ", ") (List.map pPrint (Set.toAscList s))) <> text "}"

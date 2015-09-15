@@ -88,7 +88,7 @@ resolution_blowup cls l =
 resolution_rule :: IsLiteral lit atom => Set (Set lit) -> Failing (Set (Set lit))
 resolution_rule clauses =
     let pvs = Set.filter positive (flatten clauses) in
-    case minimize' (resolution_blowup clauses) pvs of
+    case minimize (resolution_blowup clauses) pvs of
       Just p -> Success (resolve_on p clauses)
       Nothing -> Failure ["resolution_rule"]
 
@@ -121,7 +121,7 @@ dpll clauses =
                     Success x -> Success x
                     Failure _ ->
                         let pvs = Set.filter positive (flatten clauses) in
-                        case maximize' (posneg_count clauses) pvs of
+                        case maximize (posneg_count clauses) pvs of
                           Nothing -> Failure ["dpll"]
                           Just p ->
                               case (dpll (Set.insert (Set.singleton p) clauses), dpll (Set.insert (Set.singleton (negate p)) clauses)) of
@@ -162,7 +162,7 @@ dpli cls trail =
   else
       case unassigned cls (trail' :: Set (pf, TrailMix)) of
         s | Set.null s -> Success True
-        ps -> case maximize' (posneg_count cls') ps of
+        ps -> case maximize (posneg_count cls') ps of
                 Just p -> dpli cls (Set.insert (p :: pf, Guessed) trail')
                 Nothing -> Failure ["dpli"]
 
@@ -227,12 +227,11 @@ dplb cls trail =
   else
     case unassigned cls trail' of
       s | Set.null s -> Success True
-      ps -> case maximize' (posneg_count cls') ps of
+      ps -> case maximize (posneg_count cls') ps of
               Just p -> dplb cls (Set.insert (p,Guessed) trail')
               Nothing -> Failure ["dpib"]
 
-backjump :: forall a. (IsNegatable a, Ord a) =>
-            Set (Set a) -> a -> Set (a, TrailMix) -> Set (a, TrailMix)
+backjump :: (IsNegatable a, Ord a) => Set (Set a) -> a -> Set (a, TrailMix) -> Set (a, TrailMix)
 backjump cls p trail =
   case Set.minView (backtrack trail) of
     Just ((q,Guessed), tt) ->
