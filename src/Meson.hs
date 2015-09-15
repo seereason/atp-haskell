@@ -142,7 +142,7 @@ END_INTERACTIVE;;
 -- Generation of contrapositives.                                            
 -- ------------------------------------------------------------------------- 
 
-contrapositives :: forall fof atom v. (IsQuantified fof atom v, Ord fof) => Set fof -> Set (Set fof, fof)
+contrapositives :: IsQuantified fof atom v => Set fof -> Set (Set fof, fof)
 contrapositives cls =
     if setAll negative cls then Set.insert (Set.map (.~.) cls,false) base else base
     where base = Set.map (\ c -> (Set.map (.~.) (Set.delete c cls), c)) cls
@@ -151,8 +151,7 @@ contrapositives cls =
 -- The core of MESON: ancestor unification or Prolog-style extension.        
 -- ------------------------------------------------------------------------- 
 
-mexpand :: forall fof atom predicate term v f.
-           (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom, IsPredicate predicate) =>
+mexpand :: (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom, IsPredicate predicate) =>
            Set (Set fof, fof)
         -> Set fof
         -> fof
@@ -179,7 +178,8 @@ mexpand rules ancestors g cont (env,n,k) =
 -- Full MESON procedure.                                                     
 -- ------------------------------------------------------------------------- 
 
-puremeson :: forall fof atom predicate term v f. (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom, IsPredicate predicate) =>
+puremeson :: forall fof atom predicate term v f.
+             (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom, IsPredicate predicate) =>
              Maybe Int -> fof -> Failing ((Map v term, Int, Int), Int)
 puremeson maxdl fm =
     deepen f 0 maxdl
@@ -190,7 +190,7 @@ puremeson maxdl fm =
       cls = simpcnf id (specialize id (pnf fm) :: fof)
 
 meson :: forall m fof atom predicate term f v.
-         (IsFirstOrder fof atom predicate term v f, IsPropositional fof atom, IsLiteral fof atom, IsPredicate predicate,
+         (IsFirstOrder fof atom predicate term v f, IsPropositional fof atom, IsLiteral fof atom,
           HasSkolem f v, Monad m) =>
          Maybe Int -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Int)))
 meson maxdl fm =
