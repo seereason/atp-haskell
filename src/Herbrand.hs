@@ -78,13 +78,6 @@ herbloop mfn tfn fl0 cntms funcs fvs n fl tried tuples =
               if not x
               then Success (Set.insert tup tried)
               else herbloop mfn tfn fl0 cntms funcs fvs n fl' (Set.insert tup tried) tups
-{-
-subst' :: (IsFormula lit atom, IsTerm term v function) => {-forall lit atom term v f. (IsLiteral lit atom, Atom atom term v, Term term v f) =>-} Map.Map v term -> lit -> lit
-subst' env fm =
-     mapAtoms (atomic . substitute') fm
-    where substitute' :: atom -> atom
-          substitute' = subst env
--}
 
 -- | Hence a simple Gilmore-type procedure.
 gilmore_loop :: (IsFirstOrder lit atom predicate term v function, IsLiteral lit atom) =>

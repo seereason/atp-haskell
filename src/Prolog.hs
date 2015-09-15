@@ -11,7 +11,7 @@ import Test.HUnit
 #endif
 
 import Prop (list_conj)
-import FOL (IsFirstOrder, IsPredicate, fv, vt, subst)
+import FOL (IsFirstOrder, fv, vt, subst)
 
 -- =========================================================================
 -- Backchaining procedure for Horn clauses, and toy Prolog implementation.
@@ -21,16 +21,14 @@ import FOL (IsFirstOrder, IsPredicate, fv, vt, subst)
 -- Rename a rule.
 -- -------------------------------------------------------------------------
 
-renamerule :: forall fof atom term predicate v f.
-              (IsFirstOrder fof atom predicate term v f, IsPredicate predicate {-,
-               fof ~ MyFormula, atom ~ MyAtom, term ~ MyTerm, v ~ V-}) =>
+renamerule :: IsFirstOrder fof atom predicate term v f =>
               Int -> (Set fof, fof) -> ((Set fof, fof), Int)
 renamerule k (asm,c) =
     ((Set.map inst asm, inst c), k + Set.size fvs)
     where
-      fvs = fv (list_conj (Set.insert c asm)) :: Set v
-      vvs = Map.fromList (List.map (\(v, i) -> (v, vt (fromString ("_" ++ show i) :: v) :: term)) (zip (Set.toList fvs) [k..])) :: Map v term
-      inst = subst vvs :: fof -> fof
+      fvs = fv (list_conj (Set.insert c asm))
+      vvs = Map.fromList (List.map (\(v, i) -> (v, vt (fromString ("_" ++ show i)))) (zip (Set.toList fvs) [k..]))
+      inst = subst vvs
 
 {-
 

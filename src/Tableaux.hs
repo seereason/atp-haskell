@@ -48,8 +48,7 @@ import Skolem (MyTerm, MyFormula)
 unify_literals :: forall lit atom term predicate v function.
                   (IsLiteral lit atom,
                    IsAtom atom predicate term,
-                   IsTerm term v function,
-                   IsPredicate predicate) =>
+                   IsTerm term v function) =>
                   Map v term -> lit -> lit -> Failing (Map v term)
 unify_literals env f1 f2 =
     maybe err id (zipLiterals ne tf at f1 f2)
@@ -62,7 +61,7 @@ unify_literals env f1 f2 =
 
 unify_atoms :: forall atom term predicate v function.
                (IsAtom atom predicate term,
-                IsTerm term v function, IsPredicate predicate) =>
+                IsTerm term v function) =>
                Map v term -> atom -> atom -> Failing (Map v term)
 unify_atoms env a1 a2 =
     let r = zipAtoms (\_ tpairs -> Just (unify env tpairs)) a1 a2 in
@@ -87,16 +86,14 @@ unifyAtomsEq env a1 a2 =
 unify_complements :: forall lit atom term predicate v function.
                      (IsLiteral lit atom,
                       IsAtom atom predicate term,
-                      IsTerm term v function,
-                      IsPredicate predicate) =>
+                      IsTerm term v function) =>
                      Map v term -> lit -> lit -> Failing (Map v term)
 unify_complements env p q = unify_literals env p ((.~.) q)
 
 -- | Unify and refute a set of disjuncts.
 unify_refute :: (IsLiteral lit atom,
                  IsAtom atom predicate term,
-                 IsTerm term v function,
-                 IsPredicate predicate) =>
+                 IsTerm term v function) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
     case Set.minView djs of
@@ -111,8 +108,7 @@ unify_refute djs env =
 prawitz_loop :: forall atom v term predicate function lit.
                 (IsLiteral lit atom,
                  IsAtom atom predicate term,
-                 IsTerm term v function,
-                 IsPredicate predicate) =>
+                 IsTerm term v function) =>
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
     let inst = Map.fromList (zip fvs (List.map newvar [1..])) in
@@ -125,8 +121,7 @@ prawitz_loop djs0 fvs djs n =
 
 prawitz :: forall formula atom term predicate function v.
            (IsFirstOrder formula atom predicate term v function,
-            HasSkolem function v,
-            IsPredicate predicate) =>
+            HasSkolem function v) =>
            formula -> Int
 prawitz fm =
     snd (prawitz_loop dnf (Set.toList fvs) dnf0 0)
@@ -155,10 +150,7 @@ p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
 -- Comparison of number of ground instances.
 -- -------------------------------------------------------------------------
 
-compare :: (IsFirstOrder formula atom predicate term v function,
-            HasSkolem function v,
-            IsPredicate predicate
-           ) => formula -> (Int, Failing Int)
+compare :: (IsFirstOrder formula atom predicate term v function, HasSkolem function v) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
 #ifndef NOTESTS
@@ -254,8 +246,7 @@ let rec tableau (fms,lits,n) cont (env,k) =
       with Failure _ -> tableau (unexp,fm::lits,n) cont (env,k);;
 -}
 tableau :: forall formula atom predicate function v term r.
-           (IsFirstOrder formula atom predicate term v function,
-            IsPredicate predicate) =>
+           IsFirstOrder formula atom predicate term v function =>
            ([formula], [formula], Depth)
         -> ((Map v term, Depth) -> Failing r)
         -> (Map v term, Depth)
@@ -291,16 +282,14 @@ tableau (fms, lits, n) cont (env, k) =
             Success r -> Success r
             Failure _ -> tableau (unexp, fm : lits, n) cont (env,k)
 
-tabrefute :: (IsFirstOrder formula atom predicate term v function, IsPredicate predicate) =>
+tabrefute :: IsFirstOrder formula atom predicate term v function =>
              [formula] -> Failing ((Map v term, Depth), Depth)
 tabrefute fms =
   -- deepen (fun n -> tableau (fms,[],n) (fun x -> x) (undefined,0); n) 0;;
   let r = deepen (\n -> failing Failure (\r -> Success (r, n)) (tableau (fms,[],n) (\x -> Success x) (Map.empty,0))) 0 (Just 5) in
   failing Failure (Success . fst) r
 
-tab :: (IsFirstOrder formula atom predicate term v function,
-        HasSkolem function v,
-        IsPredicate predicate) =>
+tab :: (IsFirstOrder formula atom predicate term v function, HasSkolem function v) =>
        formula -> Failing ((Map v term, Depth), Depth)
 tab fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in

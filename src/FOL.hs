@@ -204,7 +204,7 @@ test00 = TestCase $ assertEqual "print an expression"
 -- PREDICATE --
 ----------------
 
-class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate) => IsPredicate predicate
+class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate) => IsPredicate predicate term
 
 -- | Class of predicates that have an equality predicate.
 class HasEquality predicate where
@@ -219,7 +219,7 @@ data Predicate
     | Equals
     deriving (Eq, Ord, Show)
 
-instance IsPredicate Predicate
+instance IsPredicate Predicate (Term function v)
 
 -- | Predicates with a 'HasEquality' instance are needed whenever the
 -- '.=.' combiner is used.
@@ -241,7 +241,7 @@ instance Pretty Predicate where
 -- ATOM --
 ----------
 
-class (Ord atom, Pretty atom, HasFixity atom, IsPredicate predicate) => IsAtom atom predicate term | atom -> predicate term where
+class (Ord atom, Pretty atom, HasFixity atom, IsPredicate predicate term) => IsAtom atom predicate term | atom -> predicate term where
     makeAtom :: predicate -> [term] -> atom
     foldAtom :: (predicate -> [term] -> r) -> atom -> r
 
@@ -264,17 +264,17 @@ convertAtom cp ct = foldAtom (\p1 ts1 -> makeAtom (cp p1) (map ct ts1))
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord)
 
-instance (IsPredicate predicate, Show predicate, Show term) => Show (FOL predicate term) where
+instance (IsPredicate predicate term, Show predicate, Show term) => Show (FOL predicate term) where
     show (R p ts) = "makeAtom " ++ show p ++ " [" ++ intercalate ", " (map show ts) ++ "]"
 
-instance (IsPredicate predicate, Pretty term, Ord term) => IsAtom (FOL predicate term) predicate term where
+instance (IsPredicate predicate term, Pretty term, Ord term) => IsAtom (FOL predicate term) predicate term where
     makeAtom = R
     foldAtom f (R p ts) = f p ts
 
 -- | The type of the predicate determines how this atom is pretty
 -- printed - specifically, whether it is an instance of HasEquality.
 -- So we need to do some gymnastics to make this happen.
-instance (IsPredicate predicate, Pretty term, Ord term) => Pretty (FOL predicate term) where
+instance (IsPredicate predicate term, Pretty term, Ord term) => Pretty (FOL predicate term) where
 #if 1
     pPrint = foldAtom (\ p ts -> if pPrint p == text "="
                                  then error "illegal pretty printer for predicate"
@@ -506,7 +506,7 @@ instance (IsAtom atom predicate term, IsTerm term v function, HasFixity atom) =>
           _ -> foldPropositional co tf at fm
 
 instance (IsVariable v,
-          IsPredicate predicate,
+          IsPredicate predicate term,
           IsFunction function,
           formula ~ Formula v atom,
           atom ~ FOL predicate term,

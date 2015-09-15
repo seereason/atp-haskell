@@ -35,7 +35,6 @@ import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, isProperSubsetOf, member, Set, singleton, toAscList, union, unions)
 import Data.String (IsString(fromString))
-import Debug.Trace
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
