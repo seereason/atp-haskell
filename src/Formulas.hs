@@ -51,7 +51,7 @@ prettyBool False = text "⊭"
 -- |The class of formulas that can be negated.  There are some types
 -- that can be negated but do not support the other Boolean Logic
 -- operators, such as the 'IsLiteral' class.
-class IsNegatable formula where
+class Ord formula => IsNegatable formula where
     -- | Negate a formula in a naive fashion, the operators below
     -- prevent double negation.
     naiveNegate :: formula -> formula

@@ -75,7 +75,7 @@ instance HasBoolean (LFormula atom) where
     fromBool True = T
     fromBool False = F
 
-instance IsNegatable (LFormula atom) where
+instance Ord atom => IsNegatable (LFormula atom) where
     naiveNegate = Not
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x

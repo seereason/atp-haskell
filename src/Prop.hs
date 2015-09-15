@@ -193,12 +193,12 @@ instance HasBoolean (PFormula atom) where
     fromBool True = T
     fromBool False = F
 
-instance IsNegatable (PFormula atom) where
+instance Ord atom => IsNegatable (PFormula atom) where
     naiveNegate = Not
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 
-instance IsCombinable (PFormula atom) where
+instance Ord atom => IsCombinable (PFormula atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp

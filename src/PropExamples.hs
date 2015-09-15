@@ -88,7 +88,7 @@ conjoin :: forall formula atomic a. (IsPropositional formula atomic, Ord a) => (
 conjoin f l = list_conj (Set.map f l)
 
 -- | n-bit ripple carry adder with carry c(0) propagated in and c(n) out.  (p. 67)
-ripplecarry :: forall formula atomic a. (IsPropositional formula atomic, Ord a, Ord formula, Num a, Enum a) =>
+ripplecarry :: forall formula atomic a. (IsPropositional formula atomic, Ord a, Num a, Enum a) =>
                (a -> formula)
             -> (a -> formula)
             -> (a -> formula)

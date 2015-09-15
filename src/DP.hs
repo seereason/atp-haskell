@@ -79,8 +79,7 @@ resolve_on p clauses =
   let res0 = allpairs Set.union pos' neg' in
   Set.union other (Set.filter (not . trivial) res0)
 
-resolution_blowup :: forall formula. (IsNegatable formula, Ord formula) =>
-                     Set (Set formula) -> formula -> Int
+resolution_blowup :: IsNegatable formula => Set (Set formula) -> formula -> Int
 resolution_blowup cls l =
   let m = Set.size (Set.filter (Set.member l) cls)
       n = Set.size (Set.filter (Set.member ((.~.) l)) cls) in
@@ -131,8 +130,7 @@ dpll clauses =
                                 (Failure a, _) -> Failure a
                                 (_, Failure b) -> Failure b
 
-posneg_count :: forall formula. (IsNegatable formula, Ord formula) =>
-                Set (Set formula) -> formula -> Int
+posneg_count :: IsNegatable formula => Set (Set formula) -> formula -> Int
 posneg_count cls l =
   let m = Set.size(Set.filter (Set.member l) cls)
       n = Set.size(Set.filter (Set.member (negate l)) cls) in
@@ -170,13 +168,12 @@ dpli cls trail =
 
 data TrailMix = Guessed | Deduced deriving (Eq, Ord)
 
-unassigned :: forall formula. (IsNegatable formula, Ord formula) =>
-              Set (Set formula) -> Set (formula, TrailMix) -> Set formula
+unassigned :: IsNegatable formula => Set (Set formula) -> Set (formula, TrailMix) -> Set formula
 unassigned cls trail =
     Set.difference (flatten (Set.map (Set.map litabs) cls)) (Set.map (litabs . fst) trail)
     where litabs p = if negated p then negate p else p
 
-unit_subpropagate :: forall formula. (IsNegatable formula, Ord formula) =>
+unit_subpropagate :: IsNegatable formula =>
                      (Set (Set formula), Map.Map formula (), Set (formula, TrailMix))
                   -> (Set (Set formula), Map.Map formula (), Set (formula, TrailMix))
 unit_subpropagate (cls,fn,trail) =

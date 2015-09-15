@@ -334,12 +334,12 @@ instance HasBoolean (Formula v atom) where
     fromBool True = T
     fromBool False = F
 
-instance IsNegatable (Formula v atom) where
+instance (Ord v, Ord atom) => IsNegatable (Formula v atom) where
     naiveNegate = Not
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 
-instance IsCombinable (Formula v atom) where
+instance (Ord v, Ord atom) => IsCombinable (Formula v atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
