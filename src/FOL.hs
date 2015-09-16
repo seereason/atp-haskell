@@ -21,7 +21,7 @@ module FOL
     -- * Terms
     , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm
     -- * Predicates
-    , IsPredicate, HasEquality(equals)
+    , IsPredicate(prettyPredicateApplication), HasEquality(equals)
     -- * Atoms
     , IsAtom(makeAtom, foldAtom), convertAtom, zipAtoms, pApp , (.=.)
     -- * Quantifiers
@@ -204,7 +204,8 @@ test00 = TestCase $ assertEqual "print an expression"
 -- PREDICATE --
 ----------------
 
-class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate) => IsPredicate predicate term
+class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate, Show predicate) => IsPredicate predicate term where
+    prettyPredicateApplication :: predicate -> [term] -> Doc
 
 -- | Class of predicates that have an equality predicate.
 class HasEquality predicate where
@@ -219,7 +220,13 @@ data Predicate
     | Equals
     deriving (Eq, Ord, Show)
 
-instance IsPredicate Predicate (Term function v)
+instance (Pretty function, Pretty v) => IsPredicate Predicate (Term function v) where
+    prettyPredicateApplication Equals [a, b] =
+        pPrint a <> text "=" <> pPrint b
+    prettyPredicateApplication Equals _ts =
+        error "Arity mismatch for equals predicate"
+    prettyPredicateApplication p ts =
+        pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
 
 -- | Predicates with a 'HasEquality' instance are needed whenever the
 -- '.=.' combiner is used.
@@ -271,20 +278,8 @@ instance (IsPredicate predicate term, Pretty term, Ord term) => IsAtom (FOL pred
     makeAtom = R
     foldAtom f (R p ts) = f p ts
 
--- | The type of the predicate determines how this atom is pretty
--- printed - specifically, whether it is an instance of HasEquality.
--- So we need to do some gymnastics to make this happen.
 instance (IsPredicate predicate term, Pretty term, Ord term) => Pretty (FOL predicate term) where
-#if 1
-    pPrint = foldAtom (\ p ts -> if pPrint p == text "="
-                                 then error "illegal pretty printer for predicate"
-                                 else pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]")
-#else
-    pPrint = foldAtom f
-        where
-          f p [lhs, rhs] | pPrint p == text "=" = pPrint lhs <> text " .=. " <> pPrint rhs
-          f p ts = pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
-#endif
+    pPrint = foldAtom prettyPredicateApplication
 
 instance HasFixity (FOL predicate term) where
     fixity _ = Fixity 6 InfixN
