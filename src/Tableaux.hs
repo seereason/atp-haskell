@@ -16,7 +16,7 @@ module Tableaux
     ( unify_literals
     , prawitz
     , deepen
-    -- , tab
+    , tab
 #ifndef NOTESTS
     , tests
 #endif
@@ -283,17 +283,16 @@ tableau (fms, lits, n) cont (env, k) =
             Failure _ -> tableau (unexp, fm : lits, n) cont (env,k)
 
 tabrefute :: IsFirstOrder formula atom predicate term v function =>
-             [formula] -> Failing ((Map v term, Depth), Depth)
-tabrefute fms =
-  -- deepen (fun n -> tableau (fms,[],n) (fun x -> x) (undefined,0); n) 0;;
-  let r = deepen (\n -> (,n) <$> tableau (fms,[],n) (\x -> Success x) (Map.empty,0)) 0 (Just 5) in
-  failing Failure (Success . fst) r
+             Maybe Int -> [formula] -> Failing ((Map v term, Depth), Depth)
+tabrefute limit fms =
+    let r = deepen (\n -> (,n) <$> tableau (fms,[],n) (\x -> Success x) (Map.empty,0)) 0 limit in
+    failing Failure (Success . fst) r
 
 tab :: (IsFirstOrder formula atom predicate term v function, HasSkolem function v) =>
-       formula -> Failing ((Map v term, Depth), Depth)
-tab fm =
+       Maybe Int -> formula -> Failing ((Map v term, Depth), Depth)
+tab limit fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
-  if sfm == false then undefined else tabrefute [sfm]
+  if sfm == false then undefined else tabrefute limit [sfm]
 
 #ifndef NOTESTS
 p38 :: Test
@@ -315,7 +314,7 @@ p38 =
                       "   (_8, sKx), (_9, sKx)],",
                       "  19),",
                       " 4)"] in
-    TestCase $ assertEqual "p38, p. 178" expected (failing show prettyShow (tab fm))
+    TestCase $ assertEqual "p38, p. 178" expected (failing show prettyShow (tab Nothing fm))
 {-
 -- -------------------------------------------------------------------------
 -- Example.
@@ -339,7 +338,7 @@ END_INTERACTIVE;;
 splittab :: forall formula atom predicate term v function.
             (IsFirstOrder formula atom predicate term v function, HasSkolem function v) => formula -> [Failing ((Map v term, Depth), Depth)]
 splittab fm =
-  List.map tabrefute $ ssll (simpdnf id (runSkolem (askolemize((.~.)(generalize fm)))) :: Set (Set formula))
+  List.map (tabrefute Nothing) $ ssll (simpdnf id (runSkolem (askolemize((.~.)(generalize fm)))) :: Set (Set formula))
       where ssll :: Set (Set a) -> [[a]]
             ssll = List.map Set.toList . Set.toList
 
