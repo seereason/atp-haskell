@@ -22,6 +22,7 @@ module Tableaux
 #endif
     ) where
 
+import Control.Monad.RWS (RWS)
 import Data.List as List (intercalate, map)
 import Data.Map as Map
 import Data.Set as Set
@@ -40,7 +41,7 @@ import Skolem (askolemize, HasSkolem, runSkolem, skolemize)
 import Unif (unify)
 
 #ifndef NOTESTS
-import Test.HUnit
+import Test.HUnit hiding (State)
 import Skolem (MyTerm, MyFormula)
 #endif
 
@@ -238,17 +239,17 @@ instance Pretty Depth where
 tableau :: forall formula atom predicate function v term.
            IsFirstOrder formula atom predicate term v function =>
            ([formula], [formula], Depth)
-        -> ((K, Map v term) -> Failing (K, Map v term))
+        -> ((K, Map v term) -> RWS () () () (Failing (K, Map v term)))
         -> (K, Map v term)
-        -> Failing (K, Map v term)
+        -> RWS () () () (Failing (K, Map v term))
 tableau (fms, lits, n) cont (k, env) =
     case fms of
-      _ | n < Depth 0 -> Failure ["no proof at this level"]
-      [] -> Failure ["tableau: no proof"]
+      _ | n < Depth 0 -> return $ Failure ["no proof at this level"]
+      [] -> return $ Failure ["tableau: no proof"]
       (fm : unexp) ->
           foldQuantified qu co (\_ -> go fm unexp) (\_ -> go fm unexp) fm
           where
-            qu :: Quant -> v -> formula -> Failing (K, Map v term)
+            qu :: Quant -> v -> formula -> RWS () () () (Failing (K, Map v term))
             qu (:!:) x p =
                 let y = vt (fromString (prettyShow k))
                     p' = subst (x |=> y) p in
@@ -260,10 +261,13 @@ tableau (fms, lits, n) cont (k, env) =
                 tableau (p : unexp,lits,n) (tableau (q : unexp,lits,n) cont) (k, env)
             co _ = go fm unexp
     where
+      go :: formula -> [formula] -> RWS () () () (Failing (K, Map v term))
       go fm unexp =
-          case tryfind (\l -> unify_complements env fm l >>= \env -> cont (k, env)) lits of
-            Success r -> Success r
-            Failure _ -> tableau (unexp, fm : lits, n) cont (k, env)
+          tryfindM (tryLit fm) lits >>=
+          failing (\_ -> tableau (unexp, fm : lits, n) cont (k, env))
+                (return . Success)
+      tryLit :: formula -> formula -> RWS () () () (Failing (K, Map v term))
+      tryLit fm l = failing (return . Failure) (\env' -> cont (k, env')) (unify_complements env fm l)
 
 newtype K = K Int deriving (Eq, Ord, Show)
 
@@ -277,7 +281,7 @@ instance Pretty K where
 tabrefute :: IsFirstOrder formula atom predicate term v function =>
              Maybe Depth -> [formula] -> Failing ((K, Map v term), Depth)
 tabrefute limit fms =
-    let r = deepen (\n -> (,n) <$> tableau (fms,[],n) Success (K 0, Map.empty)) (Depth 0) limit in
+    let r = deepen (\n -> (,n) <$> evalRS (tableau (fms,[],n) (return . Success) (K 0, Map.empty)) () ()) (Depth 0) limit in
     failing Failure (Success . fst) r
 
 tab :: (IsFirstOrder formula atom predicate term v function, HasSkolem function v) =>

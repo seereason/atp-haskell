@@ -16,6 +16,8 @@ module Lib
     -- , itlist  -- same as foldr with last arguments flipped
     , tryfind
     , tryfindM
+    , runRS
+    , evalRS
     , settryfind
     -- , end_itlist -- same as foldr1
     , (|=>)
@@ -43,6 +45,7 @@ module Lib
     ) where
 
 import Control.Applicative.Error (Failing (Success, Failure))
+import Control.Monad.RWS (evalRWS, runRWS, RWS)
 import Data.Foldable as Foldable
 import Data.Function (on)
 import Data.Generics
@@ -388,6 +391,12 @@ tryfind f (h : t) = failing (\_ -> tryfind f t) Success (f h)
 tryfindM :: Monad m => (t -> m (Failing a)) -> [t] -> m (Failing a)
 tryfindM _ [] = return $ Failure ["tryfindM"]
 tryfindM f (h : t) = f h >>= failing (\_ -> tryfindM f t) (return . Success)
+
+evalRS :: RWS r () s a -> r -> s -> a
+evalRS action r s = fst $ evalRWS action r s
+
+runRS :: RWS r () s a -> r -> s -> (a, s)
+runRS action r s = (\(a, s', _w) -> (a, s')) $ runRWS action r s
 
 test02 :: Test
 test02 =
