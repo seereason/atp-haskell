@@ -7,6 +7,7 @@
 
 module Meson where
 
+import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
@@ -18,7 +19,7 @@ import Prop
 import Lit
 import FOL
 import Skolem (askolemize, HasSkolem, pnf, runSkolem, simpdnf', SkolemT, specialize, toSkolem)
-import Tableaux (deepen, unify_literals)
+import Tableaux (Depth(Depth), deepen, tab, unify_literals)
 import Prolog
 
 #ifndef NOTESTS
@@ -26,14 +27,44 @@ import Resolution (davis_putnam_example_formula)
 import Skolem (MyFormula, MyTerm)
 import Test.HUnit
 
+test00 :: Test
+test00 =
+    let [a, y, z] = List.map vt ["a", "y", "z"] :: [MyTerm]
+        [p, q, r] = List.map (pApp . fromString) ["P", "Q", "R"] :: [[MyTerm] -> MyFormula]
+        fm1 = for_all "a" ((.~.)(p[a] .&. (for_all "y" (for_all "z" (q[y] .|. r[z]) .&. (.~.)(p[a])))))
+        fm2 = for_all "a" ((.~.)(p[a] .&. (.~.)(p[a]) .&. (for_all "y" (for_all "z" (q[y] .|. r[z]))))) in
+    TestList
+    [ TestCase $ assertEqual ("MESON 1")
+                   ("∀a. (¬(P[a]∧∀y. (∀z. (Q[y]∨R[z])∧¬P[a])))", Success ((Map.empty,2),Depth 2))
+                   (prettyShow fm1, tab Nothing fm1),
+      TestCase $ assertEqual ("MESON 2")
+                   ("∀a. (¬(P[a]∧¬P[a]∧∀y. ∀z. (Q[y]∨R[z])))", Success ((Map.empty,0),Depth 0))
+                   (prettyShow fm2, tab Nothing fm2) ]
+
+{-
+START_INTERACTIVE;;
+tab <<forall a. ~(P(a) /\ (forall y z. Q(y) \/ R(z)) /\ ~P(a))>>;;
+
+tab <<forall a. ~(P(a) /\ ~P(a) /\ (forall y z. Q(y) \/ R(z)))>>;;
+
+(* ------------------------------------------------------------------------- *)
+(* The interesting example where tableaux connections make the proof longer. *)
+(* Unfortuntely this gets hammered by normalization first...                 *)
+(* ------------------------------------------------------------------------- *)
+
+tab <<~p /\ (p \/ q) /\ (r \/ s) /\ (~q \/ t \/ u) /\
+      (~r \/ ~t) /\ (~r \/ ~u) /\ (~q \/ v \/ w) /\
+      (~s \/ ~v) /\ (~s \/ ~w) ==> false>>;;
+END_INTERACTIVE;;
+-}
 -- -------------------------------------------------------------------------
 -- Example of naivety of tableau prover.
 -- -------------------------------------------------------------------------
 
 test01 :: Test
 test01 = TestLabel "Meson 1" $ TestCase $ assertEqual "meson dp example (p. 220)" expected input
-    where input = runSkolem (meson (Just 10) (davis_putnam_example_formula :: MyFormula))
-          expected :: Set (Failing ((Map V MyTerm, Int, Int), Int))
+    where input = runSkolem (meson (Just (Depth 10)) (davis_putnam_example_formula :: MyFormula))
+          expected :: Set (Failing ((Map V MyTerm, Int, Int), Depth))
           expected = Set.singleton (
                                     -- Success ((Map.empty, 0, 0), 8)
                                     Success ((Map.fromList [("_0",vt' "_6"),
@@ -51,7 +82,7 @@ test01 = TestLabel "Meson 1" $ TestCase $ assertEqual "meson dp example (p. 220)
                                                             ("_5",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
                                                             ("_7",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
                                                             ("_8",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
-                                                            ("_9",fApp (toSkolem "z") [vt' "_6",vt' "_7"])],0,18),8)
+                                                            ("_9",fApp (toSkolem "z") [vt' "_6",vt' "_7"])],0,18), Depth 8)
                                    )
           vt' = vt . fromString
 
@@ -158,7 +189,7 @@ mexpand :: (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom) =>
         -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
         -> (Map v term, Int, Int) -> Failing (Map v term, Int, Int)
 mexpand rules ancestors g cont (env,n,k) =
-    if n < 0
+    if fromEnum n < 0
     then Failure ["Too deep"]
     else case settryfind doAncestor ancestors of
            Success a -> Success a
@@ -169,7 +200,7 @@ mexpand rules ancestors g cont (env,n,k) =
              cont (mp, n, k)
       doRule rule =
           do mp <- unify_literals env g c
-             mexpand' (mp, n - Set.size asm, k')
+             mexpand' (mp, fromEnum n - Set.size asm, k')
           where
             mexpand' = Set.fold (mexpand rules (Set.insert g ancestors)) cont asm
             ((asm, c), k') = renamerule k rule
@@ -180,19 +211,19 @@ mexpand rules ancestors g cont (env,n,k) =
 
 puremeson :: forall fof atom predicate term v f.
              (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom) =>
-             Maybe Int -> fof -> Failing ((Map v term, Int, Int), Int)
+             Maybe Depth -> fof -> Failing ((Map v term, Int, Int), Depth)
 puremeson maxdl fm =
-    deepen f 0 maxdl
+    deepen f (Depth 0) maxdl
     where
-      f :: Int -> Failing (Map v term, Int, Int)
-      f n = mexpand rules (Set.empty :: Set fof) false return (Map.empty, n, 0)
+      f :: Depth -> Failing (Map v term, Int, Int)
+      f n = mexpand rules (Set.empty :: Set fof) false return (Map.empty, fromEnum n, 0)
       rules = Set.fold (Set.union . contrapositives) Set.empty cls
       cls = simpcnf id (specialize id (pnf fm) :: fof)
 
 meson :: forall m fof atom predicate term f v.
          (IsFirstOrder fof atom predicate term v f, IsPropositional fof atom, IsLiteral fof atom,
           HasSkolem f v, Monad m) =>
-         Maybe Int -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Int)))
+         Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
 meson maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
     return . Set.map (puremeson maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
@@ -646,5 +677,5 @@ END_INTERACTIVE;;
 -}
 
 tests :: Test
-tests = TestList [test01, test02]
+tests = TestList [test00, test01, test02]
 #endif
