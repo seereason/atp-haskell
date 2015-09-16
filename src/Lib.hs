@@ -15,6 +15,7 @@ module Lib
     -- , itlist2
     -- , itlist  -- same as foldr with last arguments flipped
     , tryfind
+    , tryfindM
     , settryfind
     -- , end_itlist -- same as foldr1
     , (|=>)
@@ -383,6 +384,10 @@ let repetitions =
 tryfind :: (t -> Failing a) -> [t] -> Failing a
 tryfind _ [] = Failure ["tryfind"]
 tryfind f (h : t) = failing (\_ -> tryfind f t) Success (f h)
+
+tryfindM :: Monad m => (t -> m (Failing a)) -> [t] -> m (Failing a)
+tryfindM _ [] = return $ Failure ["tryfindM"]
+tryfindM f (h : t) = f h >>= failing (\_ -> tryfindM f t) (return . Success)
 
 test02 :: Test
 test02 =
