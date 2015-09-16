@@ -15,7 +15,7 @@
 module Tableaux
     ( unify_literals
     , prawitz
-    , deepen, Depth(Depth)
+    , deepen, Depth(Depth), K(K)
     , tab
 #ifndef NOTESTS
     , tests
@@ -234,64 +234,54 @@ instance Enum Depth where
 instance Pretty Depth where
     pPrint = text . show
 
--- | More standard tableau procedure, effectively doing DNF incrementally.
-{-
-let rec tableau (fms,lits,n) cont (env,k) =
-  if n < 0 then failwith "no proof at this level" else
-  match fms with
-    [] -> failwith "tableau: no proof"
-  | And(p,q)::unexp ->
-      tableau (p::q::unexp,lits,n) cont (env,k)
-  | Or(p,q)::unexp ->
-      tableau (p::unexp,lits,n) (tableau (q::unexp,lits,n) cont) (env,k)
-  | Forall(x,p)::unexp ->
-      let y = Var("_" ^ string_of_int k) in
-      let p' = subst (x |=> y) p in
-      tableau (p'::unexp@[Forall(x,p)],lits,n-1) cont (env,k+1)
-  | fm::unexp ->
-      try tryfind (fun l -> cont(unify_complements env (fm,l),k)) lits
-      with Failure _ -> tableau (unexp,fm::lits,n) cont (env,k);;
--}
-tableau :: forall formula atom predicate function v term r.
+-- | More standard tableau procedure, effectively doing DNF incrementally.  (p. 177)
+tableau :: forall formula atom predicate function v term.
            IsFirstOrder formula atom predicate term v function =>
            ([formula], [formula], Depth)
-        -> ((Map v term, Int) -> Failing r)
-        -> (Map v term, Int)
-        -> Failing r
-tableau (fms, lits, n) cont (env, k) =
+        -> ((K, Map v term) -> Failing (K, Map v term))
+        -> (K, Map v term)
+        -> Failing (K, Map v term)
+tableau (fms, lits, n) cont (k, env) =
     case fms of
       _ | n < Depth 0 -> Failure ["no proof at this level"]
       [] -> Failure ["tableau: no proof"]
       (fm : unexp) ->
           foldQuantified qu co (\_ -> go fm unexp) (\_ -> go fm unexp) fm
           where
-            qu :: Quant -> v -> formula -> Failing r
+            qu :: Quant -> v -> formula -> Failing (K, Map v term)
             qu (:!:) x p =
-                let y = vt (fromString ("_" ++ show k))
+                let y = vt (fromString (prettyShow k))
                     p' = subst (x |=> y) p in
-                tableau ([p'] ++ unexp ++ [for_all x p],lits,pred n) cont (env,k+1)
+                tableau ([p'] ++ unexp ++ [for_all x p],lits,pred n) cont (succ k, env)
             qu _ _ _ = go fm unexp
             co (BinOp p (:&:) q) =
-                tableau (p : q : unexp,lits,n) cont (env,k)
+                tableau (p : q : unexp,lits,n) cont (k, env)
             co (BinOp p (:|:) q) =
-                tableau (p : unexp,lits,n) (tableau (q : unexp,lits,n) cont) (env,k)
+                tableau (p : unexp,lits,n) (tableau (q : unexp,lits,n) cont) (k, env)
             co _ = go fm unexp
     where
       go fm unexp =
-          -- try tryfind (fun l -> cont(unify_complements env (fm,l),k)) lits
-          -- with Failure _ -> tableau (unexp,fm::lits,n) cont (env,k);;
-          case tryfind (\l -> unify_complements env fm l >>= \x -> cont (x, k)) lits of
+          case tryfind (\l -> unify_complements env fm l >>= \env -> cont (k, env)) lits of
             Success r -> Success r
-            Failure _ -> tableau (unexp, fm : lits, n) cont (env,k)
+            Failure _ -> tableau (unexp, fm : lits, n) cont (k, env)
+
+newtype K = K Int deriving (Eq, Ord, Show)
+
+instance Enum K where
+    toEnum = K
+    fromEnum (K n) = n
+
+instance Pretty K where
+    pPrint (K n) = text ("K" ++ show n)
 
 tabrefute :: IsFirstOrder formula atom predicate term v function =>
-             Maybe Depth -> [formula] -> Failing ((Map v term, Int), Depth)
+             Maybe Depth -> [formula] -> Failing ((K, Map v term), Depth)
 tabrefute limit fms =
-    let r = deepen (\n -> (,n) <$> tableau (fms,[],n) (\x -> Success x) (Map.empty,0)) (Depth 0) limit in
+    let r = deepen (\n -> (,n) <$> tableau (fms,[],n) Success (K 0, Map.empty)) (Depth 0) limit in
     failing Failure (Success . fst) r
 
 tab :: (IsFirstOrder formula atom predicate term v function, HasSkolem function v) =>
-       Maybe Depth -> formula -> Failing ((Map v term, Int), Depth)
+       Maybe Depth -> formula -> Failing ((K, Map v term), Depth)
 tab limit fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
   if sfm == false then undefined else tabrefute limit [sfm]
@@ -309,13 +299,13 @@ p38 =
                ((.~.)(p[a]) .|. (.~.)(exists "y" (p[y] .&. r[x,y])) .|.
                (exists "z" (exists "w" (p[z] .&. r[x,w] .&. r[w,z]))))))
         expected = intercalate "\n"
-                     ["(([(_0, sKx), (_1, sKy), (_10, sKx), (_11, sKz [_13]),",
-                      "   (_12, sKw [_15]), (_13, sKx), (_14, sKy), (_15, sKx), (_16, sKy),",
-                      "   (_17, sKx), (_18, sKy), (_2, sKz [_0]), (_3, sKw [_0]),",
-                      "   (_4, sKz [_0]), (_5, sKw [_0]), (_6, sKz [_8]), (_7, sKw [_9]),",
-                      "   (_8, sKx), (_9, sKx)],",
-                      "  19),",
-                      " 4)"] in
+                     ["((K19,",
+                      "  [(K0, sKx), (K1, sKy), (K10, sKx), (K11, sKz [K13]),",
+                      "   (K12, sKw [K15]), (K13, sKx), (K14, sKy), (K15, sKx), (K16, sKy),",
+                      "   (K17, sKx), (K18, sKy), (K2, sKz [K0]), (K3, sKw [K0]),",
+                      "   (K4, sKz [K0]), (K5, sKw [K0]), (K6, sKz [K8]), (K7, sKw [K9]),",
+                      "   (K8, sKx), (K9, sKx)]),",
+                      " Depth 4)"] in
     TestCase $ assertEqual "p38, p. 178" expected (failing show prettyShow (tab Nothing fm))
 {-
 -- -------------------------------------------------------------------------
@@ -338,7 +328,7 @@ END_INTERACTIVE;;
 -- Try to split up the initial formula first; often a big improvement.
 -- -------------------------------------------------------------------------
 splittab :: forall formula atom predicate term v function.
-            (IsFirstOrder formula atom predicate term v function, HasSkolem function v) => formula -> [Failing ((Map v term, Int), Depth)]
+            (IsFirstOrder formula atom predicate term v function, HasSkolem function v) => formula -> [Failing ((K, Map v term), Depth)]
 splittab fm =
   List.map (tabrefute Nothing) $ ssll (simpdnf id (runSkolem (askolemize((.~.)(generalize fm)))) :: Set (Set formula))
       where ssll :: Set (Set a) -> [[a]]

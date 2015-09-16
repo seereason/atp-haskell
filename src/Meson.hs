@@ -19,7 +19,7 @@ import Prop
 import Lit
 import FOL
 import Skolem (askolemize, HasSkolem, pnf, runSkolem, simpdnf', SkolemT, specialize, toSkolem)
-import Tableaux (Depth(Depth), deepen, tab, unify_literals)
+import Tableaux (Depth(Depth), K(K), deepen, tab, unify_literals)
 import Prolog
 
 #ifndef NOTESTS
@@ -35,10 +35,10 @@ test00 =
         fm2 = for_all "a" ((.~.)(p[a] .&. (.~.)(p[a]) .&. (for_all "y" (for_all "z" (q[y] .|. r[z]))))) in
     TestList
     [ TestCase $ assertEqual ("MESON 1")
-                   ("∀a. (¬(P[a]∧∀y. (∀z. (Q[y]∨R[z])∧¬P[a])))", Success ((Map.empty,2),Depth 2))
+                   ("∀a. (¬(P[a]∧∀y. (∀z. (Q[y]∨R[z])∧¬P[a])))", Success ((K 2, Map.empty),Depth 2))
                    (prettyShow fm1, tab Nothing fm1),
       TestCase $ assertEqual ("MESON 2")
-                   ("∀a. (¬(P[a]∧¬P[a]∧∀y. ∀z. (Q[y]∨R[z])))", Success ((Map.empty,0),Depth 0))
+                   ("∀a. (¬(P[a]∧¬P[a]∧∀y. ∀z. (Q[y]∨R[z])))", Success ((K 0, Map.empty),Depth 0))
                    (prettyShow fm2, tab Nothing fm2) ]
 
 {-
