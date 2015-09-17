@@ -666,16 +666,16 @@ ran f = Set.fromList (foldlFn (\ a _x y -> y : a) [] f)
 -- Application.
 -- -------------------------------------------------------------------------
 
-applyD :: Ord k => Map.Map k a -> k -> a -> Map.Map k a
+applyD :: Ord k => Map k a -> k -> a -> Map k a
 applyD m k a = Map.insert k a m
 
-apply :: Ord k => Map.Map k a -> k -> Maybe a
+apply :: Ord k => Map k a -> k -> Maybe a
 apply m k = Map.lookup k m
 
-tryApplyD :: Ord k => Map.Map k a -> k -> a -> a
+tryApplyD :: Ord k => Map k a -> k -> a -> a
 tryApplyD m k d = fromMaybe d (Map.lookup k m)
 
-tryApplyL :: Ord k => Map.Map k [a] -> k -> [a]
+tryApplyL :: Ord k => Map k [a] -> k -> [a]
 tryApplyL m k = tryApplyD m k []
 {-
 applyD :: (t -> Maybe b) -> (t -> b) -> t -> b
@@ -691,7 +691,7 @@ tryApplyL :: (t -> Maybe [a]) -> t -> [a]
 tryApplyL f x = tryApplyD f x []
 -}
 
-defined :: Ord t => Map.Map t a -> t -> Bool
+defined :: Ord t => Map t a -> t -> Bool
 defined = flip Map.member
 
 -- | Undefinition.
@@ -799,24 +799,24 @@ let (|->),combine =
 -- Special case of point function.
 -- -------------------------------------------------------------------------
 
-(|=>) :: Ord k => k -> a -> Map.Map k a
+(|=>) :: Ord k => k -> a -> Map k a
 x |=> y = Map.fromList [(x, y)]
 
 -- -------------------------------------------------------------------------
 -- Idiom for a mapping zipping domain and range lists.
 -- -------------------------------------------------------------------------
 
-(|->) :: Ord k => k -> a -> Map.Map k a -> Map.Map k a
+(|->) :: Ord k => k -> a -> Map k a -> Map k a
 (|->) a b m = Map.insert a b m
 
-fpf :: Ord a => Map.Map a b -> a -> Maybe b
+fpf :: Ord a => Map a b -> a -> Maybe b
 fpf m a = Map.lookup a m
 
 -- -------------------------------------------------------------------------
 -- Grab an arbitrary element.
 -- -------------------------------------------------------------------------
 
-choose :: Map.Map k a -> (k, a)
+choose :: Map k a -> (k, a)
 choose = Map.findMin
 
 {-

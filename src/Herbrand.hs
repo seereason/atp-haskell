@@ -1,7 +1,16 @@
 -- | Relation between FOL and propositonal logic; Herbrand theorem.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
-{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, GADTs, MultiParamTypeClasses, OverloadedStrings, RankNTypes, ScopedTypeVariables #-}
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Herbrand where
 
 import Control.Applicative.Error (Failing(..))
@@ -9,14 +18,16 @@ import qualified Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace
-import Lib (allpairs, distrib)
+
 import DP (dpll)
 import FOL (IsFirstOrder, IsTerm, fApp, subst, fv, generalize, exists, for_all, pApp, vt)
 import Formulas ((.~.), overatoms, atomic, (.=>.), (.&.), (.|.))
+import Lib (allpairs, distrib)
 import Lit (IsLiteral)
 import Pretty (prettyShow)
 import Prop (IsPropositional, eval, trivial, simpcnf, simpdnf)
 import Skolem (Arity, functions, HasSkolem, runSkolem, skolemize)
+
 #ifndef NOTESTS
 import FOL (V)
 import Skolem (MyFormula, MyTerm)

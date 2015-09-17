@@ -65,13 +65,17 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
+import Prelude hiding (pred)
+
 import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), (.~.), true, false, IsCombinable(..), IsFormula(..), onatoms)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
 import Prop (IsPropositional(foldPropositional))
-import Prelude hiding (pred)
-import Pretty (Doc, Associativity(InfixN, InfixR, InfixA), HasFixity(fixity), Fixity(Fixity), parenthesize, Pretty(pPrint), prettyShow, text, rootFixity, Side(LHS, RHS, Unary), (<>))
+
+#ifndef NOTESTS
 import Test.HUnit
+import Pretty (Doc, Associativity(InfixN, InfixR, InfixA), HasFixity(fixity), Fixity(Fixity), parenthesize, Pretty(pPrint), prettyShow, text, rootFixity, Side(LHS, RHS, Unary), (<>))
+#endif
 
 ---------------
 -- VARIABLES --
@@ -491,6 +495,13 @@ exists :: IsQuantified formula atom v => v -> formula -> formula
 exists = quant (:?:)
 
 #ifndef NOTESTS
+-- | Concrete types for use in unit tests.
+type MyTerm = Term FName V
+type MyAtom = FOL Predicate MyTerm
+type MyFormula = Formula V MyAtom
+
+instance IsFirstOrder MyFormula MyAtom Predicate MyTerm V FName
+
 instance (IsAtom atom predicate term, IsTerm term v function, HasFixity atom) => IsQuantified (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
@@ -499,14 +510,6 @@ instance (IsAtom atom predicate term, IsTerm term v function, HasFixity atom) =>
           Forall v p -> qu (:!:) v p
           Exists v p -> qu (:?:) v p
           _ -> foldPropositional co tf at fm
-
-instance (IsVariable v,
-          IsPredicate predicate term,
-          IsFunction function,
-          formula ~ Formula v atom,
-          atom ~ FOL predicate term,
-          term ~ Term function v
-         ) => IsFirstOrder formula atom predicate term v function
 
 instance (IsAtom atom predicate term, IsTerm term v function, IsVariable v, HasFixity atom, Pretty atom, Pretty v
          ) => Pretty (Formula v atom) where
@@ -751,9 +754,6 @@ END_INTERACTIVE;;
 -}
 
 #ifndef NOTESTS
-type MyAtom = FOL Predicate (Term FName V)
-type MyFormula = Formula V MyAtom
-
 test01 :: Test
 test01 = TestCase $ assertEqual "holds bool test (p. 126)" expected input
     where input = holds bool_interp Map.empty (for_all  "x" (vt "x" .=. fApp "False" [] .|. vt "x" .=. fApp "True" []) :: MyFormula)

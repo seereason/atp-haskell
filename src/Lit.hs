@@ -3,6 +3,7 @@
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 module Lit
     ( IsLiteral(foldLiteral)
     , zipLiterals
@@ -12,9 +13,10 @@ module Lit
     ) where
 
 import Data.Monoid ((<>))
+import Prelude hiding (negate, null)
+
 import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms))
 import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), parenthesize, Pretty(pPrint), Side(Unary), text)
-import Prelude hiding (negate, null)
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- |forms.  They support negation and must include True and False elements.

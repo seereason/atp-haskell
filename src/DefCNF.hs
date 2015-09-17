@@ -25,19 +25,20 @@ module DefCNF
 #endif
     ) where
 
-import Formulas as P
-import Lit (IsLiteral)
-import Pretty (HasFixity(fixity), leafFixity)
-import Prop as P (IsPropositional, cnf', cnf_, foldPropositional, nenf, simpcnf, list_conj, list_disj)
-#ifndef NOTESTS
-import Prop (Prop(P), PFormula)
-#endif
 import Data.Function (on)
 import Data.List as List
 import Data.Map as Map hiding (fromList)
 import Data.Set as Set
+
+import Formulas as P
+import Lit (IsLiteral)
+import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
+import Prop as P (IsPropositional, cnf', foldPropositional, nenf, simpcnf, list_conj, list_disj)
+
+#ifndef NOTESTS
 import Test.HUnit
-import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
+import Prop (Prop(P), PFormula)
+#endif
 
 #ifndef NOTESTS
 -- | Example (p. 74)
@@ -111,8 +112,8 @@ mk_defcnf ca fn fm =
   Set.unions (List.map (simpcnf ca :: formula -> Set (Set lit)) (fm'' : deflist))
 
 #ifndef NOTESTS
-fm :: PFormula Atom
-fm = let (p, q, r, s) = (atomic (N "p" 0), atomic (N "q" 0), atomic (N "r" 0), atomic (N "s" 0)) in
+testfm :: PFormula Atom
+testfm = let (p, q, r, s) = (atomic (N "p" 0), atomic (N "q" 0), atomic (N "r" 0), atomic (N "s" 0)) in
      (p .|. (q .&. ((.~.) r))) .&. s
 
 -- Example.
@@ -124,7 +125,7 @@ END_INTERACTIVE;;
 
 test02 :: Test
 test02 =
-    let input = strings (mk_defcnf id maincnf fm :: Set (Set (PFormula Atom)))
+    let input = strings (mk_defcnf id maincnf testfm :: Set (Set (PFormula Atom)))
         expected = [["p_3"],
                     ["p_2","¬p"],
                     ["p_2","¬p_1"],
@@ -188,7 +189,7 @@ andcnf3 trip@(fm,_defs,_n) =
 #ifndef NOTESTS
 test03 :: Test
 test03 =
-    let input = strings (mk_defcnf id andcnf3 fm :: Set (Set (PFormula Atom)))
+    let input = strings (mk_defcnf id andcnf3 testfm :: Set (Set (PFormula Atom)))
         expected = [["p_2"],
                     ["s"],
                     ["p_2","¬p"],

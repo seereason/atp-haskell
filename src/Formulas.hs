@@ -1,9 +1,11 @@
 -- | Polymorphic type of formulas
+
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -Wall #-}
+
 module Formulas
     ( -- * True and False
       HasBoolean(asBool, fromBool), prettyBool
@@ -23,9 +25,8 @@ import Data.Data (Data)
 import Data.Set as Set (Set, empty, union)
 import Data.Typeable (Typeable)
 import Prelude hiding (negate)
-import Text.PrettyPrint.HughesPJClass (Doc, text)
 
-import Pretty (Pretty)
+import Pretty (Doc, Pretty, text)
 
 -- |Types that need to have True and False elements.
 class HasBoolean p where

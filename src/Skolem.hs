@@ -1,7 +1,16 @@
-{-# LANGUAGE CPP, FlexibleContexts, FunctionalDependencies, GADTs, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables #-}
 -- | Prenex and Skolem normal forms.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module Skolem
     ( -- * Simplify for predicate formulas
       simplify
@@ -75,6 +84,8 @@ simplify1 fm =
 type MyTerm = Term Function V
 type MyAtom = FOL Predicate MyTerm
 type MyFormula = Formula V MyAtom
+
+instance IsFirstOrder MyFormula MyAtom Predicate MyTerm V Function
 
 -- Example.
 test01 :: Test

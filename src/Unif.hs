@@ -17,10 +17,11 @@ module Unif
     ) where
 
 import Data.Bool (bool)
-import Lib (Failing)
-import FOL (IsTerm(..), tsubst)
 import Data.List as List (map)
 import Data.Map as Map
+
+import Lib (Failing)
+import FOL (IsTerm(..), tsubst)
 #ifndef NOTESTS
 import Skolem (MyTerm)
 import Test.HUnit
@@ -41,7 +42,7 @@ unify env ((a,b):oth) =
           then unify env (zip fargs gargs ++ oth)
           else fail "impossible unification"
 
-istriv :: IsTerm term v f => Map.Map v term -> v -> term -> Failing Bool
+istriv :: IsTerm term v f => Map v term -> v -> term -> Failing Bool
 istriv env x t =
     foldTerm vr fn t
     where

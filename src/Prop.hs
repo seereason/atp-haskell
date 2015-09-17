@@ -64,6 +64,9 @@ import Data.Map as Map (Map)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map, minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
+import Prelude hiding (negate, null)
+import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
+
 import Formulas (atom_union,
                  HasBoolean(fromBool, asBool), true, false,
                  IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive,
@@ -72,11 +75,8 @@ import Formulas (atom_union,
                  IsFormula(atomic, overatoms, onatoms), onatoms)
 import Lib (distrib, fpf, (|=>), setAny)
 import Lit (IsLiteral(foldLiteral))
-import Pretty (Fixity(Fixity), Associativity(InfixN, InfixR, InfixA), HasFixity(fixity),
-              leafFixity, parenthesize, rootFixity, Side(LHS, RHS, Unary))
-import Prelude hiding (negate, null)
-import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
-import Text.PrettyPrint.HughesPJClass hiding ((<>))
+import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
+              leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
@@ -895,7 +895,7 @@ simpcnf ca fm =
       go = let cjs = Set.filter (not . trivial) (purecnf ca fm) in
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
-cnf_ :: forall pf atom lit atom2. (IsPropositional pf atom, IsLiteral lit atom2) => (atom2 -> atom) -> Set (Set.Set lit) -> pf
+cnf_ :: forall pf atom lit atom2. (IsPropositional pf atom, IsLiteral lit atom2) => (atom2 -> atom) -> Set (Set lit) -> pf
 cnf_ ca = list_conj . Set.map (list_disj . Set.map (propositionalFromLiteral ca))
 
 cnf' :: IsPropositional formula atom => formula -> formula

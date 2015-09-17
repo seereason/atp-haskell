@@ -1,5 +1,11 @@
-{-# LANGUAGE CPP, FlexibleContexts, GADTs, ScopedTypeVariables #-}
+-- | Backchaining procedure for Horn clauses, and toy Prolog implementation.
+
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall #-}
+
 module Prolog where
 
 import Data.List as List (map)
@@ -12,10 +18,7 @@ import Test.HUnit
 
 import Prop (list_conj)
 import FOL (IsFirstOrder, fv, vt, subst)
-
--- =========================================================================
--- Backchaining procedure for Horn clauses, and toy Prolog implementation.
--- =========================================================================
+import Tableaux (deepen)
 
 -- -------------------------------------------------------------------------
 -- Rename a rule.

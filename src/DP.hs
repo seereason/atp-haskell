@@ -2,7 +2,11 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, ScopedTypeVariables #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module DP
     ( dpll
     , dpllsat
@@ -17,15 +21,15 @@ module DP
 
 import Data.Map as Map
 import Data.Set as Set
+import Prelude hiding (negate, pure)
+import Test.HUnit
+
 import DefCNF hiding (tests)
--- import FOL (Formula)
 import Formulas
 import Lib hiding (tests)
 import Lit
-import Prelude hiding (negate, pure)
 import Prop hiding (tests)
 import PropExamples (prime, Knows(K))
-import Test.HUnit
 
 instance NumAtom (Knows Integer) where
     ma n = K "p" n Nothing
@@ -174,8 +178,8 @@ unassigned cls trail =
     where litabs p = if negated p then negate p else p
 
 unit_subpropagate :: IsNegatable formula =>
-                     (Set (Set formula), Map.Map formula (), Set (formula, TrailMix))
-                  -> (Set (Set formula), Map.Map formula (), Set (formula, TrailMix))
+                     (Set (Set formula), Map formula (), Set (formula, TrailMix))
+                  -> (Set (Set formula), Map formula (), Set (formula, TrailMix))
 unit_subpropagate (cls,fn,trail) =
   let cls' = Set.map (Set.filter (not . defined fn . negate)) cls in
   let uu cs =

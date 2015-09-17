@@ -22,16 +22,16 @@ module PropExamples
 #endif
     ) where
 
-import Formulas
-import Lib (allsets)
-import Pretty (HasFixity(fixity), leafFixity, prettyShow)
-import Prop hiding (tests)
 import Data.Bits (Bits, shiftR)
 import Data.List as List (map)
 import Data.Set as Set
 import Prelude hiding (sum)
 import Test.HUnit
-import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
+
+import Formulas
+import Lib (allsets)
+import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
+import Prop hiding (tests)
 
 -- | Generate assertion equivalent to R(s,t) <= n for the Ramsey number R(s,t)
 ramsey :: forall formula atom.
