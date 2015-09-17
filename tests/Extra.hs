@@ -7,7 +7,7 @@ import Data.Map as Map (fromList)
 import Data.Set as Set (fromList, map, Set)
 import Test.HUnit
 
-import FOL (vt, fApp, (.=.), pApp, for_all, exists, IsAtom(makeAtom), Predicate(Equals))
+import FOL (vt, fApp, (.=.), pApp, for_all, exists, HasPredicate(applyPredicate), Predicate(Equals))
 import Formulas
 import Lib (failing)
 import Meson (meson)
@@ -25,13 +25,13 @@ test06 =
         fm = for_all "x" (vt "x" .=. vt "x") .=>. for_all "x" (exists "y" (vt "x" .=. vt "y"))
         expected :: MyFormula
         expected =  (vt "x" .=. vt "x") .&. ((.~.) (fApp (toSkolem "x") [] .=. vt "x"))
-        -- atoms = [makeAtom equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x")[]) .=. (vt "x")-}] :: [MyAtom]
+        -- atoms = [applyPredicate equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x")[]) .=. (vt "x")-}] :: [MyAtom]
         sk = runSkolem (skolemize id ((.~.) fm)) :: MyFormula
         table = truthTable sk :: TruthTable MyAtom in
     TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y"
                            (expected,
                             TruthTable
-                              [makeAtom Equals [vt "x", vt "x"], makeAtom Equals [fApp (toSkolem "x")[], vt "x"]]
+                              [applyPredicate Equals [vt "x", vt "x"], applyPredicate Equals [fApp (toSkolem "x")[], vt "x"]]
                               [([False,False],False),
                                ([False,True],False),
                                ([True,False],True),

@@ -69,6 +69,7 @@ import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 
 import Formulas (atom_union,
                  HasBoolean(fromBool, asBool), true, false,
+                 IsAtom,
                  IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
@@ -175,6 +176,8 @@ instance Pretty Prop where
 instance HasFixity Prop where
     fixity _ = leafFixity
 
+instance IsAtom Prop
+
 data PFormula atom
     = F
     | T
@@ -227,7 +230,7 @@ instance HasFixity atom => HasFixity (PFormula atom) where
     fixity (Imp _ _) = Fixity 2 InfixR
     fixity (Iff _ _) = Fixity 1 InfixA
 
-instance (Ord atom, Pretty atom, HasFixity atom) => IsFormula (PFormula atom) atom where
+instance IsAtom atom => IsFormula (PFormula atom) atom where
     atomic = Atom
     overatoms f fm b =
       case fm of
@@ -248,7 +251,7 @@ instance (Ord atom, Pretty atom, HasFixity atom) => IsFormula (PFormula atom) at
         Iff p q -> Iff (onatoms f p) (onatoms f q)
         _ -> fm
 
-instance (Pretty atom, HasFixity atom, Ord atom) => IsPropositional (PFormula atom) atom where
+instance IsAtom atom => IsPropositional (PFormula atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -260,7 +263,7 @@ instance (Pretty atom, HasFixity atom, Ord atom) => IsPropositional (PFormula at
           Imp p q -> co (BinOp p (:=>:) q)
           Iff p q -> co (BinOp p (:<=>:) q)
 
-instance (Ord atom, Pretty atom, HasFixity atom) => IsLiteral (PFormula atom) atom where
+instance IsAtom atom => IsLiteral (PFormula atom) atom where
     foldLiteral ne tf at fm =
         case fm of
           T -> tf True
@@ -272,7 +275,7 @@ instance (Ord atom, Pretty atom, HasFixity atom) => IsLiteral (PFormula atom) at
           Imp _ _ -> error "Imp in Literal"
           Iff _ _ -> error "IFF in Literal"
 
-instance (Pretty atom, HasFixity atom, Ord atom) => Pretty (PFormula atom) where
+instance IsAtom atom => Pretty (PFormula atom) where
     pPrint fm = prettyPropositional rootFixity Unary fm
 #endif
 
@@ -289,6 +292,8 @@ truthTable fm =
       atl = Set.toAscList ats
 
 #ifndef NOTESTS
+instance IsAtom String
+
 test00 :: Test
 test00 = TestCase $ assertEqual "parenthesization" expected input
     where (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))

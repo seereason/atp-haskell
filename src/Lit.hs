@@ -8,14 +8,13 @@ module Lit
     ( IsLiteral(foldLiteral)
     , zipLiterals
     , prettyLit
-    -- , foldAtomsLiteral
     , LFormula(T, F, Atom, Not)
     ) where
 
 import Data.Monoid ((<>))
 import Prelude hiding (negate, null)
 
-import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms))
+import Formulas (HasBoolean(..), IsAtom, IsNegatable(..), IsFormula(atomic, overatoms, onatoms))
 import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), parenthesize, Pretty(pPrint), Side(Unary), text)
 
 -- | Literals are the building blocks of the clause and implicative normal
@@ -50,19 +49,6 @@ prettyLit pa pv pfix lit =
       tf = pPrint
       at x = pa (fixity x {-Fixity 6 InfixN-}) x
 
-{-
-fixityLiteral :: (IsLiteral lit atom, HasFixity lit, HasFixity atom) => lit -> Fixity
-fixityLiteral formula =
-    foldLiteral neg tf at formula
-    where
-      neg _ = Fixity 5 InfixN
-      tf _ = Fixity 10 InfixN
-      at = fixity
--}
-
--- foldAtomsLiteral :: IsLiteral lit atom => (r -> atom -> r) -> r -> lit -> r
--- foldAtomsLiteral f i lit = overatoms (flip f) lit i
-
 data LFormula atom
     = F
     | T
@@ -82,7 +68,7 @@ instance Ord atom => IsNegatable (LFormula atom) where
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 
-instance (Ord atom, Pretty atom) => IsFormula (LFormula atom) atom where
+instance IsAtom atom => IsFormula (LFormula atom) atom where
     atomic = Atom
     overatoms f fm b =
         case fm of
@@ -95,7 +81,7 @@ instance (Ord atom, Pretty atom) => IsFormula (LFormula atom) atom where
           Not p -> Not (onatoms f p)
           _ -> fm
 
-instance (Ord atom, Pretty atom) => IsLiteral (LFormula atom) atom where
+instance IsAtom atom => IsLiteral (LFormula atom) atom where
     foldLiteral ne tf at lit =
         case lit of
           F -> tf False
@@ -103,7 +89,7 @@ instance (Ord atom, Pretty atom) => IsLiteral (LFormula atom) atom where
           Atom a -> at a
           Not f -> ne f
 
-instance (Ord atom, Pretty atom) => Pretty (LFormula atom) where
+instance IsAtom atom => Pretty (LFormula atom) where
     pPrint fm =
         foldLiteral ne tf at fm
         where

@@ -65,7 +65,7 @@ test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p
 
 -- | MGU of a set of literals.
 mgu :: forall lit atom predicate term v function.
-       (IsLiteral lit atom, IsAtom atom predicate term, IsTerm term v function) =>
+       (IsLiteral lit atom, HasPredicate atom predicate term, IsTerm term v function) =>
        Set lit -> Map v term -> Failing (Map v term)
 mgu l env =
     case Set.minView l of
@@ -75,7 +75,7 @@ mgu l env =
             _ -> Success (solve env)
       _ -> Success (solve env)
 
-unifiable :: (IsLiteral lit atom, IsTerm term v function, IsAtom atom predicate term) =>
+unifiable :: (IsLiteral lit atom, IsTerm term v function, HasPredicate atom predicate term) =>
              lit -> lit -> Bool
 unifiable p q = failing (const False) (const True) (unify_literals Map.empty p q)
 
@@ -98,7 +98,7 @@ rename pfx cls =
 -- -------------------------------------------------------------------------
 
 resolvents :: (IsLiteral lit atom,
-               IsAtom atom predicate term,
+               HasPredicate atom predicate term,
                IsTerm term v function) =>
               Set lit -> Set lit -> lit -> Set lit -> Set lit
 resolvents cl1 cl2 p acc =
@@ -198,7 +198,7 @@ term_match env ((p, q) : oth) =
 
 match_literals :: forall lit term function v atom predicate.
                   (IsLiteral lit atom,
-                   IsAtom atom predicate term,
+                   HasPredicate atom predicate term,
                    IsTerm term v function) =>
                   Map v term -> lit -> lit -> Failing (Map v term)
 match_literals env t1 t2 =
@@ -206,7 +206,7 @@ match_literals env t1 t2 =
     where
       ne p q = Just $ match_literals env p q
       tf a b = if a == b then Just (Success env) else Nothing
-      at a1 a2 = zipAtoms (\_ pairs -> Just (term_match env pairs)) a1 a2
+      at a1 a2 = zipPredicates (\_ pairs -> Just (term_match env pairs)) a1 a2
 
 -- -------------------------------------------------------------------------
 -- Test for subsumption
@@ -215,7 +215,7 @@ match_literals env t1 t2 =
 subsumes_clause :: forall lit term function v atom predicate.
                    (IsLiteral lit atom,
                     IsTerm term v function,
-                    IsAtom atom predicate term) =>
+                    HasPredicate atom predicate term) =>
                    Set lit -> Set lit -> Bool
 subsumes_clause cls1 cls2 =
     failing (const False) (const True) (subsume Map.empty cls1)
@@ -233,7 +233,7 @@ subsumes_clause cls1 cls2 =
 replace :: forall lit term function v atom predicate.
            (IsLiteral lit atom,
             IsTerm term v function,
-            IsAtom atom predicate term) =>
+            HasPredicate atom predicate term) =>
            Set lit
         -> Set (Set lit)
         -> Set (Set lit)
@@ -246,7 +246,7 @@ replace cl st =
 
 incorporate :: forall lit term function v atom predicate.
                (IsLiteral lit atom,
-                IsAtom atom predicate term,
+                HasPredicate atom predicate term,
                 IsTerm term v function) =>
                Set lit
             -> Set lit

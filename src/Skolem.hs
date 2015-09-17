@@ -47,7 +47,7 @@ import Data.String (IsString(fromString))
 import Test.HUnit
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), prettyShow, text)
 
-import FOL (exists, for_all, Quant((:?:), (:!:)), quant, foldAtom, IsTerm, fApp, variant, subst, foldTerm, propositionalFromFirstOrder, IsQuantified(foldQuantified), IsFirstOrder, IsFunction, fv, pApp, vt)
+import FOL (exists, for_all, Quant((:?:), (:!:)), quant, foldPredicate, IsTerm, fApp, variant, subst, foldTerm, propositionalFromFirstOrder, IsQuantified(foldQuantified), IsFirstOrder, IsFunction, fv, pApp, vt)
 #ifndef NOTESTS
 import FOL (Formula, Term, V, FOL, Predicate)
 #endif
@@ -214,7 +214,7 @@ functions fm =
       qu _ _ p = functions p
       co ((:~:) p) = functions p
       co (BinOp p _ q) = functions p <> functions q
-      at = foldAtom (\_ ts -> unions (map funcs ts))
+      at = foldPredicate (\_ ts -> unions (map funcs ts))
 
 funcs :: IsTerm term v function => term -> Set (function, Arity)
 funcs term = foldTerm (\_ -> Set.empty) (\f ts -> Set.singleton (f, length ts)) term

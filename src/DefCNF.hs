@@ -55,6 +55,8 @@ class NumAtom atom where
 
 data Atom = N String Integer deriving (Eq, Ord, Show)
 
+instance IsAtom Atom
+
 instance Pretty Atom where
     pPrint (N s n) = text (s ++ if n == 0 then "" else show n)
 

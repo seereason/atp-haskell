@@ -46,6 +46,8 @@ ramsey s t n =
 
 data Knows a = K String a (Maybe a) deriving (Eq, Ord, Show)
 
+instance IsAtom (Knows Integer)
+
 instance Pretty (Knows Integer) where
     pPrint (K s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
 

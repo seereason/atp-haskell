@@ -48,7 +48,7 @@ import Skolem (MyTerm, MyFormula)
 -- | Unify literals (just pretend the toplevel relation is a function).
 unify_literals :: forall lit atom term predicate v function.
                   (IsLiteral lit atom,
-                   IsAtom atom predicate term,
+                   HasPredicate atom predicate term,
                    IsTerm term v function) =>
                   Map v term -> lit -> lit -> Failing (Map v term)
 unify_literals env f1 f2 =
@@ -61,11 +61,11 @@ unify_literals env f1 f2 =
       err = Failure ["Can't unify literals"]
 
 unify_atoms :: forall atom term predicate v function.
-               (IsAtom atom predicate term,
+               (HasPredicate atom predicate term,
                 IsTerm term v function) =>
                Map v term -> atom -> atom -> Failing (Map v term)
 unify_atoms env a1 a2 =
-    let r = zipAtoms (\_ tpairs -> Just (unify env tpairs)) a1 a2 in
+    let r = zipPredicates (\_ tpairs -> Just (unify env tpairs)) a1 a2 in
     maybe (Failure ["unify_atoms"]) id r
 {-
 unifyAtomsEq :: forall v function atom p term.
@@ -86,14 +86,14 @@ unifyAtomsEq env a1 a2 =
 -- | Unify complementary literals.
 unify_complements :: forall lit atom term predicate v function.
                      (IsLiteral lit atom,
-                      IsAtom atom predicate term,
+                      HasPredicate atom predicate term,
                       IsTerm term v function) =>
                      Map v term -> lit -> lit -> Failing (Map v term)
 unify_complements env p q = unify_literals env p ((.~.) q)
 
 -- | Unify and refute a set of disjuncts.
 unify_refute :: (IsLiteral lit atom,
-                 IsAtom atom predicate term,
+                 HasPredicate atom predicate term,
                  IsTerm term v function) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
@@ -108,7 +108,7 @@ unify_refute djs env =
 -- | Hence a Prawitz-like procedure (using unification on DNF).
 prawitz_loop :: forall atom v term predicate function lit.
                 (IsLiteral lit atom,
-                 IsAtom atom predicate term,
+                 HasPredicate atom predicate term,
                  IsTerm term v function) =>
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
