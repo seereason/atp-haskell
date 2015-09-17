@@ -211,7 +211,7 @@ test00 = TestCase $ assertEqual "print an expression"
 
 class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate, Show predicate,
        Ord term, Pretty term) => IsPredicate predicate term where
-    prettyPredicateApplication :: Fixity -> Side -> predicate -> [term] -> Doc
+    prettyPredicateApplication :: predicate -> [term] -> Doc
 
 -- | Class of predicates that have an equality predicate.
 class HasEquality predicate where
@@ -227,11 +227,11 @@ data Predicate
     deriving (Eq, Ord, Show)
 
 instance (IsFunction function, IsVariable v) => IsPredicate Predicate (Term function v) where
-    prettyPredicateApplication fix side Equals [a, b] =
-        pPrint {-fix LHS-} a <> text "=" <> pPrint {-fix RHS-} b
-    prettyPredicateApplication _ _ Equals _ts =
+    prettyPredicateApplication Equals [a, b] =
+        pPrint a <> text "=" <> pPrint b
+    prettyPredicateApplication Equals _ts =
         error "Arity mismatch for equals predicate"
-    prettyPredicateApplication _ _ p ts =
+    prettyPredicateApplication p ts =
         pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
 
 -- | Predicates with a 'HasEquality' instance are needed whenever the
@@ -279,7 +279,7 @@ data FOL predicate term = R predicate [term] deriving (Eq, Ord)
 
 instance (IsPredicate predicate term) => IsAtom (FOL predicate term) where
     prettyAtom fix side a =
-        foldPredicate (prettyPredicateApplication fix side) a
+        foldPredicate prettyPredicateApplication a
 
 {-
 instance (IsPredicate predicate term, Pretty term, Ord term) => Pretty (FOL predicate term) where
@@ -320,6 +320,18 @@ a .=. b = atomic (applyPredicate equals [a, b])
 
 infix 5 .=. -- , .!=., ≡, ≢
 
+class (IsPropositional formula atom, IsVariable v) => IsQuantified formula atom v | formula -> atom v where
+    quant :: Quant -> v -> formula -> formula
+    foldQuantified :: (Quant -> v -> formula -> r)
+                   -> (Combination formula -> r)
+                   -> (Bool -> r)
+                   -> (atom -> r)
+                   -> formula -> r
+
+-- |Combine IsFirstOrder, HasPredicate, IsTerm
+class (IsQuantified formula atom v, HasPredicate atom predicate term, IsTerm term v function, Show v
+      ) => IsFirstOrder formula atom predicate term v function
+
 #ifndef NOTESTS
 data Formula v atom
     = F
@@ -333,6 +345,10 @@ data Formula v atom
     | Forall v (Formula v atom)
     | Exists v (Formula v atom)
     deriving (Eq, Ord, Read)
+
+instance (HasPredicate atom predicate term, IsTerm term v function,
+          IsVariable v, HasFixity atom, Pretty v) => Pretty (Formula v atom) where
+    pPrint = prettyFormula rootFixity Unary
 
 instance HasBoolean (Formula v atom) where
     asBool T = Just True
@@ -352,7 +368,14 @@ instance (Ord v, Ord atom) => IsCombinable (Formula v atom) where
     (.=>.) = Imp
     (.<=>.) = Iff
 
--- Display formulas using infix notation
+instance (HasPredicate atom predicate term, IsTerm term v function) => IsQuantified (Formula v atom) atom v where
+    quant (:!:) = Forall
+    quant (:?:) = Exists
+    foldQuantified qu co tf at (Forall v fm) = qu (:!:) v fm
+    foldQuantified qu co tf at (Exists v fm) = qu (:?:) v fm
+    foldQuantified qu co tf at fm = foldPropositional co tf at fm
+
+-- Build a Haskell expression for this formula
 instance (Show atom, Show v) => Show (Formula v atom) where
     show F = "false"
     show T = "true"
@@ -365,6 +388,7 @@ instance (Show atom, Show v) => Show (Formula v atom) where
     show (Forall v f) = "(for_all " ++ show v ++ " " ++ show f ++ ")"
     show (Exists v f) = "(exists " ++ show v ++ " " ++ show f ++ ")"
 
+-- Precedence information for Formula
 instance HasFixity atom => HasFixity (Formula v atom) where
     fixity T = Fixity 10 InfixN
     fixity F = Fixity 10 InfixN
@@ -377,6 +401,7 @@ instance HasFixity atom => HasFixity (Formula v atom) where
     fixity (Forall _ _) = Fixity 9 InfixR
     fixity (Exists _ _) = Fixity 9 InfixR
 
+-- The IsFormula instance for Formula
 instance (HasPredicate atom predicate term, IsTerm term v function, Ord v, Ord atom) => IsFormula (Formula v atom) atom where
     atomic = Atom
     overatoms f fm b =
@@ -415,7 +440,6 @@ instance (HasPredicate atom predicate term, IsTerm term v function, Ord v, Ord a
           tf = pPrint
           at = prettyAtom pfix side
 
-
 instance (HasPredicate atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional co tf at fm =
         case fm of
@@ -448,18 +472,6 @@ instance (HasPredicate atom predicate term, IsTerm term v function) => IsLiteral
           Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
           Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
 #endif
-
-class (IsPropositional formula atom, IsVariable v) => IsQuantified formula atom v | formula -> atom v where
-    quant :: Quant -> v -> formula -> formula
-    foldQuantified :: (Quant -> v -> formula -> r)
-                   -> (Combination formula -> r)
-                   -> (Bool -> r)
-                   -> (atom -> r)
-                   -> formula -> r
-
--- |Combine IsFirstOrder, HasPredicate, IsTerm
-class (IsQuantified formula atom v, HasPredicate atom predicate term, IsTerm term v function, Show v
-      ) => IsFirstOrder formula atom predicate term v function
 
 -- | Combine two formulas if they are similar.
 zipFirstOrder :: IsQuantified formula atom v =>
@@ -523,19 +535,6 @@ type MyAtom = FOL Predicate MyTerm
 type MyFormula = Formula V MyAtom
 
 instance IsFirstOrder MyFormula MyAtom Predicate MyTerm V FName
-
-instance (HasPredicate atom predicate term, IsTerm term v function, HasFixity atom) => IsQuantified (Formula v atom) atom v where
-    quant (:!:) = Forall
-    quant (:?:) = Exists
-    foldQuantified qu co tf at fm =
-        case fm of
-          Forall v p -> qu (:!:) v p
-          Exists v p -> qu (:?:) v p
-          _ -> foldPropositional co tf at fm
-
-instance (HasPredicate atom predicate term, IsTerm term v function, IsVariable v, HasFixity atom, Pretty v
-         ) => Pretty (Formula v atom) where
-    pPrint = prettyFormula rootFixity Unary
 #endif
 
 -- | Special case of applying a subfunction to the top *terms*.
