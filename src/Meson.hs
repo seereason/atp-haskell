@@ -41,10 +41,10 @@ test00 =
     TestList
     [ TestCase $ assertEqual ("MESON 1")
                    ("∀a. (¬(P[a]∧∀y. (∀z. (Q[y]∨R[z])∧¬P[a])))", Success ((K 2, Map.empty),Depth 2))
-                   (prettyShow' fm1, tab Nothing fm1),
+                   (prettyShow fm1, tab Nothing fm1),
       TestCase $ assertEqual ("MESON 2")
                    ("∀a. (¬(P[a]∧¬P[a]∧∀y. ∀z. (Q[y]∨R[z])))", Success ((K 0, Map.empty),Depth 0))
-                   (prettyShow' fm2, tab Nothing fm2) ]
+                   (prettyShow fm2, tab Nothing fm2) ]
 
 {-
 START_INTERACTIVE;;
@@ -95,26 +95,26 @@ test02 :: Test
 test02 =
     TestLabel "Meson 2" $
     TestList [TestCase (assertEqual "meson dp example, step 1 (p. 220)"
-                                    (prettyShow' (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
+                                    (prettyShow (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
                                                                                   (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z]))))))))
-                                    (prettyShow' davis_putnam_example_formula)),
+                                    (prettyShow davis_putnam_example_formula)),
               TestCase (assertEqual "meson dp example, step 2 (p. 220)"
-                                    (prettyShow' (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
+                                    (prettyShow (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
                                                                                   (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z]))))))))
-                                    (prettyShow' (generalize davis_putnam_example_formula))),
+                                    (prettyShow (generalize davis_putnam_example_formula))),
               TestCase (assertEqual "meson dp example, step 3 (p. 220)"
-                                    (prettyShow' ((.~.)(exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
+                                    (prettyShow ((.~.)(exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
                                                                                         (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z]))))))) :: MyFormula))
-                                    (prettyShow' ((.~.) (generalize davis_putnam_example_formula)))),
+                                    (prettyShow ((.~.) (generalize davis_putnam_example_formula)))),
               TestCase (assertEqual "meson dp example, step 4 (p. 220)"
-                                    (prettyShow' (for_all "x" . for_all "y" $
+                                    (prettyShow (for_all "x" . for_all "y" $
                                              f[x,y] .&.
                                              ((.~.)(f[y, sk1[x, y]]) .|. ((.~.)(f[sk1[x,y], sk1[x, y]]))) .|.
                                              (f[x,y] .&. g[x,y]) .&.
                                              (((.~.)(g[x,sk1[x,y]])) .|. ((.~.)(g[sk1[x,y], sk1[x,y]])))))
-                                    (prettyShow' (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula))) :: MyFormula))),
+                                    (prettyShow (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula))) :: MyFormula))),
               TestCase (assertEqual "meson dp example, step 5 (p. 220)"
-                                    (Set.map (Set.map prettyShow')
+                                    (Set.map (Set.map prettyShow)
                                      (Set.fromList
                                       [Set.fromList [for_all "x" . for_all "y" $
                                                      f[x,y] .&.
@@ -128,9 +128,9 @@ test02 =
       (F(x,y) /\ G(x,y)) /\
       (~G(x,f_z(x,y)) \/ ~G(f_z(x,y),f_z(x,y))) >>]]
 -}
-                                    (Set.map (Set.map prettyShow') (simpdnf' (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula))) :: MyFormula) :: Set (Set MyFormula)))),
+                                    (Set.map (Set.map prettyShow) (simpdnf' (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula))) :: MyFormula) :: Set (Set MyFormula)))),
               TestCase (assertEqual "meson dp example, step 6 (p. 220)"
-                                    (Set.map prettyShow'
+                                    (Set.map prettyShow
                                      (Set.fromList [for_all "x" . for_all "y" $
                                                     f[x,y] .&.
                                                     ((.~.)(f[y, sk1[x, y]]) .|. ((.~.)(f[sk1[x,y], sk1[x, y]]))) .|.
@@ -143,7 +143,7 @@ test02 =
      (F(x,y) /\ G(x,y)) &
      (~G(x,f_z(x,y)) \/ ~G(f_z(x,y),f_z(x,y)))>>]
 -}
-                                    (Set.map prettyShow' ((Set.map list_conj (simpdnf' (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula)))))) :: Set (MyFormula))))]
+                                    (Set.map prettyShow ((Set.map list_conj (simpdnf' (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula)))))) :: Set (MyFormula))))]
     where f = pApp "F"
           g = pApp "G"
           sk1 = fApp (toSkolem "z")

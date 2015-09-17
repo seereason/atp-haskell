@@ -7,7 +7,6 @@
 module Lit
     ( IsLiteral(foldLiteral)
     , zipLiterals
-    , prettyLit
     , LFormula(T, F, Atom, Not)
     ) where
 
@@ -15,7 +14,7 @@ import Data.Monoid ((<>))
 import Prelude hiding (negate, null)
 
 import Formulas (HasBoolean(..), IsAtom(prettyAtom), IsNegatable(..), IsFormula(atomic, overatoms, onatoms, prettyFormula))
-import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), parenthesize, Pretty(pPrint), Side(Unary), text)
+import Pretty (Associativity(..), Fixity(..), HasFixity(fixity), Pretty(pPrint), rootFixity, Side(Unary), text)
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- |forms.  They support negation and must include True and False elements.
@@ -34,16 +33,6 @@ zipLiterals neg tf at fm1 fm2 =
       neg' p1 = foldLiteral (neg p1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
       tf' x1 = foldLiteral (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
       at' a1 = foldLiteral (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
-
-prettyLit :: forall lit atom. (IsLiteral lit atom, HasFixity lit, HasFixity atom) =>
-             Fixity -> lit -> Doc
-prettyLit pfix lit =
-    parenthesize pfix (fixity lit) Unary $ foldLiteral neg tf at lit
-    where
-      neg :: lit -> Doc
-      neg x = text "¬" <> prettyLit (Fixity 6 InfixN) x
-      tf = pPrint
-      at x = prettyAtom pfix Unary x
 
 data LFormula atom
     = F
@@ -88,6 +77,9 @@ instance IsAtom atom => IsFormula (LFormula atom) atom where
           ne p = text "¬" <> prettyFormula (fixity lit) Unary p
           tf = pPrint
           at a = prettyAtom fix Unary a
+
+instance IsAtom atom => Pretty (LFormula atom) where
+    pPrint = prettyFormula rootFixity Unary
 
 instance IsAtom atom => IsLiteral (LFormula atom) atom where
     foldLiteral ne tf at lit =

@@ -46,7 +46,7 @@ test06 =
 mesonTest :: MyFormula -> Set (Failing Depth) -> Test
 mesonTest fm expected =
     let me = Set.map (failing Failure (Success . snd)) (runSkolem (meson (Just (Depth 1000)) fm)) in
-    TestCase $ assertEqual ("MESON test: " ++ prettyShow' fm) expected me
+    TestCase $ assertEqual ("MESON test: " ++ prettyShow fm) expected me
 
 fms :: [(MyFormula, Set (Failing Depth))]
 fms = [ -- if x every x equals itself then there is always some y that equals x

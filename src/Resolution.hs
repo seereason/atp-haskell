@@ -45,9 +45,9 @@ import Unif (solve)
 -- | Barber's paradox is an example of why we need factoring.
 
 test01 :: Test
-test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow' barb ++ " (p. 181)")
-                    ({-prettyShow'-} show expected)
-                    ({-prettyShow'-} show input)
+test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p. 181)")
+                    (prettyShow expected)
+                    (prettyShow input)
     where shaves = pApp "shaves" :: [MyTerm] -> MyFormula
           [b, x] = [vt "b", vt "x"] :: [MyTerm]
           fx = fApp (Skolem "x") :: [MyTerm] -> MyTerm

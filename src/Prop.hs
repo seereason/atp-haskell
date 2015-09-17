@@ -15,7 +15,6 @@ module Prop
     , zipPropositional
     , propositionalFromLiteral
     , literalFromPropositional
-    , prettyPropositional
     -- * Interpretation of formulas.
     , eval
     , atoms
@@ -76,7 +75,7 @@ import Formulas (atom_union,
                  IsFormula(atomic, overatoms, onatoms, prettyFormula), onatoms)
 import Lib (distrib, fpf, (|=>), setAny)
 import Lit (IsLiteral(foldLiteral))
-import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
+import Pretty (Associativity(InfixN, InfixR, InfixA), Fixity(Fixity), HasFixity(fixity),
               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 
 -- |A type class for propositional logic.  If the type we are writing
@@ -143,20 +142,6 @@ literalFromPropositional ca =
     where
       co ((:~:) p) = (.~.) (literalFromPropositional ca p)
       co _ = error "literalFromPropositional found binary operator"
-
-prettyPropositional :: (IsPropositional formula atom, IsAtom atom, HasFixity formula) => Fixity -> Side -> formula -> Doc
-prettyPropositional pfix side fm =
-    parenthesize pfix fix side $ foldPropositional co tf at fm
-    -- bool id parens (trace ("fix=" ++ show fix ++ ", pfix= " ++ show pfix ++ ", fm=" ++ show fm) (pfix > fix)) $ foldPropositional co tf at fm
-    where
-      fix = fixity fm
-      co ((:~:) f) = text "¬" <> prettyPropositional fix Unary f
-      co (BinOp f (:&:) g) = prettyPropositional fix LHS f <> text "∧" <> prettyPropositional fix RHS g
-      co (BinOp f (:|:) g) = prettyPropositional fix LHS f <> text "∨" <> prettyPropositional fix RHS g
-      co (BinOp f (:=>:) g) = prettyPropositional fix LHS f <> text "⇒" <> prettyPropositional fix RHS g
-      co (BinOp f (:<=>:) g) = prettyPropositional fix LHS f <> text "⇔" <> prettyPropositional fix RHS g
-      tf = pPrint
-      at a = prettyAtom fix Unary a
 
 #ifndef NOTESTS
 data Prop = P {pname :: String} deriving (Eq, Ord)
@@ -251,7 +236,18 @@ instance IsAtom atom => IsFormula (PFormula atom) atom where
         Imp p q -> Imp (onatoms f p) (onatoms f q)
         Iff p q -> Iff (onatoms f p) (onatoms f q)
         _ -> fm
-    prettyFormula = prettyPropositional
+    prettyFormula pfix side fm =
+        parenthesize pfix fix side $ foldPropositional co tf at fm
+        -- bool id parens (trace ("fix=" ++ show fix ++ ", pfix= " ++ show pfix ++ ", fm=" ++ show fm) (pfix > fix)) $ foldPropositional co tf at fm
+        where
+          fix = fixity fm
+          co ((:~:) f) = text "¬" <> prettyFormula fix Unary f
+          co (BinOp f (:&:) g) = prettyFormula fix LHS f <> text "∧" <> prettyFormula fix RHS g
+          co (BinOp f (:|:) g) = prettyFormula fix LHS f <> text "∨" <> prettyFormula fix RHS g
+          co (BinOp f (:=>:) g) = prettyFormula fix LHS f <> text "⇒" <> prettyFormula fix RHS g
+          co (BinOp f (:<=>:) g) = prettyFormula fix LHS f <> text "⇔" <> prettyFormula fix RHS g
+          tf = pPrint
+          at a = prettyAtom fix Unary a
 
 instance IsAtom atom => IsPropositional (PFormula atom) atom where
     foldPropositional co tf at fm =
@@ -278,7 +274,7 @@ instance IsAtom atom => IsLiteral (PFormula atom) atom where
           Iff _ _ -> error "IFF in Literal"
 
 instance IsAtom atom => Pretty (PFormula atom) where
-    pPrint fm = prettyPropositional rootFixity Unary fm
+    pPrint = prettyFormula rootFixity Unary
 #endif
 
 data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)

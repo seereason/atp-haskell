@@ -68,7 +68,7 @@ import Data.Typeable (Typeable)
 import Prelude hiding (pred)
 
 import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsAtom(prettyAtom), IsNegatable(..), IsCombinable(..), IsFormula(..),
-                 (.~.), true, false, onatoms, prettyShow')
+                 (.~.), true, false, onatoms)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
 import Prop (IsPropositional(foldPropositional))
@@ -401,7 +401,20 @@ instance (HasPredicate atom predicate term, IsTerm term v function, Ord v, Ord a
         Forall x p -> Forall x (onatoms f p)
         Exists x p -> Exists x (onatoms f p)
         _ -> fm
-    prettyFormula = prettyFirstOrder
+    prettyFormula pfix side fm =
+      parenthesize pfix fix side $ foldQuantified qu co tf at fm
+        where
+          fix = fixity fm
+          qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> prettyFormula fix RHS p
+          qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> prettyFormula fix RHS p
+          co ((:~:) f) = text "¬" <> prettyFormula fix Unary f
+          co (BinOp f (:&:) g) = prettyFormula fix LHS f <> text "∧" <> prettyFormula fix RHS g
+          co (BinOp f (:|:) g) = prettyFormula fix LHS f <> text "∨" <> prettyFormula fix RHS g
+          co (BinOp f (:=>:) g) = prettyFormula fix LHS f <> text "⇒" <> prettyFormula fix RHS g
+          co (BinOp f (:<=>:) g) = prettyFormula fix LHS f <> text "⇔" <> prettyFormula fix RHS g
+          tf = pPrint
+          at = prettyAtom pfix side
+
 
 instance (HasPredicate atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional co tf at fm =
@@ -418,8 +431,8 @@ instance (HasPredicate atom predicate term, IsTerm term v function) => IsProposi
           -- instance of IsPropositional, we see here that it is
           -- an error to use foldPropositional (IsPropositional's
           -- only method) on a Formula that has quantifiers.
-          Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow' fm
-          Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow' fm
+          Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow fm
+          Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow fm
 
 instance (HasPredicate atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
     foldLiteral ne tf at fm =
@@ -428,12 +441,12 @@ instance (HasPredicate atom predicate term, IsTerm term v function) => IsLiteral
           F -> tf False
           Atom a -> at a
           Not p -> ne p
-          And _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow' fm
-          Or _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow' fm
-          Imp _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow' fm
-          Iff _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow' fm
-          Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow' fm
-          Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow' fm
+          And _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
+          Or _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
+          Imp _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
+          Iff _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
+          Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
+          Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
 #endif
 
 class (IsPropositional formula atom, IsVariable v) => IsQuantified formula atom v | formula -> atom v where
@@ -520,25 +533,10 @@ instance (HasPredicate atom predicate term, IsTerm term v function, HasFixity at
           Exists v p -> qu (:?:) v p
           _ -> foldPropositional co tf at fm
 
-instance (HasPredicate atom predicate term, IsTerm term v function, IsVariable v, HasFixity atom, Pretty atom, Pretty v
+instance (HasPredicate atom predicate term, IsTerm term v function, IsVariable v, HasFixity atom, Pretty v
          ) => Pretty (Formula v atom) where
-    pPrint fm = prettyFirstOrder rootFixity Unary fm
+    pPrint = prettyFormula rootFixity Unary
 #endif
-
-prettyFirstOrder :: (HasFixity formula, IsQuantified formula atom v, HasFixity atom, Pretty v) => Fixity -> Side -> formula -> Doc
-prettyFirstOrder pfix side fm =
-    parenthesize pfix fix side $ foldQuantified qu co tf at fm
-        where
-          fix = fixity fm
-          qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> prettyFirstOrder fix RHS p
-          qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> prettyFirstOrder fix RHS p
-          co ((:~:) f) = text "¬" <> prettyFirstOrder fix Unary f
-          co (BinOp f (:&:) g) = prettyFirstOrder fix LHS f <> text "∧" <> prettyFirstOrder fix RHS g
-          co (BinOp f (:|:) g) = prettyFirstOrder fix LHS f <> text "∨" <> prettyFirstOrder fix RHS g
-          co (BinOp f (:=>:) g) = prettyFirstOrder fix LHS f <> text "⇒" <> prettyFirstOrder fix RHS g
-          co (BinOp f (:<=>:) g) = prettyFirstOrder fix LHS f <> text "⇔" <> prettyFirstOrder fix RHS g
-          tf = pPrint
-          at = prettyAtom pfix side
 
 -- | Special case of applying a subfunction to the top *terms*.
 onformula :: (IsFormula formula r, HasPredicate r predicate term) => (term -> term) -> formula -> formula
@@ -907,7 +905,7 @@ test10 =
     let [x, x', y] = [vt "x", vt "x'", vt "y"]
         fm = for_all "x" ((x .=. y)) :: MyFormula
         expected = for_all "x'" (x' .=. x) :: MyFormula in
-    TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow' fm ++ " (p. 134)")
+    TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow fm ++ " (p. 134)")
                            expected
                            (subst (Map.fromList [("y", x)]) fm)
 
@@ -916,7 +914,7 @@ test11 =
     let [x, x', x'', y] = [vt "x", vt "x'", vt "x''", vt "y"]
         fm = (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))) :: MyFormula
         expected = for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: MyFormula in
-    TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow' fm ++ " (p. 134)")
+    TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow fm ++ " (p. 134)")
                            expected
                            (subst (Map.fromList [("y", x)]) fm)
 

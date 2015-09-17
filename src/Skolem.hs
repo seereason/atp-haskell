@@ -50,7 +50,7 @@ import FOL (exists, for_all, Quant((:?:), (:!:)), quant, foldPredicate, IsTerm, 
 #ifndef NOTESTS
 import FOL (Formula, Term, V, FOL, Predicate)
 #endif
-import Formulas (Combination((:~:), BinOp), BinOp ((:&:), (:|:), (:=>:), (:<=>:)), IsFormula(prettyFormula), (.~.), (.&.), (.|.), (.=>.), (.<=>.), false, true, atomic, prettyShow')
+import Formulas (Combination((:~:), BinOp), BinOp ((:&:), (:|:), (:=>:), (:<=>:)), IsFormula(prettyFormula), (.~.), (.&.), (.|.), (.=>.), (.<=>.), false, true, atomic)
 import Lib (setAny, distrib)
 import Pretty (Pretty(pPrint), prettyShow, rootFixity, Side(Unary), text)
 import Prop (IsPropositional, psimplify1, trivial)
@@ -89,9 +89,9 @@ instance IsFirstOrder MyFormula MyAtom Predicate MyTerm V Function
 
 -- Example.
 test01 :: Test
-test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ show (prettyFormula rootFixity Unary fm)) expected input
-    where input = prettyShow' (simplify fm)
-          expected = prettyShow' ((for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: MyFormula)
+test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ prettyShow fm) expected input
+    where input = prettyShow (simplify fm)
+          expected = prettyShow ((for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: MyFormula)
           fm :: MyFormula
           fm = (for_all "x" (for_all "y" (pApp "P" [vt "x"] .|. (pApp "P" [vt "y"] .&. false)))) .=>. exists "z" (pApp "Q" [])
 #endif
@@ -188,7 +188,7 @@ pullq (l,r) fm qu op x y p q =
 -- Example.
 
 test03 :: Test
-test03 = TestCase $ assertEqual "pnf (p. 144)" (prettyShow' expected) (prettyShow' input)
+test03 = TestCase $ assertEqual "pnf (p. 144)" (prettyShow expected) (prettyShow input)
     where p = "P"
           q = "Q"
           r = "R"

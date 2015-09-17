@@ -18,7 +18,7 @@ module Formulas
     , Combination(..), BinOp(..), combine, binop
     -- * Formulas
     , IsAtom(prettyAtom)
-    , IsFormula(atomic, overatoms, onatoms, prettyFormula), prettyShow'
+    , IsFormula(atomic, overatoms, onatoms, prettyFormula)
     , atom_union
     ) where
 
@@ -27,7 +27,7 @@ import Data.Set as Set (Set, empty, union)
 import Data.Typeable (Typeable)
 import Prelude hiding (negate)
 
-import Pretty (Doc, Fixity, HasFixity, rootFixity, Side(Unary), text)
+import Pretty (Doc, Fixity, HasFixity, Side, text)
 
 -- |Types that need to have True and False elements.
 class HasBoolean p where
@@ -188,9 +188,6 @@ class (IsAtom atom, Eq formula, Ord formula, HasFixity formula) => IsFormula for
     -- ^ Apply a function to the atoms, otherwise keeping structure.
     prettyFormula :: Fixity -> Side -> formula -> Doc
     -- ^ Pretty print a formula, with proper parenthesization
-
-prettyShow' :: IsFormula formula atom => formula -> String
-prettyShow' fm = show (prettyFormula rootFixity Unary fm)
 
 -- | Special case of a union of the results of a function over the atoms.
 atom_union :: (IsFormula formula atom, Ord r) => (atom -> Set r) -> formula -> Set r

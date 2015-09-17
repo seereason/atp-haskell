@@ -30,7 +30,7 @@ import Test.HUnit
 
 import Formulas
 import Lib (allsets)
-import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
+import Pretty (HasFixity(fixity), leafFixity, prettyShow, text)
 import Prop hiding (tests)
 
 -- | Generate assertion equivalent to R(s,t) <= n for the Ramsey number R(s,t)
@@ -104,6 +104,7 @@ mk_knows2 :: forall formula a. IsPropositional formula (Knows a) => String -> a 
 mk_knows2 x i j = atomic (K x i (Just j))
 
 #ifndef NOTESTS
+test02 :: Test
 test02 =
     let [x, y, out, c] = List.map mk_knows ["X", "Y", "OUT", "C"] :: [Integer -> PFormula (Knows Integer)] in
     TestCase (assertEqual "ripplecarry x y c out 2"

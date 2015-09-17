@@ -32,7 +32,7 @@ import Data.Set as Set
 
 import Formulas as P
 import Lit (IsLiteral)
-import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
+import Pretty (HasFixity(fixity), leafFixity, Pretty, prettyShow, text)
 import Prop as P (IsPropositional, cnf', foldPropositional, nenf, simpcnf, list_conj, list_disj)
 
 #ifndef NOTESTS
