@@ -30,7 +30,8 @@ import Data.Set as Set
 import Data.String (fromString)
 import Test.HUnit
 
-import Lib
+import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
+            Failing(..), failing, (|->), setAll, setAny, settryfind)
 import Formulas
 import Pretty (prettyShow)
 import Prop
