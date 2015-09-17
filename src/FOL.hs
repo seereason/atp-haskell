@@ -67,8 +67,8 @@ import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Prelude hiding (pred)
 
-import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsAtom, IsNegatable(..), IsCombinable(..), IsFormula(..),
-                 (.~.), true, false, onatoms)
+import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsAtom(prettyAtom), IsNegatable(..), IsCombinable(..), IsFormula(..),
+                 (.~.), true, false, onatoms, prettyShow')
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
 import Prop (IsPropositional(foldPropositional))
@@ -211,7 +211,7 @@ test00 = TestCase $ assertEqual "print an expression"
 
 class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate, Show predicate,
        Ord term, Pretty term) => IsPredicate predicate term where
-    prettyPredicateApplication :: predicate -> [term] -> Doc
+    prettyPredicateApplication :: Fixity -> Side -> predicate -> [term] -> Doc
 
 -- | Class of predicates that have an equality predicate.
 class HasEquality predicate where
@@ -227,11 +227,11 @@ data Predicate
     deriving (Eq, Ord, Show)
 
 instance (IsFunction function, IsVariable v) => IsPredicate Predicate (Term function v) where
-    prettyPredicateApplication Equals [a, b] =
-        pPrint a <> text "=" <> pPrint b
-    prettyPredicateApplication Equals _ts =
+    prettyPredicateApplication fix side Equals [a, b] =
+        pPrint {-fix LHS-} a <> text "=" <> pPrint {-fix RHS-} b
+    prettyPredicateApplication _ _ Equals _ts =
         error "Arity mismatch for equals predicate"
-    prettyPredicateApplication p ts =
+    prettyPredicateApplication _ _ p ts =
         pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
 
 -- | Predicates with a 'HasEquality' instance are needed whenever the
@@ -277,7 +277,14 @@ convertPredicate cp ct = foldPredicate (\p1 ts1 -> applyPredicate (cp p1) (map c
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord)
 
-instance (IsPredicate predicate term) => IsAtom (FOL predicate term)
+instance (IsPredicate predicate term) => IsAtom (FOL predicate term) where
+    prettyAtom fix side a =
+        foldPredicate (prettyPredicateApplication fix side) a
+
+{-
+instance (IsPredicate predicate term, Pretty term, Ord term) => Pretty (FOL predicate term) where
+    pPrint = foldPredicate prettyPredicateApplication
+-}
 
 instance (IsPredicate predicate term, Show predicate, Show term) => Show (FOL predicate term) where
     show (R p ts) = "applyPredicate " ++ show p ++ " [" ++ intercalate ", " (map show ts) ++ "]"
@@ -285,9 +292,6 @@ instance (IsPredicate predicate term, Show predicate, Show term) => Show (FOL pr
 instance (IsPredicate predicate term, Pretty term, Ord term) => HasPredicate (FOL predicate term) predicate term where
     applyPredicate = R
     foldPredicate f (R p ts) = f p ts
-
-instance (IsPredicate predicate term, Pretty term, Ord term) => Pretty (FOL predicate term) where
-    pPrint = foldPredicate prettyPredicateApplication
 
 instance HasFixity (FOL predicate term) where
     fixity _ = Fixity 6 InfixN
@@ -397,6 +401,7 @@ instance (HasPredicate atom predicate term, IsTerm term v function, Ord v, Ord a
         Forall x p -> Forall x (onatoms f p)
         Exists x p -> Exists x (onatoms f p)
         _ -> fm
+    prettyFormula = prettyFirstOrder
 
 instance (HasPredicate atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional co tf at fm =
@@ -413,8 +418,8 @@ instance (HasPredicate atom predicate term, IsTerm term v function) => IsProposi
           -- instance of IsPropositional, we see here that it is
           -- an error to use foldPropositional (IsPropositional's
           -- only method) on a Formula that has quantifiers.
-          Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow fm
-          Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow fm
+          Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow' fm
+          Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow' fm
 
 instance (HasPredicate atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
     foldLiteral ne tf at fm =
@@ -423,15 +428,15 @@ instance (HasPredicate atom predicate term, IsTerm term v function) => IsLiteral
           F -> tf False
           Atom a -> at a
           Not p -> ne p
-          And _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
-          Or _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
-          Imp _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
-          Iff _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
-          Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
-          Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
+          And _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow' fm
+          Or _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow' fm
+          Imp _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow' fm
+          Iff _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow' fm
+          Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow' fm
+          Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow' fm
 #endif
 
-class (IsPropositional formula atom, IsVariable v, Pretty formula) => IsQuantified formula atom v | formula -> atom v where
+class (IsPropositional formula atom, IsVariable v) => IsQuantified formula atom v | formula -> atom v where
     quant :: Quant -> v -> formula -> formula
     foldQuantified :: (Quant -> v -> formula -> r)
                    -> (Combination formula -> r)
@@ -520,7 +525,7 @@ instance (HasPredicate atom predicate term, IsTerm term v function, IsVariable v
     pPrint fm = prettyFirstOrder rootFixity Unary fm
 #endif
 
-prettyFirstOrder :: (IsQuantified formula atom v, Pretty atom, Pretty v, HasFixity formula) => Fixity -> Side -> formula -> Doc
+prettyFirstOrder :: (HasFixity formula, IsQuantified formula atom v, HasFixity atom, Pretty v) => Fixity -> Side -> formula -> Doc
 prettyFirstOrder pfix side fm =
     parenthesize pfix fix side $ foldQuantified qu co tf at fm
         where
@@ -533,7 +538,7 @@ prettyFirstOrder pfix side fm =
           co (BinOp f (:=>:) g) = prettyFirstOrder fix LHS f <> text "⇒" <> prettyFirstOrder fix RHS g
           co (BinOp f (:<=>:) g) = prettyFirstOrder fix LHS f <> text "⇔" <> prettyFirstOrder fix RHS g
           tf = pPrint
-          at = pPrint
+          at = prettyAtom pfix side
 
 -- | Special case of applying a subfunction to the top *terms*.
 onformula :: (IsFormula formula r, HasPredicate r predicate term) => (term -> term) -> formula -> formula
@@ -902,7 +907,7 @@ test10 =
     let [x, x', y] = [vt "x", vt "x'", vt "y"]
         fm = for_all "x" ((x .=. y)) :: MyFormula
         expected = for_all "x'" (x' .=. x) :: MyFormula in
-    TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow fm ++ " (p. 134)")
+    TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow' fm ++ " (p. 134)")
                            expected
                            (subst (Map.fromList [("y", x)]) fm)
 
@@ -911,7 +916,7 @@ test11 =
     let [x, x', x'', y] = [vt "x", vt "x'", vt "x''", vt "y"]
         fm = (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))) :: MyFormula
         expected = for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: MyFormula in
-    TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow fm ++ " (p. 134)")
+    TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow' fm ++ " (p. 134)")
                            expected
                            (subst (Map.fromList [("y", x)]) fm)
 

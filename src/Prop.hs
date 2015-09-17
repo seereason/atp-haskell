@@ -69,11 +69,11 @@ import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 
 import Formulas (atom_union,
                  HasBoolean(fromBool, asBool), true, false,
-                 IsAtom,
+                 IsAtom(prettyAtom),
                  IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
-                 IsFormula(atomic, overatoms, onatoms), onatoms)
+                 IsFormula(atomic, overatoms, onatoms, prettyFormula), onatoms)
 import Lib (distrib, fpf, (|=>), setAny)
 import Lit (IsLiteral(foldLiteral))
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
@@ -144,7 +144,7 @@ literalFromPropositional ca =
       co ((:~:) p) = (.~.) (literalFromPropositional ca p)
       co _ = error "literalFromPropositional found binary operator"
 
-prettyPropositional :: (IsPropositional formula atom, Pretty atom, HasFixity formula) => Fixity -> Side -> formula -> Doc
+prettyPropositional :: (IsPropositional formula atom, IsAtom atom, HasFixity formula) => Fixity -> Side -> formula -> Doc
 prettyPropositional pfix side fm =
     parenthesize pfix fix side $ foldPropositional co tf at fm
     -- bool id parens (trace ("fix=" ++ show fix ++ ", pfix= " ++ show pfix ++ ", fm=" ++ show fm) (pfix > fix)) $ foldPropositional co tf at fm
@@ -156,7 +156,7 @@ prettyPropositional pfix side fm =
       co (BinOp f (:=>:) g) = prettyPropositional fix LHS f <> text "⇒" <> prettyPropositional fix RHS g
       co (BinOp f (:<=>:) g) = prettyPropositional fix LHS f <> text "⇔" <> prettyPropositional fix RHS g
       tf = pPrint
-      at = pPrint
+      at a = prettyAtom fix Unary a
 
 #ifndef NOTESTS
 data Prop = P {pname :: String} deriving (Eq, Ord)
@@ -176,7 +176,8 @@ instance Pretty Prop where
 instance HasFixity Prop where
     fixity _ = leafFixity
 
-instance IsAtom Prop
+instance IsAtom Prop where
+    prettyAtom _ _ = text . pname
 
 data PFormula atom
     = F
@@ -250,6 +251,7 @@ instance IsAtom atom => IsFormula (PFormula atom) atom where
         Imp p q -> Imp (onatoms f p) (onatoms f q)
         Iff p q -> Iff (onatoms f p) (onatoms f q)
         _ -> fm
+    prettyFormula = prettyPropositional
 
 instance IsAtom atom => IsPropositional (PFormula atom) atom where
     foldPropositional co tf at fm =
@@ -292,7 +294,8 @@ truthTable fm =
       atl = Set.toAscList ats
 
 #ifndef NOTESTS
-instance IsAtom String
+instance IsAtom String where
+    prettyAtom _ _ = text
 
 test00 :: Test
 test00 = TestCase $ assertEqual "parenthesization" expected input

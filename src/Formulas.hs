@@ -17,8 +17,8 @@ module Formulas
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
     , Combination(..), BinOp(..), combine, binop
     -- * Formulas
-    , IsAtom
-    , IsFormula(atomic, overatoms, onatoms)
+    , IsAtom(prettyAtom)
+    , IsFormula(atomic, overatoms, onatoms, prettyFormula), prettyShow'
     , atom_union
     ) where
 
@@ -27,7 +27,7 @@ import Data.Set as Set (Set, empty, union)
 import Data.Typeable (Typeable)
 import Prelude hiding (negate)
 
-import Pretty (Doc, HasFixity, Pretty, text)
+import Pretty (Doc, Fixity, HasFixity, rootFixity, Side(Unary), text)
 
 -- |Types that need to have True and False elements.
 class HasBoolean p where
@@ -175,16 +175,22 @@ binop a (:|:) b = a .|. b
 binop a (:=>:) b = a .=>. b
 binop a (:<=>:) b = a .<=>. b
 
-class (Eq atom, Ord atom, HasFixity atom, Pretty atom) => IsAtom atom
+class (Eq atom, Ord atom, HasFixity atom {-, Pretty atom-}) => IsAtom atom where
+    prettyAtom :: Fixity -> Side -> atom -> Doc
 
 -- | Class associating a formula type with its atom type.
-class (IsAtom atom, Eq formula, Ord formula, Pretty formula) => IsFormula formula atom | formula -> atom where
+class (IsAtom atom, Eq formula, Ord formula, HasFixity formula) => IsFormula formula atom | formula -> atom where
     atomic :: atom -> formula
     -- ^ Build a formula from an atom.
     overatoms :: (atom -> r -> r) -> formula -> r -> r
     -- ^ Formula analog of list iterator "itlist".
     onatoms :: (atom -> formula) -> formula -> formula
     -- ^ Apply a function to the atoms, otherwise keeping structure.
+    prettyFormula :: Fixity -> Side -> formula -> Doc
+    -- ^ Pretty print a formula, with proper parenthesization
+
+prettyShow' :: IsFormula formula atom => formula -> String
+prettyShow' fm = show (prettyFormula rootFixity Unary fm)
 
 -- | Special case of a union of the results of a function over the atoms.
 atom_union :: (IsFormula formula atom, Ord r) => (atom -> Set r) -> formula -> Set r

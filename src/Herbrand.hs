@@ -21,7 +21,7 @@ import Debug.Trace
 
 import DP (dpll)
 import FOL (IsFirstOrder, IsTerm, fApp, subst, fv, generalize, exists, for_all, pApp, vt)
-import Formulas ((.~.), overatoms, atomic, (.=>.), (.&.), (.|.))
+import Formulas ((.~.), overatoms, atomic, (.=>.), (.&.), (.|.), prettyShow')
 import Lib (allpairs, distrib)
 import Lit (IsLiteral)
 import Pretty (prettyShow)
@@ -128,7 +128,7 @@ test01 =
     in
     TestCase (assertString (case gilmore fm of
                               r | r == expected -> ""
-                              r -> "gilmore(" ++ prettyShow fm ++ ") -> " ++ show r ++ ", expected: " ++ show expected))
+                              r -> "gilmore(" ++ prettyShow' fm ++ ") -> " ++ show r ++ ", expected: " ++ show expected))
 
 -- -------------------------------------------------------------------------
 -- Quick example.
@@ -146,7 +146,7 @@ test02 =
                               ((.~.)(exists ("x" :: V) (p[x] .=>. (exists "x" (q[x]))))) .&.
                               (for_all "x" (q[x] .&. r[x] .=>. u[x]))
                               .=>. (exists "x" (p[x] .&. r[x]))) in
-    TestCase $ assertEqual ("gilmore p24 (p. 160): " ++ prettyShow fm) (Success 1) (gilmore fm)
+    TestCase $ assertEqual ("gilmore p24 (p. 160): " ++ prettyShow' fm) (Success 1) (gilmore fm)
 {-
 let p24 = gilmore
  <<~(exists x. U(x) /\ Q(x)) /\
