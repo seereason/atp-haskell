@@ -238,7 +238,6 @@ instance IsAtom atom => IsFormula (PFormula atom) atom where
         _ -> fm
     prettyFormula pfix side fm =
         parenthesize pfix fix side $ foldPropositional co tf at fm
-        -- bool id parens (trace ("fix=" ++ show fix ++ ", pfix= " ++ show pfix ++ ", fm=" ++ show fm) (pfix > fix)) $ foldPropositional co tf at fm
         where
           fix = fixity fm
           co ((:~:) f) = text "¬" <> prettyFormula fix Unary f
@@ -293,22 +292,18 @@ truthTable fm =
 instance IsAtom String where
     prettyAtom _ _ = text
 
+-- | Tests precedence handling in pretty printer.
 test00 :: Test
-test00 = TestCase $ assertEqual "parenthesization" expected input
+test00 = TestCase $ assertEqual "parenthesization" expected (List.map prettyShow input)
     where (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
-          input = List.map prettyShow
-                    [p .&. (q .|. r),
-                     (p .&. q) .|. r,
-                     p .&. q .|. r,
-                     (p .=>. q) .=>. r,
-                     p .=>. (q .=>. r),
-                     p .=>. q .=>. r]
-          expected = ["p∧(q∨r)",
-                      "(p∧q)∨r",
-                      "(p∧q)∨r",
-                      "(p⇒q)⇒r",
-                      "p⇒q⇒r",
-                      "p⇒q⇒r"]
+          (input, expected) = unzip [( p .&. (q .|. r)   , "p∧(q∨r)" ),
+                                     ( (p .&. q) .|. r   , "(p∧q)∨r" ),
+                                     ( p .&. q .|. r     , "(p∧q)∨r" ),
+                                     ( p .|. q .&. r     , "p∨(q∧r)" ),
+                                     ( p .&. q .&. r     , "p∧q∧r"   ),
+                                     ( (p .=>. q) .=>. r , "(p⇒q)⇒r" ),
+                                     ( p .=>. (q .=>. r) , "p⇒q⇒r"   ),
+                                     ( p .=>. q .=>. r   , "p⇒q⇒r"   )]
 
 -- Testing the parser and printer.
 
