@@ -29,6 +29,7 @@ module Skolem
     , skolemize
     , specialize
     , simpdnf'
+    , simpcnf'
 #ifndef NOTESTS
     -- * Instances
     , Function(Fn, Skolem)
@@ -40,9 +41,10 @@ module Skolem
 
 import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT)
+import Data.List as List (map)
 import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
-import Data.Set as Set (empty, filter, isProperSubsetOf, member, Set, singleton, toAscList, union, unions)
+import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union, unions)
 import Data.String (IsString(fromString))
 import Test.HUnit
 
@@ -50,9 +52,10 @@ import FOL (exists, for_all, Quant((:?:), (:!:)), quant, foldPredicate, IsTerm, 
 #ifndef NOTESTS
 import FOL (Formula, Term, V, FOL, Predicate)
 #endif
-import Formulas (Combination((:~:), BinOp), BinOp ((:&:), (:|:), (:=>:), (:<=>:)), IsFormula(prettyFormula), (.~.), (.&.), (.|.), (.=>.), (.<=>.), false, true, atomic)
+import Formulas (Combination((:~:), BinOp), BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), (.&.), (.|.), (.=>.), (.<=>.), negate, false, true, atomic)
 import Lib (setAny, distrib)
-import Pretty (Pretty(pPrint), prettyShow, rootFixity, Side(Unary), text)
+import Prelude hiding (negate)
+import Pretty (Pretty(pPrint), prettyShow, text)
 import Prop (IsPropositional, psimplify1, trivial)
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
@@ -214,7 +217,7 @@ functions fm =
       qu _ _ p = functions p
       co ((:~:) p) = functions p
       co (BinOp p _ q) = functions p <> functions q
-      at = foldPredicate (\_ ts -> unions (map funcs ts))
+      at = foldPredicate (\_ ts -> unions (List.map funcs ts))
 
 funcs :: IsTerm term v function => term -> Set (function, Arity)
 funcs term = foldTerm (\_ -> Set.empty) (\f ts -> Set.singleton (f, length ts)) term
@@ -296,7 +299,7 @@ skolem fm =
     where
       qu (:?:) y p =
           do let xs = fv fm
-             let fx = fApp (toSkolem y) (map vt (Set.toAscList xs))
+             let fx = fApp (toSkolem y) (List.map vt (Set.toAscList xs))
              skolem (subst (Map.singleton y fx) p)
       qu (:!:) x p = skolem p >>= return . for_all x
       co (BinOp l (:&:) r) = skolem2 (.&.) l r
@@ -417,6 +420,18 @@ purednf' fm =
       co _ = lf fm
       -- t3 x = trace ("purednf' (" ++ prettyShow x) x
       -- t4 x = trace ("purednf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
+
+simpcnf' :: (IsFirstOrder formula atom predicate term v function) => formula -> Set (Set formula)
+simpcnf' fm =
+    foldQuantified (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
+    where
+      tf False = Set.empty
+      tf True = Set.singleton Set.empty
+      go = let cjs = Set.filter (not . trivial) (purecnf' fm) in
+           Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
+
+purecnf' :: (IsFirstOrder formula atom predicate term v function) => formula -> Set (Set formula)
+purecnf' fm = Set.map (Set.map negate) (purednf' (nnf ((.~.) fm)))
 
 #ifndef NOTESTS
 tests :: Test
