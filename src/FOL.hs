@@ -21,9 +21,10 @@ module FOL
     -- * Terms
     , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm
     -- * Predicates
-    , IsPredicate(prettyPredicateApplication), HasEquality(equals)
+    , IsPredicate(prettyPredicateApplication), HasEquals(isEquals)
     -- * Atoms
-    , HasPredicate(applyPredicate, foldPredicate), convertPredicate, zipPredicates, pApp , (.=.)
+    , HasPredicate(applyPredicate, foldPredicate), convertPredicate, zipPredicates, pApp
+    , HasEquality(applyEquals, foldEquals), (.=.)
     -- * Quantifiers
     , Quant((:!:), (:?:))
     -- Formula
@@ -214,13 +215,13 @@ class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate, Show p
     prettyPredicateApplication :: predicate -> [term] -> Doc
 
 -- | Class of predicates that have an equality predicate.
-class HasEquality predicate where
-    equals :: predicate
+class HasEquals predicate where
+    -- equals :: predicate
     isEquals :: predicate -> Bool
 
 #ifndef NOTESTS
 -- | This Predicate type includes an distinct Equals constructor, so
--- that we can build a HasEquality instance for it.
+-- that we can build an HasEquals instance for it.
 data Predicate
     = NamedPredicate String
     | Equals
@@ -234,10 +235,10 @@ instance (IsFunction function, IsVariable v) => IsPredicate Predicate (Term func
     prettyPredicateApplication p ts =
         pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
 
--- | Predicates with a 'HasEquality' instance are needed whenever the
+-- | Predicates with a 'HasEquals' instance are needed whenever the
 -- '.=.' combiner is used.
-instance HasEquality Predicate where
-    equals = Equals
+instance HasEquals Predicate where
+    -- equals = Equals
     isEquals Equals = True
     isEquals _ = False
 
@@ -257,6 +258,12 @@ instance Pretty Predicate where
 class (IsAtom atom, IsPredicate predicate term) => HasPredicate atom predicate term | atom -> predicate term where
     applyPredicate :: predicate -> [term] -> atom
     foldPredicate :: (predicate -> [term] -> r) -> atom -> r
+
+-- | A predicate that HasEquals can be used to build an
+-- atom/predicate/term combo that HasEquality.
+class (HasPredicate atom predicate term, HasEquals predicate) => HasEquality atom predicate term where
+    applyEquals :: term -> term -> atom
+    foldEquals :: (term -> term -> r) -> atom -> Maybe r
 
 zipPredicates :: HasPredicate atom predicate term =>
                  (predicate -> [(term, term)] -> Maybe r)
@@ -293,6 +300,11 @@ instance (IsPredicate predicate term, Pretty term, Ord term) => HasPredicate (FO
     applyPredicate = R
     foldPredicate f (R p ts) = f p ts
 
+instance IsPredicate Predicate term => HasEquality (FOL Predicate term) Predicate term where
+    applyEquals lhs rhs = applyPredicate Equals [lhs, rhs]
+    foldEquals f (R Equals [lhs, rhs]) = Just (f lhs rhs)
+    foldEquals _ _ = Nothing
+
 instance HasFixity (FOL predicate term) where
     fixity _ = Fixity 6 InfixN
 #endif
@@ -315,8 +327,8 @@ pApp :: (IsFormula formula atom, HasPredicate atom predicate term) => predicate 
 pApp p args = atomic $ applyPredicate p args
 
 -- | Apply the equals predicate to two terms and build a formula.
-(.=.) :: (IsFormula formula atom, HasPredicate atom predicate term, HasEquality predicate) => term -> term -> formula
-a .=. b = atomic (applyPredicate equals [a, b])
+(.=.) :: (IsFormula formula atom, HasEquality atom predicate term) => term -> term -> formula
+a .=. b = atomic (applyEquals a b)
 
 infix 5 .=. -- , .!=., ≡, ≢
 
@@ -745,7 +757,7 @@ termval m v tm =
              (\f args -> funcApply m f (map (termval m v) args)) tm
 
 -- | Examples of particular interpretations.
-bool_interp :: (IsFunction function, Show function, Show predicate, HasEquality predicate) =>
+bool_interp :: (IsFunction function, Show function, Show predicate, HasEquals predicate) =>
                Interp function predicate Bool
 bool_interp =
     Interp [False, True] func pred
@@ -758,7 +770,7 @@ bool_interp =
       pred p [x,y] | isEquals p = x == y
       pred p _ = error ("bool_interp - uninterpreted predicate: " ++ show p)
 
-mod_interp :: (IsFunction function, Show function, Show predicate, HasEquality predicate) =>
+mod_interp :: (IsFunction function, Show function, Show predicate, HasEquals predicate) =>
               Int -> Interp function predicate Int
 mod_interp n =
     Interp [0..(n-1)] func pred
