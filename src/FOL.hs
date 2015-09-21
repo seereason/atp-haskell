@@ -68,7 +68,7 @@ import Data.Typeable (Typeable)
 import Prelude hiding (pred)
 
 import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsAtom(prettyAtom), IsNegatable(..), IsCombinable(..), IsFormula(..),
-                 (.~.), true, false, onatoms)
+                 (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
 import Prop (IsPropositional(foldPropositional))
@@ -540,6 +540,35 @@ instance IsFirstOrder MyFormula MyAtom Predicate MyTerm V FName
 -- | Special case of applying a subfunction to the top *terms*.
 onformula :: (IsFormula formula r, HasPredicate r predicate term) => (term -> term) -> formula -> formula
 onformula f = onatoms (foldPredicate (\p a -> atomic $ applyPredicate p (map f a)))
+
+-- | Apply a function to the atoms, otherwise keeping structure.
+mapAtomsFirstOrder :: forall formula atom v. IsQuantified formula atom v => (atom -> formula) -> formula -> formula
+mapAtomsFirstOrder f fm =
+    foldQuantified qu co tf at fm
+    where
+      qu op v p = quant op v (mapAtomsFirstOrder f p)
+      co ((:~:) p) = mapAtomsFirstOrder f p
+      co (BinOp p op q) = binop (mapAtomsFirstOrder f p) op (mapAtomsFirstOrder f q)
+      tf flag = fromBool flag
+      at x = f x
+
+-- | Deprecated - use mapAtoms
+onatomsFirstOrder :: forall formula atom v. (IsQuantified formula atom v) => (atom -> formula) -> formula -> formula
+onatomsFirstOrder = mapAtomsFirstOrder
+
+-- | Formula analog of list iterator "itlist".
+foldAtomsFirstOrder :: IsQuantified fof atom v => (r -> atom -> r) -> r -> fof -> r
+foldAtomsFirstOrder f i fof =
+        foldQuantified qu co (const i) (f i) fof
+        where
+          qu _ _ fof' = foldAtomsFirstOrder f i fof'
+          co ((:~:) fof') = foldAtomsFirstOrder f i fof'
+          co (BinOp p _ q) = foldAtomsFirstOrder f (foldAtomsFirstOrder f i q) p
+
+-- | Deprecated - use foldAtoms
+overatomsFirstOrder :: forall formula atom v r. IsQuantified formula atom v =>
+             (atom -> r -> r) -> formula -> r -> r
+overatomsFirstOrder f fm b = foldAtomsFirstOrder (flip f) b fm
 
 {-
 (* Trivial example of "x + y < z".                                           *)
