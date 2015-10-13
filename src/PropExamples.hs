@@ -30,7 +30,7 @@ import Test.HUnit
 
 import Formulas
 import Lib (allsets)
-import Pretty (HasFixity(fixity), leafFixity, prettyShow, text)
+import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
 import Prop hiding (tests)
 
 -- | Generate assertion equivalent to R(s,t) <= n for the Ramsey number R(s,t)
@@ -46,8 +46,10 @@ ramsey s t n =
 
 data Knows a = K String a (Maybe a) deriving (Eq, Ord, Show)
 
-instance IsAtom (Knows Integer) where
-    prettyAtom _ _ (K s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
+instance Pretty (Knows Integer) where
+    pPrint (K s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
+
+instance IsAtom (Knows Integer)
 
 instance HasFixity (Knows Integer) where
     fixity = const leafFixity

@@ -32,7 +32,7 @@ import Data.Set as Set
 
 import Formulas as P
 import Lit (IsLiteral)
-import Pretty (HasFixity(fixity), leafFixity, Pretty, prettyShow, text)
+import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
 import Prop as P (IsPropositional, cnf', foldPropositional, nenf, simpcnf, list_conj, list_disj)
 
 #ifndef NOTESTS
@@ -55,8 +55,10 @@ class NumAtom atom where
 
 data Atom = N String Integer deriving (Eq, Ord, Show)
 
-instance IsAtom Atom where
-    prettyAtom _ _ (N s n) = text (s ++ if n == 0 then "" else show n)
+instance Pretty Atom where
+    pPrint (N s n) = text (s ++ if n == 0 then "" else show n)
+
+instance IsAtom Atom
 
 instance NumAtom Atom where
     ma = N "p_"

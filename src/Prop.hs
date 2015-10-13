@@ -67,8 +67,7 @@ import Prelude hiding (negate, null)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 
 import Formulas (atom_union,
-                 HasBoolean(fromBool, asBool), true, false,
-                 IsAtom(prettyAtom),
+                 HasBoolean(fromBool, asBool), true, false, IsAtom,
                  IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
@@ -86,7 +85,8 @@ import Pretty (Associativity(InfixN, InfixR, InfixA), Fixity(Fixity), HasFixity(
 -- raise errors in the implementation if a non-atomic formula somehow
 -- appears where an atomic formula is expected (i.e. as an argument to
 -- atomic or to the third argument of foldPropositional.)
-class (IsFormula formula atom,
+class (IsAtom atom,
+       IsFormula formula atom,
        IsLiteral formula atom,
        IsNegatable formula,
        IsCombinable formula,
@@ -156,13 +156,12 @@ instance Show Prop where
     show (P {pname = s}) = show s
 
 instance Pretty Prop where
-    pPrint (P s) = text s
+    pPrint = text . pname
 
 instance HasFixity Prop where
     fixity _ = leafFixity
 
-instance IsAtom Prop where
-    prettyAtom _ _ = text . pname
+instance IsAtom Prop
 
 data PFormula atom
     = F
@@ -246,7 +245,7 @@ instance IsAtom atom => IsFormula (PFormula atom) atom where
           co (BinOp f (:=>:) g) = prettyFormula fix LHS f <> text "⇒" <> prettyFormula fix RHS g
           co (BinOp f (:<=>:) g) = prettyFormula fix LHS f <> text "⇔" <> prettyFormula fix RHS g
           tf = pPrint
-          at a = prettyAtom fix Unary a
+          at a = pPrint a
 
 instance IsAtom atom => IsPropositional (PFormula atom) atom where
     foldPropositional co tf at fm =
@@ -289,8 +288,7 @@ truthTable fm =
       atl = Set.toAscList ats
 
 #ifndef NOTESTS
-instance IsAtom String where
-    prettyAtom _ _ = text
+instance IsAtom String
 
 -- | Tests precedence handling in pretty printer.
 test00 :: Test

@@ -68,7 +68,7 @@ import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Prelude hiding (pred)
 
-import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsAtom(prettyAtom), IsNegatable(..), IsCombinable(..), IsFormula(..),
+import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsAtom, IsNegatable(..), IsCombinable(..), IsFormula(..),
                  (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
@@ -284,9 +284,10 @@ convertPredicate cp ct = foldPredicate (\p1 ts1 -> applyPredicate (cp p1) (map c
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord)
 
-instance (IsPredicate predicate term) => IsAtom (FOL predicate term) where
-    prettyAtom fix side a =
-        foldPredicate prettyPredicateApplication a
+instance IsPredicate predicate term => Pretty (FOL predicate term) where
+    pPrint = foldPredicate prettyPredicateApplication
+
+instance IsPredicate predicate term => IsAtom (FOL predicate term)
 
 {-
 instance (IsPredicate predicate term, Pretty term, Ord term) => Pretty (FOL predicate term) where
@@ -450,7 +451,7 @@ instance (HasPredicate atom predicate term, IsTerm term v function, Ord v, Ord a
           co (BinOp f (:=>:) g) = prettyFormula fix LHS f <> text "⇒" <> prettyFormula fix RHS g
           co (BinOp f (:<=>:) g) = prettyFormula fix LHS f <> text "⇔" <> prettyFormula fix RHS g
           tf = pPrint
-          at = prettyAtom pfix side
+          at = pPrint
 
 instance (HasPredicate atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional co tf at fm =

@@ -31,6 +31,7 @@ Library
     CPP-Options: -DNOTESTS
   Hs-Source-Dirs: src
   Exposed-Modules:
+    ATP
     Lib
     Pretty
     Formulas
