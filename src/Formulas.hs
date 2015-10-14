@@ -145,7 +145,7 @@ infixl 4  .&., ∧
 data Combination formula
     = BinOp formula BinOp formula
     | (:~:) formula
-    deriving (Eq, Ord, Data, Typeable)
+    deriving (Eq, Ord, Data, Typeable, Show)
 
 -- | Represents the boolean logic binary operations, used in the
 -- Combination type above.
@@ -154,7 +154,7 @@ data BinOp
     |  (:=>:)  -- ^ Implication
     |  (:&:)  -- ^ AND
     |  (:|:)  -- ^ OR
-    deriving (Eq, Ord, Data, Typeable, Enum, Bounded)
+    deriving (Eq, Ord, Data, Typeable, Show, Enum, Bounded)
 
 -- | A helper function for building folds:
 -- @
