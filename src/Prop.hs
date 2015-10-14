@@ -67,7 +67,7 @@ import Prelude hiding (negate, null)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 
 import Formulas (atom_union,
-                 HasBoolean(fromBool, asBool), true, false, IsAtom,
+                 HasBoolean(fromBool, asBool), true, false,
                  IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
@@ -85,8 +85,7 @@ import Pretty (Associativity(InfixN, InfixR, InfixA), Fixity(Fixity), HasFixity(
 -- raise errors in the implementation if a non-atomic formula somehow
 -- appears where an atomic formula is expected (i.e. as an argument to
 -- atomic or to the third argument of foldPropositional.)
-class (IsAtom atom,
-       IsFormula formula atom,
+class (IsFormula formula atom,
        IsLiteral formula atom,
        IsNegatable formula,
        IsCombinable formula,
@@ -161,8 +160,6 @@ instance Pretty Prop where
 instance HasFixity Prop where
     fixity _ = leafFixity
 
-instance IsAtom Prop
-
 data PFormula atom
     = F
     | T
@@ -215,7 +212,7 @@ instance HasFixity atom => HasFixity (PFormula atom) where
     fixity (Imp _ _) = Fixity 2 InfixR
     fixity (Iff _ _) = Fixity 1 InfixA
 
-instance IsAtom atom => IsFormula (PFormula atom) atom where
+instance (Ord atom, HasFixity atom, Pretty atom) => IsFormula (PFormula atom) atom where
     atomic = Atom
     overatoms f fm b =
       case fm of
@@ -247,7 +244,7 @@ instance IsAtom atom => IsFormula (PFormula atom) atom where
           tf = pPrint
           at a = pPrint a
 
-instance IsAtom atom => IsPropositional (PFormula atom) atom where
+instance (Ord atom, HasFixity atom, Pretty atom) => IsPropositional (PFormula atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -259,7 +256,7 @@ instance IsAtom atom => IsPropositional (PFormula atom) atom where
           Imp p q -> co (BinOp p (:=>:) q)
           Iff p q -> co (BinOp p (:<=>:) q)
 
-instance IsAtom atom => IsLiteral (PFormula atom) atom where
+instance (Ord atom, HasFixity atom, Pretty atom) => IsLiteral (PFormula atom) atom where
     foldLiteral ne tf at fm =
         case fm of
           T -> tf True
@@ -271,7 +268,7 @@ instance IsAtom atom => IsLiteral (PFormula atom) atom where
           Imp _ _ -> error "Imp in Literal"
           Iff _ _ -> error "IFF in Literal"
 
-instance IsAtom atom => Pretty (PFormula atom) where
+instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (PFormula atom) where
     pPrint = prettyFormula rootFixity Unary
 #endif
 
@@ -288,8 +285,6 @@ truthTable fm =
       atl = Set.toAscList ats
 
 #ifndef NOTESTS
-instance IsAtom String
-
 -- | Tests precedence handling in pretty printer.
 test00 :: Test
 test00 = TestCase $ assertEqual "parenthesization" expected (List.map prettyShow input)
@@ -417,7 +412,7 @@ onallvaluations cmb subfn v ats =
           cmb (onallvaluations cmb subfn (v' False) ps) (onallvaluations cmb subfn (v' True) ps)
 
 -- | Return the set of propositional variables in a formula.
-atoms :: (IsFormula formula atom) => formula -> Set atom
+atoms :: (Ord atom, IsFormula formula atom) => formula -> Set atom
 atoms fm = atom_union singleton fm
 
 #ifndef NOTESTS
@@ -434,13 +429,13 @@ test13 = TestCase $ assertEqual "tautology 4 (p. 41)" True (tautology $ (p .|. q
 #endif
 
 -- | Related concepts.
-unsatisfiable :: (IsPropositional formula atom) => formula -> Bool
+unsatisfiable :: (Ord atom, IsPropositional formula atom) => formula -> Bool
 unsatisfiable = tautology . (.~.)
-satisfiable :: (IsPropositional formula atom)  => formula -> Bool
+satisfiable :: (Ord atom, IsPropositional formula atom)  => formula -> Bool
 satisfiable = not . unsatisfiable
 
 -- | Substitution operation.
-psubst :: (IsPropositional formula atom) => Map atom formula -> formula -> formula
+psubst :: (Ord atom, IsPropositional formula atom) => Map atom formula -> formula -> formula
 psubst subfn fm = onatoms (\ p -> maybe (atomic p) id (fpf subfn p)) fm
 
 #ifndef NOTESTS
@@ -669,14 +664,14 @@ test28 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           q' = Atom (P "q'")
 #endif
 
-dnfList :: (IsPropositional formula atom) => formula -> formula
+dnfList :: (Ord atom, IsPropositional formula atom) => formula -> formula
 dnfList fm =
     list_disj (List.map (mk_lits (List.map atomic (Set.toAscList pvs))) satvals)
      where
        satvals = allsatvaluations (eval fm) (\_s -> False) pvs
        pvs = atoms fm
 
-dnfSet :: IsPropositional formula atom => formula -> formula
+dnfSet :: (Ord atom, IsPropositional formula atom) => formula -> formula
 dnfSet fm =
     list_disj (List.map (mk_lits' (Set.map atomic pvs)) satvals)
     where

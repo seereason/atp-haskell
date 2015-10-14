@@ -68,7 +68,7 @@ import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Prelude hiding (pred)
 
-import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsAtom, IsNegatable(..), IsCombinable(..), IsFormula(..),
+import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), IsCombinable(..), IsFormula(..),
                  (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
@@ -255,7 +255,7 @@ instance Pretty Predicate where
 -- ATOM --
 ----------
 
-class (IsAtom atom, IsPredicate predicate term) => HasPredicate atom predicate term | atom -> predicate term where
+class (IsPredicate predicate term) => HasPredicate atom predicate term | atom -> predicate term where
     applyPredicate :: predicate -> [term] -> atom
     foldPredicate :: (predicate -> [term] -> r) -> atom -> r
 
@@ -286,8 +286,6 @@ data FOL predicate term = R predicate [term] deriving (Eq, Ord)
 
 instance IsPredicate predicate term => Pretty (FOL predicate term) where
     pPrint = foldPredicate prettyPredicateApplication
-
-instance IsPredicate predicate term => IsAtom (FOL predicate term)
 
 {-
 instance (IsPredicate predicate term, Pretty term, Ord term) => Pretty (FOL predicate term) where
@@ -359,7 +357,7 @@ data Formula v atom
     | Exists v (Formula v atom)
     deriving (Eq, Ord, Read)
 
-instance (HasPredicate atom predicate term, IsTerm term v function,
+instance (Ord atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function,
           IsVariable v, HasFixity atom, Pretty v) => Pretty (Formula v atom) where
     pPrint = prettyFormula rootFixity Unary
 
@@ -381,7 +379,7 @@ instance (Ord v, Ord atom) => IsCombinable (Formula v atom) where
     (.=>.) = Imp
     (.<=>.) = Iff
 
-instance (HasPredicate atom predicate term, IsTerm term v function) => IsQuantified (Formula v atom) atom v where
+instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function) => IsQuantified (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldQuantified qu co tf at (Forall v fm) = qu (:!:) v fm
@@ -415,7 +413,7 @@ instance HasFixity atom => HasFixity (Formula v atom) where
     fixity (Exists _ _) = Fixity 9 InfixR
 
 -- The IsFormula instance for Formula
-instance (HasPredicate atom predicate term, IsTerm term v function, Ord v, Ord atom) => IsFormula (Formula v atom) atom where
+instance (HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function, Ord v, Ord atom) => IsFormula (Formula v atom) atom where
     atomic = Atom
     overatoms f fm b =
       case fm of
@@ -453,7 +451,7 @@ instance (HasPredicate atom predicate term, IsTerm term v function, Ord v, Ord a
           tf = pPrint
           at = pPrint
 
-instance (HasPredicate atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
+instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional co tf at fm =
         case fm of
           T -> tf True
@@ -471,7 +469,7 @@ instance (HasPredicate atom predicate term, IsTerm term v function) => IsProposi
           Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow fm
           Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow fm
 
-instance (HasPredicate atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
+instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
     foldLiteral ne tf at fm =
         case fm of
           T -> tf True

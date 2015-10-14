@@ -58,8 +58,6 @@ data Atom = N String Integer deriving (Eq, Ord, Show)
 instance Pretty Atom where
     pPrint (N s n) = text (s ++ if n == 0 then "" else show n)
 
-instance IsAtom Atom
-
 instance NumAtom Atom where
     ma = N "p_"
     ai (N _ n) = n

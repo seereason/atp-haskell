@@ -17,7 +17,6 @@ module Formulas
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
     , Combination(..), BinOp(..), combine, binop
     -- * Formulas
-    , IsAtom
     , IsFormula(atomic, overatoms, onatoms, prettyFormula)
     , atom_union
     ) where
@@ -27,7 +26,7 @@ import Data.Set as Set (Set, empty, union)
 import Data.Typeable (Typeable)
 import Prelude hiding (negate)
 
-import Pretty (Doc, Fixity, HasFixity, Pretty, Side, text)
+import Pretty (Doc, Fixity, HasFixity, Side, text)
 
 -- |Types that need to have True and False elements.
 class HasBoolean p where
@@ -175,10 +174,8 @@ binop a (:|:) b = a .|. b
 binop a (:=>:) b = a .=>. b
 binop a (:<=>:) b = a .<=>. b
 
-class (Eq atom, Ord atom, Pretty atom, HasFixity atom) => IsAtom atom
-
 -- | Class associating a formula type with its atom type.
-class (IsAtom atom, Eq formula, Ord formula, HasFixity formula) => IsFormula formula atom | formula -> atom where
+class (Eq formula, Ord formula, HasFixity formula) => IsFormula formula atom | formula -> atom where
     atomic :: atom -> formula
     -- ^ Build a formula from an atom.
     overatoms :: (atom -> r -> r) -> formula -> r -> r

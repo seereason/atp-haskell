@@ -49,8 +49,6 @@ data Knows a = K String a (Maybe a) deriving (Eq, Ord, Show)
 instance Pretty (Knows Integer) where
     pPrint (K s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
 
-instance IsAtom (Knows Integer)
-
 instance HasFixity (Knows Integer) where
     fixity = const leafFixity
 

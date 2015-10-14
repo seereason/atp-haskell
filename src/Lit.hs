@@ -13,7 +13,7 @@ module Lit
 import Data.Monoid ((<>))
 import Prelude hiding (negate, null)
 
-import Formulas (HasBoolean(..), IsAtom, IsNegatable(..), IsFormula(atomic, overatoms, onatoms, prettyFormula))
+import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms, prettyFormula))
 import Pretty (Associativity(..), Fixity(..), HasFixity(fixity), Pretty(pPrint), rootFixity, Side(Unary), text)
 
 -- | Literals are the building blocks of the clause and implicative normal
@@ -59,7 +59,7 @@ instance Ord atom => IsNegatable (LFormula atom) where
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 
-instance IsAtom atom => IsFormula (LFormula atom) atom where
+instance (Ord atom, Pretty atom) => IsFormula (LFormula atom) atom where
     atomic = Atom
     overatoms f fm b =
         case fm of
@@ -71,17 +71,17 @@ instance IsAtom atom => IsFormula (LFormula atom) atom where
           Atom a -> f a
           Not p -> Not (onatoms f p)
           _ -> fm
-    prettyFormula fix _ lit =
+    prettyFormula _fix _ lit =
         foldLiteral ne tf at lit
         where
           ne p = text "¬" <> prettyFormula (fixity lit) Unary p
           tf = pPrint
           at a = pPrint a
 
-instance IsAtom atom => Pretty (LFormula atom) where
+instance (Ord atom, Pretty atom) => Pretty (LFormula atom) where
     pPrint = prettyFormula rootFixity Unary
 
-instance IsAtom atom => IsLiteral (LFormula atom) atom where
+instance (Ord atom, Pretty atom) => IsLiteral (LFormula atom) atom where
     foldLiteral ne tf at lit =
         case lit of
           F -> tf False
