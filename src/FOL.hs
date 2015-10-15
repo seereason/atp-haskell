@@ -31,6 +31,7 @@ module FOL
     , IsQuantified(quant, foldQuantified), for_all, exists, (∀), (∃)
     , IsFirstOrder
     , zipFirstOrder
+    , fixityFirstOrder
     , convertFirstOrder
     , propositionalFromFirstOrder
     , literalFromFirstOrder
@@ -81,7 +82,7 @@ import Prop (IsPropositional(foldPropositional))
 
 #ifndef NOTESTS
 import Test.HUnit
-import Pretty (Doc, Associativity(InfixN, InfixR, InfixA), HasFixity(fixity), Fixity(Fixity), parenthesize, Pretty(pPrint), prettyShow, text, rootFixity, Side(LHS, RHS, Unary), (<>))
+import Pretty (Doc, Associativity(InfixN, InfixR, InfixL, InfixA), HasFixity(fixity), Fixity(Fixity), parenthesize, Pretty(pPrint), prettyShow, text, rootFixity, Side(LHS, RHS, Unary), (<>))
 #endif
 
 ---------------
@@ -525,6 +526,19 @@ zipFirstOrder qu co tf at fm1 fm2 =
       co' c1 = foldQuantified (\ _ _ _ -> Nothing) (co c1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
       tf' x1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
       at' atom1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at atom1) fm2
+
+fixityFirstOrder :: (HasFixity atom, IsQuantified formula atom v) => formula -> Fixity
+fixityFirstOrder formula =
+    foldQuantified qu co tf at formula
+    where
+      qu _ _ _ = Fixity 10 InfixN
+      co ((:~:) _) = Fixity 5 InfixN
+      co (BinOp _ (:&:) _) = Fixity 4 InfixL
+      co (BinOp _ (:|:) _) = Fixity 3 InfixL
+      co (BinOp _ (:=>:) _) = Fixity 2 InfixR
+      co (BinOp _ (:<=>:) _) = Fixity 1 InfixL
+      tf _ = Fixity 10 InfixN
+      at = fixity
 
 -- | Use foldPropositional to convert any instance of
 -- IsPropositional to any other by specifying the result type.
