@@ -21,7 +21,7 @@ module FOL
     -- * Terms
     , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm
     -- * Predicates
-    , IsPredicate(prettyPredicateApplication), HasEquals(isEquals)
+    , IsPredicate(prettyPredicateApplication), HasEquals(equals, isEquals)
     -- * Atoms
     , HasPredicate(applyPredicate, foldPredicate), convertPredicate, zipPredicates, pApp
     , HasEquality(applyEquals, foldEquals'), (.=.), foldEquals, zipEquals
@@ -33,6 +33,7 @@ module FOL
     , zipFirstOrder
     , convertFirstOrder
     , propositionalFromFirstOrder
+    , literalFromFirstOrder
     , onatomsFirstOrder
     , overatomsFirstOrder
     , onformula
@@ -45,6 +46,7 @@ module FOL
     -- * Free Variables
     , var
     , fv
+    , fva
     , fvt
     , generalize
     -- * Substitution
@@ -109,6 +111,11 @@ showVariable v = "(fromString (" ++ show (show (prettyVariable v)) ++ "))"
 
 #ifndef NOTESTS
 newtype V = V String deriving (Eq, Ord, Read, Data, Typeable)
+
+instance IsVariable String where
+    variant v vs = if Set.member v vs then variant (v ++ "'") vs else v
+    prefix pre s = pre ++ s
+    prettyVariable = text
 
 instance IsVariable V where
     variant v@(V s) vs = if Set.member v vs then variant (V (s ++ "'")) vs else v
@@ -177,7 +184,7 @@ showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp " ++ show fn ++ "[
 data Term function v
     = Var v
     | FApply function [Term function v]
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Data, Typeable)
 
 instance (IsVariable v, Show v, IsFunction function, Show function) => Show (Term function v) where
     show = showTerm
@@ -221,7 +228,7 @@ class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate, Show p
 
 -- | Class of predicates that have an equality predicate.
 class HasEquals predicate where
-    -- equals :: predicate
+    equals :: predicate
     isEquals :: predicate -> Bool
 
 #ifndef NOTESTS
@@ -230,7 +237,7 @@ class HasEquals predicate where
 data Predicate
     = NamedPredicate String
     | Equals
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Data, Typeable, Show)
 
 instance (IsFunction function, IsVariable v) => IsPredicate Predicate (Term function v) where
     prettyPredicateApplication Equals [a, b] =
@@ -243,7 +250,7 @@ instance (IsFunction function, IsVariable v) => IsPredicate Predicate (Term func
 -- | Predicates with a 'HasEquals' instance are needed whenever the
 -- '.=.' combiner is used.
 instance HasEquals Predicate where
-    -- equals = Equals
+    equals = Equals
     isEquals Equals = True
     isEquals _ = False
 
@@ -302,7 +309,7 @@ convertPredicate cp ct = foldPredicate (\p1 ts1 -> applyPredicate (cp p1) (map c
 
 #ifndef NOTESTS
 -- | First order logic formula atom type.
-data FOL predicate term = R predicate [term] deriving (Eq, Ord)
+data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable)
 
 instance IsPredicate predicate term => Pretty (FOL predicate term) where
     pPrint = foldPredicate prettyPredicateApplication
@@ -375,7 +382,7 @@ data Formula v atom
     | Iff (Formula v atom) (Formula v atom)
     | Forall v (Formula v atom)
     | Exists v (Formula v atom)
-    deriving (Eq, Ord, Read)
+    deriving (Eq, Ord, Data, Typeable, Read)
 
 instance (Ord atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function,
           IsVariable v, HasFixity atom, Pretty v) => Pretty (Formula v atom) where
@@ -553,6 +560,14 @@ propositionalFromFirstOrder ca fm =
       co (BinOp p (:|:) q) = propositionalFromFirstOrder ca p .|. propositionalFromFirstOrder ca q
       co (BinOp p (:=>:) q) = propositionalFromFirstOrder ca p .=>. propositionalFromFirstOrder ca q
       co (BinOp p (:<=>:) q) = propositionalFromFirstOrder ca p .<=>. propositionalFromFirstOrder ca q
+
+literalFromFirstOrder :: (IsQuantified fof atom1 v, IsLiteral lit atom2) => (atom1 -> atom2) -> fof -> lit
+literalFromFirstOrder ca fm =
+    foldQuantified qu co fromBool (atomic . ca) fm
+    where
+      qu _ _ _ = error "literalFromFirstOrder: found quantifier"
+      co ((:~:) p) = (.~.) (literalFromFirstOrder ca p)
+      co _ = error "literalFromFirstOrder: found binary operator"
 
 for_all :: IsQuantified formula atom v => v -> formula -> formula
 for_all = quant (:!:)
@@ -867,6 +882,9 @@ fv fm =
       tf _ = Set.empty
       at = foldPredicate (\_ args -> unions (map fvt args))
 #endif
+
+fva :: (HasEquality atom predicate term, IsTerm term v function) => atom -> Set v
+fva = foldEquals (\_ args -> unions (map fvt args)) (\lhs rhs -> union (fvt lhs) (fvt rhs))
 
 -- | Find the variables in a formula.
 #if 0

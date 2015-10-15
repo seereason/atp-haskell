@@ -52,7 +52,7 @@ Library
     Prolog
     Meson
     -- Skolems
-    -- Equal
+    Equal
     -- Cong
     -- Rewrite
     -- Order

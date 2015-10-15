@@ -15,6 +15,7 @@ module ATP
     , module Resolution
     , module Prolog
     , module Meson
+    , module Equal
     ) where
 
 import Lib
@@ -33,3 +34,4 @@ import Tableaux hiding (tests, K)
 import Resolution hiding (tests)
 import Prolog hiding (tests)
 import Meson hiding (tests, test01, test02)
+import Equal hiding (T, F)

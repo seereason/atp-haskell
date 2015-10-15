@@ -43,6 +43,7 @@ module Prop
     , dnfList
     , purednf
     , simpdnf
+    , rawdnf
     , dnf
     , purecnf
     , simpcnf

@@ -3,6 +3,7 @@
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
@@ -19,6 +20,7 @@ module Skolem
     , pnf
     , Arity
     , functions
+    , funcs
     -- * Skolem monad
     , SkolemM
     , runSkolem
@@ -41,6 +43,7 @@ module Skolem
 
 import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT)
+import Data.Generics (Data, Typeable)
 import Data.List as List (map)
 import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
@@ -348,7 +351,7 @@ skolemize ca fm = (specialize ca . pnf) <$> askolemize fm
 data Function
     = Fn String
     | Skolem V
-    deriving (Eq, Ord)
+    deriving (Eq, Ord, Data, Typeable)
 
 instance IsFunction Function
 
