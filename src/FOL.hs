@@ -60,6 +60,7 @@ module FOL
     , Predicate(NamedPredicate, Equals)
     , FOL(R)
     , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
+    , MyFormula1
     -- * Tests
     , tests
 #endif
@@ -601,9 +602,9 @@ infixr 9 ∀, ∃
 -- | Concrete types for use in unit tests.
 type MyTerm = Term FName V
 type MyAtom = FOL Predicate MyTerm
-type MyFormula = Formula V MyAtom
+type MyFormula1 = Formula V MyAtom -- MyFormula is in Skolem, this one has no Equality predicate
 
-instance IsFirstOrder MyFormula MyAtom Predicate MyTerm V FName
+instance IsFirstOrder MyFormula1 MyAtom Predicate MyTerm V FName
 #endif
 
 -- | Special case of applying a subfunction to the top *terms*.
@@ -852,30 +853,30 @@ END_INTERACTIVE;;
 #ifndef NOTESTS
 test01 :: Test
 test01 = TestCase $ assertEqual "holds bool test (p. 126)" expected input
-    where input = holds bool_interp Map.empty (for_all  "x" (vt "x" .=. fApp "False" [] .|. vt "x" .=. fApp "True" []) :: MyFormula)
+    where input = holds bool_interp Map.empty (for_all  "x" (vt "x" .=. fApp "False" [] .|. vt "x" .=. fApp "True" []) :: MyFormula1)
           expected = True
 test02 :: Test
 test02 = TestCase $ assertEqual "holds mod test 1 (p. 126)" expected input
-    where input =  holds (mod_interp 2) Map.empty (for_all "x" (vt "x" .=. (fApp "0" []) .|. vt "x" .=. (fApp "1" [])) :: MyFormula)
+    where input =  holds (mod_interp 2) Map.empty (for_all "x" (vt "x" .=. (fApp "0" []) .|. vt "x" .=. (fApp "1" [])) :: MyFormula1)
           expected = True
 test03 :: Test
 test03 = TestCase $ assertEqual "holds mod test 2 (p. 126)" expected input
-    where input =  holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .|. vt "x" .=. fApp "1" []) :: MyFormula)
+    where input =  holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .|. vt "x" .=. fApp "1" []) :: MyFormula1)
           expected = False
 
 test04 :: Test
 test04 = TestCase $ assertEqual "holds mod test 3 (p. 126)" expected input
     where input = filter (\ n -> holds (mod_interp n) Map.empty fm) [1..45]
-                  where fm = for_all "x" ((.~.) (vt "x" .=. fApp "0" []) .=>. exists "y" (fApp "*" [vt "x", vt "y"] .=. fApp "1" [])) :: MyFormula
+                  where fm = for_all "x" ((.~.) (vt "x" .=. fApp "0" []) .=>. exists "y" (fApp "*" [vt "x", vt "y"] .=. fApp "1" [])) :: MyFormula1
           expected = [1,2,3,5,7,11,13,17,19,23,29,31,37,41,43]
 
 test05 :: Test
 test05 = TestCase $ assertEqual "holds mod test 4 (p. 129)" expected input
-    where input = holds (mod_interp 3) Map.empty ((for_all "x" (vt "x" .=. fApp "0" [])) .=>. fApp "1" [] .=. fApp "0" [] :: MyFormula)
+    where input = holds (mod_interp 3) Map.empty ((for_all "x" (vt "x" .=. fApp "0" [])) .=>. fApp "1" [] .=. fApp "0" [] :: MyFormula1)
           expected = True
 test06 :: Test
 test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
-    where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: MyFormula)
+    where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: MyFormula1)
           expected = False
 #endif
 
@@ -995,8 +996,8 @@ substq subfn qu x p =
 test10 :: Test
 test10 =
     let [x, x', y] = [vt "x", vt "x'", vt "y"]
-        fm = for_all "x" ((x .=. y)) :: MyFormula
-        expected = for_all "x'" (x' .=. x) :: MyFormula in
+        fm = for_all "x" ((x .=. y)) :: MyFormula1
+        expected = for_all "x'" (x' .=. x) :: MyFormula1 in
     TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow fm ++ " (p. 134)")
                            expected
                            (subst (Map.fromList [("y", x)]) fm)
@@ -1004,8 +1005,8 @@ test10 =
 test11 :: Test
 test11 =
     let [x, x', x'', y] = [vt "x", vt "x'", vt "x''", vt "y"]
-        fm = (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))) :: MyFormula
-        expected = for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: MyFormula in
+        fm = (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))) :: MyFormula1
+        expected = for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: MyFormula1 in
     TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow fm ++ " (p. 134)")
                            expected
                            (subst (Map.fromList [("y", x)]) fm)
