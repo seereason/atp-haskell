@@ -59,7 +59,7 @@ module Prop
     ) where
 
 import Data.Foldable as Foldable (null)
-import Data.List as List (map)
+import Data.List as List (map, intercalate)
 import Data.Map as Map (Map)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map, minView, partition, Set, singleton, toAscList, union)
@@ -77,6 +77,7 @@ import Lib (distrib, fpf, (|=>), setAny)
 import Lit (IsLiteral(foldLiteral))
 import Pretty (Associativity(InfixN, InfixR, InfixA), Fixity(Fixity), HasFixity(fixity),
               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
+import Text.PrettyPrint.HughesPJClass (vcat)
 
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
@@ -284,6 +285,27 @@ truthTable fm =
       ats = atoms fm
       mkRow v = [(List.map v atl, eval fm v)]
       atl = Set.toAscList ats
+
+instance Pretty atom => Pretty (TruthTable atom) where
+    pPrint (TruthTable ats rows) = vcat (List.map (text . intercalate "|") (List.map center rows''))
+        where
+          center :: [String] -> [String]
+          center cols = Prelude.map (uncurry center') (zip colWidths cols)
+          center' :: Int -> String -> String
+          center' width s = let (q, r) = divMod (width - length s) 2 in replicate q ' ' ++ s ++ replicate (q + r) ' '
+          hdrs = List.map prettyShow ats ++ ["result"]
+          rows'' = hdrs : List.map (uncurry replicate) (zip colWidths (repeat '-')) : rows'
+          rows' :: [[String]]
+          rows' = List.map (\(cols, result) -> List.map prettyShow (cols ++ [result])) rows
+          cellWidths :: [[Int]]
+          cellWidths = List.map (List.map length) (hdrs : rows')
+          colWidths :: [Int]
+          colWidths = List.map (foldl1 max) (transpose cellWidths)
+
+transpose               :: [[a]] -> [[a]]
+transpose []             = []
+transpose ([]   : xss)   = transpose xss
+transpose ((x:xs) : xss) = (x : [h | (h:_) <- xss]) : transpose (xs : [ t | (_:t) <- xss])
 
 #ifndef NOTESTS
 -- | Tests precedence handling in pretty printer.
