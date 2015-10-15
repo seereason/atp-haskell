@@ -206,7 +206,7 @@ instance (IsFunction function, IsVariable v) => IsTerm (Term function v) v funct
 instance (Pretty function, Pretty v) => Pretty (Term function v) where
     pPrint (Var v) = pPrint v
     pPrint (FApply fn []) = pPrint fn
-    pPrint (FApply fn args) = pPrint fn <> text " [" <> mconcat (intersperse (text ", ") (map pPrint args)) <> "]"
+    pPrint (FApply fn args) = pPrint fn <> text " [" <> mconcat (intersperse (text ", ") (map pPrint args)) <> text "]"
 
 -- Example.
 test00 :: Test
