@@ -241,10 +241,10 @@ data Predicate
     | Equals
     deriving (Eq, Ord, Data, Typeable, Show)
 
-instance (IsFunction function, IsVariable v) => IsPredicate Predicate (Term function v) where
-    prettyPredicateApplication Equals [a, b] =
+instance (HasEquals p, Ord p, Show p, IsString p, Pretty p, IsFunction function, IsVariable v) => IsPredicate p (Term function v) where
+    prettyPredicateApplication p [a, b] | isEquals p =
         pPrint a <> text "=" <> pPrint b
-    prettyPredicateApplication Equals _ts =
+    prettyPredicateApplication p _ts | isEquals p =
         error "Arity mismatch for equals predicate"
     prettyPredicateApplication p ts =
         pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
