@@ -1,10 +1,11 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# OPTIONS_GHC -Wall -fno-warn-unused-binds #-}
+{-# OPTIONS_GHC -Wall -fno-warn-orphans -fno-warn-unused-binds #-}
 
 module Lib
     ( Failing(Success, Failure)
@@ -41,7 +42,9 @@ module Lib
     , mapfilter
     , setmapfilter
     , (∅)
-    , tests
+#ifndef NOTESTS
+    , testLib
+#endif
     ) where
 
 import Control.Applicative.Error (Failing (Success, Failure))
@@ -254,10 +257,12 @@ allpairs f xs ys = Set.fold (\ x zs -> Set.fold (\ y zs' -> Set.insert (f x y) z
 distrib :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
 distrib s1 s2 = allpairs (Set.union) s1 s2
 
+#ifndef NOTESTS
 test01 :: Test
 test01 = TestCase $ assertEqual "allpairs" expected input
     where input = allpairs (,) (Set.fromList [1,2,3]) (Set.fromList [4,5,6])
           expected = Set.fromList [(1,4),(1,5),(1,6),(2,4),(2,5),(2,6),(3,4),(3,5),(3,6)] :: Set (Int, Int)
+#endif
 
 {-
 let rec distinctpairs l =
@@ -877,5 +882,8 @@ let equated (Partition f) = dom f;;
 let rec first n p = if p(n) then n else first (n +/ Int 1) p;;
 -}
 
-tests :: Test
-tests = TestLabel "Lib" $ TestList [test01]
+#ifndef NOTESTS
+testLib :: Test
+testLib = TestLabel "Lib" $ TestList [test01]
+#endif
+

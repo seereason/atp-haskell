@@ -37,7 +37,7 @@ module Skolem
     , Function(Fn, Skolem)
     , MyTerm, MyAtom, MyFormula
     -- * Tests
-    , tests
+    , testSkolem
 #endif
     ) where
 
@@ -49,9 +49,8 @@ import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union, unions)
 import Data.String (IsString(fromString))
-import Test.HUnit
-
-import FOL (exists, for_all, Quant((:?:), (:!:)), quant, foldPredicate, IsTerm, fApp, variant, subst, foldTerm, propositionalFromFirstOrder, IsQuantified(foldQuantified), IsFirstOrder, IsFunction, fv, pApp, vt)
+import FOL (exists, fApp, foldPredicate, foldTerm, for_all, fv, IsFirstOrder, IsFunction, IsQuantified(foldQuantified),
+            IsTerm, pApp, propositionalFromFirstOrder, quant, Quant((:?:), (:!:)), subst, variant, vt)
 #ifndef NOTESTS
 import FOL (Formula, Term, V, FOL, Predicate)
 #endif
@@ -60,6 +59,7 @@ import Lib (setAny, distrib)
 import Prelude hiding (negate)
 import Pretty (Pretty(pPrint), prettyShow, text)
 import Prop (IsPropositional, psimplify1, trivial)
+import Test.HUnit
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
 simplify :: IsFirstOrder formula atom predicate term v function => formula -> formula
@@ -437,6 +437,6 @@ purecnf' :: (IsFirstOrder formula atom predicate term v function) => formula -> 
 purecnf' fm = Set.map (Set.map negate) (purednf' (nnf ((.~.) fm)))
 
 #ifndef NOTESTS
-tests :: Test
-tests = TestList [test01, test02, test03, test04, test05]
+testSkolem :: Test
+testSkolem = TestList [test01, test02, test03, test04, test05]
 #endif

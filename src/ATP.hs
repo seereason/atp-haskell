@@ -22,16 +22,16 @@ import Lib
 import Pretty
 import Formulas
 import Lit hiding (Atom, T, F, Not)
-import Prop hiding (tests, Atom, nnf)
-import PropExamples hiding (tests, K)
-import DefCNF hiding (tests)
-import DP hiding (tests)
-import FOL hiding (tests, T, F, Not, And, Or, Imp, Iff)
-import Skolem hiding (tests)
-import Herbrand hiding (tests, test01, test02)
-import Unif hiding (tests)
-import Tableaux hiding (tests, K)
-import Resolution hiding (tests)
-import Prolog hiding (tests)
-import Meson hiding (tests, test01, test02)
-import Equal hiding (T, F)
+import Prop hiding (Atom, nnf, T, F, Not, And, Or, Imp, Iff)
+import PropExamples hiding (K)
+import DefCNF
+import DP
+import FOL
+import Skolem
+import Herbrand -- hiding (test01, test02)
+import Unif
+import Tableaux hiding (K)
+import Resolution
+import Prolog
+import Meson
+import Equal

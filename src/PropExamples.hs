@@ -18,7 +18,7 @@ module PropExamples
     , prime
     , ramsey
 #ifndef NOTESTS
-    , tests
+    , testPropExamples
 #endif
     ) where
 
@@ -31,7 +31,7 @@ import Test.HUnit
 import Formulas
 import Lib (allsets)
 import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
-import Prop hiding (tests)
+import Prop
 
 -- | Generate assertion equivalent to R(s,t) <= n for the Ramsey number R(s,t)
 ramsey :: forall formula atom.
@@ -249,6 +249,6 @@ test03 =
               TestCase (assertEqual "tautology(prime 9)" False (tautology (prime 9 :: F))),
               TestCase (assertEqual "tautology(prime 11)" True (tautology (prime 11 :: F)))]
 
-tests :: Test
-tests = TestList [test01, test02, test03]
+testPropExamples :: Test
+testPropExamples = TestList [test01, test02, test03]
 #endif

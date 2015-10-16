@@ -62,7 +62,7 @@ module FOL
     , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     , MyFormula1
     -- * Tests
-    , tests
+    , testFOL
 #endif
     ) where
 
@@ -315,11 +315,6 @@ data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable)
 
 instance IsPredicate predicate term => Pretty (FOL predicate term) where
     pPrint = foldPredicate prettyPredicateApplication
-
-{-
-instance (IsPredicate predicate term, Pretty term, Ord term) => Pretty (FOL predicate term) where
-    pPrint = foldPredicate prettyPredicateApplication
--}
 
 instance (IsPredicate predicate term, Show predicate, Show term) => Show (FOL predicate term) where
     show (R p ts) = "applyPredicate " ++ show p ++ " [" ++ intercalate ", " (map show ts) ++ "]"
@@ -1011,9 +1006,9 @@ test11 =
                            expected
                            (subst (Map.fromList [("y", x)]) fm)
 
-tests :: Test
-tests = TestLabel "FOL" $
-        TestList [test00, test01, test02, test03, test04,
-                  test05, test06, test07, test08, test09,
-                  test10, test11]
+testFOL :: Test
+testFOL = TestLabel "FOL" $
+          TestList [test00, test01, test02, test03, test04,
+                    test05, test06, test07, test08, test09,
+                    test10, test11]
 #endif

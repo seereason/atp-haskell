@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Pretty
     ( (<>)
@@ -96,7 +97,6 @@ parenthesize (Fixity pprec pdir) (Fixity prec _dir) side pp =
             (_, InfixN) -> error "Nested non-associative operators"
 
 instance Pretty a => Pretty (Set a) where
-    -- pPrint s = text "{" <> mconcat (intersperse (text ", ") (List.map pPrint (Set.toAscList s))) <> text "}"
     pPrint s = text "{" <> text (intercalate ", " (List.sort (List.map prettyShow (Set.toAscList s)))) <> text "}"
 
 instance (Pretty v, Pretty term) => Pretty (Map v term) where

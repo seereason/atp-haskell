@@ -16,8 +16,8 @@ import Prop hiding (nnf)
 import Skolem (HasSkolem(toSkolem), skolemize, runSkolem, MyAtom, MyFormula, MyTerm)
 import Tableaux (Depth(Depth))
 
-tests :: Test
-tests = TestList [test06, test07]
+testExtra :: Test
+testExtra = TestList [test06, test07]
 
 test06 :: Test
 test06 =

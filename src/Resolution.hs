@@ -19,7 +19,7 @@ module Resolution
     -- , matchAtomsEq
 #ifndef NOTESTS
     , davis_putnam_example_formula
-    , Resolution.tests
+    , testResolution
 #endif
     ) where
 
@@ -1098,6 +1098,6 @@ los =
         expected = Set.singleton (Success True) in
     TestCase $ assertEqual "los (p. 198)" expected result
 
-tests :: Test
-tests = TestList [test01, test02, p1, los]
+testResolution :: Test
+testResolution = TestList [test01, test02, p1, los]
 #endif

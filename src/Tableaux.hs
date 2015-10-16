@@ -18,7 +18,7 @@ module Tableaux
     , deepen, Depth(Depth), K(K)
     , tab
 #ifndef NOTESTS
-    , tests
+    , testTableaux
 #endif
     ) where
 
@@ -30,13 +30,13 @@ import Data.String (IsString(..))
 import Debug.Trace (trace)
 import Prelude hiding (compare)
 
-import Lib hiding (tests)
+import Lib
 import Formulas
 import Herbrand (davisputnam)
 import Lit
 import Pretty (Pretty(pPrint), prettyShow, text)
 import Prop (simpdnf)
-import FOL hiding (tests)
+import FOL
 import Skolem (askolemize, HasSkolem, runSkolem, skolemize)
 import Unif (unify)
 
@@ -702,6 +702,6 @@ let davis_putnam_example = time splittab
 
 -}
 
-tests :: Test
-tests = TestList [p20, p19, p38]
+testTableaux :: Test
+testTableaux = TestList [p20, p19, p38]
 #endif

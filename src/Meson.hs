@@ -10,7 +10,12 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wall #-}
 
-module Meson where
+module Meson
+    ( meson
+#ifndef NOTESTS
+    , testMeson
+#endif
+    ) where
 
 import Data.List as List (map)
 import Data.Map as Map
@@ -681,6 +686,6 @@ meson <<~p /\ (p \/ q) /\ (r \/ s) /\ (~q \/ t \/ u) /\
 END_INTERACTIVE;;
 -}
 
-tests :: Test
-tests = TestList [test00, test01, test02]
+testMeson :: Test
+testMeson = TestList [test00, test01, test02]
 #endif

@@ -1,21 +1,33 @@
 import Test.HUnit
 
-import FOL (tests)
-import Herbrand (tests)
-import Lib (tests)
-import Prop (tests)
-import PropExamples (tests)
-import DefCNF (tests)
-import DP (tests)
-import Skolem (tests)
-import Unif (tests)
-import Tableaux (tests)
-import Resolution (tests)
-import Prolog (tests)
-import Meson (tests)
-import Extra (tests)
+import FOL (testFOL)
+import Herbrand (testHerbrand)
+import Lib (testLib)
+import Prop (testProp)
+import PropExamples (testPropExamples)
+import DefCNF (testDefCNF)
+import DP (testDP)
+import Skolem (testSkolem)
+import Unif (testUnif)
+import Tableaux (testTableaux)
+import Resolution (testResolution)
+import Prolog (testProlog)
+import Meson (testMeson)
+import Extra (testExtra)
 
 main :: IO Counts
-main = runTestTT $ TestList [Lib.tests, Prop.tests, PropExamples.tests, DefCNF.tests, DP.tests, FOL.tests,
-                             Skolem.tests, Herbrand.tests, Unif.tests, Tableaux.tests, Resolution.tests,
-                             Prolog.tests, Meson.tests, Extra.tests]
+main = runTestTT $ TestList [testLib,
+                             testProp,
+                             testPropExamples,
+                             testDefCNF,
+                             testDP,
+                             testFOL,
+                             -- testEqual,
+                             testSkolem,
+                             testHerbrand,
+                             testUnif,
+                             testTableaux,
+                             testResolution,
+                             testProlog,
+                             testMeson,
+                             testExtra]

@@ -21,7 +21,7 @@ module DefCNF
     , Atom(N)
     -- * Tests
 #ifndef NOTESTS
-    , tests
+    , testDefCNF
 #endif
     ) where
 
@@ -200,6 +200,6 @@ test03 =
                     ["p_1","r","¬q"]] in
     TestCase $ assertEqual "defcnf1 (p. 77)" expected input
 
-tests :: Test
-tests = TestList [test01, test02, test03]
+testDefCNF :: Test
+testDefCNF = TestList [test01, test02, test03]
 #endif

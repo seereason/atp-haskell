@@ -200,6 +200,6 @@ END_INTERACTIVE;;
 -}
 
 #ifndef NOTESTS
-tests :: Test
-tests = TestList []
+testProlog :: Test
+testProlog = TestList []
 #endif

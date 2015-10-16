@@ -15,7 +15,7 @@ module DP
     , dplbsat
     , dplbtaut
 #ifndef NOTESTS
-    , tests
+    , testDP
 #endif
     ) where
 
@@ -24,11 +24,11 @@ import Data.Set as Set
 import Prelude hiding (negate, pure)
 import Test.HUnit
 
-import DefCNF hiding (tests)
+import DefCNF
 import Formulas
-import Lib hiding (tests)
+import Lib
 import Lit
-import Prop hiding (tests)
+import Prop
 import PropExamples (prime, Knows(K))
 
 instance NumAtom (Knows Integer) where
@@ -257,6 +257,6 @@ test03 :: Test
 test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" (Success True) (dplitaut (prime 101 :: PFormula (Knows Integer)))),
                    TestCase (assertEqual "dplbtaut(prime 101)" (Success True) (dplbtaut (prime 101 :: PFormula (Knows Integer))))]
 
-tests :: Test
-tests = TestList [test01, test02, test03]
+testDP :: Test
+testDP = TestList [test01, test02, test03]
 #endif

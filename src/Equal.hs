@@ -1,29 +1,22 @@
+-- | First order logic with equality.
+--
+-- Copyright (co) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
+
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, RankNTypes, ScopedTypeVariables, TypeSynonymInstances #-}
 {-# OPTIONS_GHC -Wall #-}
+
 module Equal
 {-  ( function_congruence
     , equalitize
     ) -} where
 
--- ========================================================================= 
--- First order logic with equality.                                          
---                                                                           
--- Copyright (co) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)  
--- ========================================================================= 
-
-import FOL (HasPredicate(applyPredicate))
-import Formulas ((∧), (⇒))
-import Formulas (HasBoolean(fromBool))
-import FOL (HasEquality(..), foldEquals, HasEquals(..), (.=.))
-import FOL (IsQuantified(..), (∀))
-import Formulas (IsFormula(atomic, overatoms))
-import FOL (IsTerm(..))
-import Formulas (atom_union)
-import Skolem (funcs)
-import Lib ((∅))
--- import Data.Logic.Harrison.Skolem (functions)
-import qualified Data.Set as Set
+import Data.List as List (foldr, map)
+import Data.Set as Set
 import Data.String (IsString(fromString))
+import Formulas ((∧), (⇒), IsFormula(atomic, overatoms), atom_union)
+import FOL (HasEquality(..), foldEquals, (.=.), IsQuantified(..), (∀), IsTerm(..), HasPredicate(applyPredicate))
+import Lib ((∅))
+import Skolem (Arity, funcs)
 
 -- is_eq :: (IsQuantified fof atom v, HasEquality atom p term) => fof -> Bool
 -- is_eq = foldFirstOrder (\ _ _ _ -> False) (\ _ -> False) (\ _ -> False) (foldAtomEq (\ _ _ -> False) (\ _ -> False) (\ _ _ -> True))
@@ -43,76 +36,46 @@ import Data.String (IsString(fromString))
 -- rhs :: (IsQuantified fof atom v, HasEquality atom p term) => fof -> Failing term
 -- rhs eq = dest_eq eq >>= return . snd
 
--- ------------------------------------------------------------------------- 
--- The set of predicates in a formula.                                       
--- ------------------------------------------------------------------------- 
-
-predicates :: forall formula atom term v p. (IsQuantified formula atom v, HasEquality atom p term, Ord atom, Ord p) => formula -> Set.Set atom
+-- | The set of predicates in a formula.
+predicates :: (IsQuantified formula atom v, HasEquality atom p term, Ord atom, Ord p) => formula -> Set atom
 predicates fm =
     atom_union pair fm
-    where pair atom = foldEquals (\ p ts -> Set.singleton atom) (\ _ _ -> Set.singleton atom) atom
+    where pair atom = foldEquals (\ _ _ -> Set.singleton atom) (\ _ _ -> Set.singleton atom) atom
 
-{-
--- | Traverse a formula and pass all (predicates, arity) pairs to a function.
--- To collect
-foldPredicates :: forall formula atom term v p r. (IsQuantified formula atom v, HasEquality atom p term, Ord p) =>
-                  (PredicateName p -> Maybe Int -> r -> r) -> formula -> r -> r
-foldPredicates f fm acc =
-    foldFirstOrder qu co tf at fm
-    where
-      fold = foldPredicates f
-      qu _ _ p = fold p acc
-      co (BinOp l _ r) = fold r (fold l acc)
-      co ((:~:) p) = fold p acc
-      tf x = fold (fromBool x) acc
-      at = foldAtomEq ap tf eq
-      ap p _ = f (Name p) (arity p) acc
-      eq _ _ = f Equals (Just 2) acc
--}
-
--- ------------------------------------------------------------------------- 
--- Code to generate equality axioms for functions.                           
--- ------------------------------------------------------------------------- 
-
+-- | Code to generate equality axioms for functions.
 function_congruence :: forall fof atom term v p f. (IsQuantified fof atom v, HasEquality atom p term, IsTerm term v f, Ord fof) =>
-                       (f, Int) -> Set.Set fof
+                       (f, Int) -> Set fof
 function_congruence (_,0) = (∅)
 function_congruence (f,n) =
-    Set.singleton (foldr (∀) (ant ⇒ con) (argnames_x ++ argnames_y))
+    Set.singleton (List.foldr (∀) (ant ⇒ con) (argnames_x ++ argnames_y))
     where
       argnames_x :: [v]
-      argnames_x = map (\ m -> fromString ("x" ++ show m)) [1..n]
+      argnames_x = List.map (\ m -> fromString ("x" ++ show m)) [1..n]
       argnames_y :: [v]
-      argnames_y = map (\ m -> fromString ("y" ++ show m)) [1..n]
-      args_x = map vt argnames_x
-      args_y = map vt argnames_y
-      ant = foldr1 (∧) (map (uncurry (.=.)) (zip args_x args_y))
+      argnames_y = List.map (\ m -> fromString ("y" ++ show m)) [1..n]
+      args_x = List.map vt argnames_x
+      args_y = List.map vt argnames_y
+      ant = foldr1 (∧) (List.map (uncurry (.=.)) (zip args_x args_y))
       con = fApp f args_x .=. fApp f args_y
-  
--- ------------------------------------------------------------------------- 
--- And for predicates.                                                       
--- ------------------------------------------------------------------------- 
 
+-- | And for predicates.
 predicate_congruence :: (IsQuantified fof atom v, HasEquality atom p term, IsTerm term v f, Ord p) =>
-                        atom -> Set.Set fof
+                        atom -> Set fof
 predicate_congruence =
     foldEquals (\p ts -> ap p (length ts)) (\_ _ -> Set.empty)
     where
       ap _ 0 = Set.empty
-      ap p n = Set.singleton (foldr (∀) (ant ⇒ con) (argnames_x ++ argnames_y))
+      ap p n = Set.singleton (List.foldr (∀) (ant ⇒ con) (argnames_x ++ argnames_y))
           where
-            argnames_x = map (\ m -> fromString ("x" ++ show m)) [1..n]
-            argnames_y = map (\ m -> fromString ("y" ++ show m)) [1..n]
-            args_x = map vt argnames_x
-            args_y = map vt argnames_y
-            ant = foldr1 (∧) (map (uncurry (.=.)) (zip args_x args_y))
+            argnames_x = List.map (\ m -> fromString ("x" ++ show m)) [1..n]
+            argnames_y = List.map (\ m -> fromString ("y" ++ show m)) [1..n]
+            args_x = List.map vt argnames_x
+            args_y = List.map vt argnames_y
+            ant = foldr1 (∧) (List.map (uncurry (.=.)) (zip args_x args_y))
             con = atomic (applyPredicate p args_x) ⇒ atomic (applyPredicate p args_y)
 
--- ------------------------------------------------------------------------- 
--- Hence implement logic with equality just by adding equality "axioms".     
--- ------------------------------------------------------------------------- 
-
-equivalence_axioms :: forall fof atom term v p f. (IsQuantified fof atom v, HasEquality atom p term, IsTerm term v f, Ord fof) => Set.Set fof
+-- | Hence implement logic with equality just by adding equality "axioms".
+equivalence_axioms :: forall fof atom term v p f. (IsQuantified fof atom v, HasEquality atom p term, IsTerm term v f, Ord fof) => Set fof
 equivalence_axioms =
     Set.fromList
     [(∀) "x" (x .=. x),
@@ -132,22 +95,21 @@ equalitize fm =
     then fm
     else foldr1 (∧) (Set.toList axioms) ⇒ fm
     where
-      axioms = Set.fold (Set.union . function_congruence) (Set.fold (Set.union . predicate_congruence) equivalence_axioms preds) (functions' funcsAtomEq' fm)
-      funcsAtomEq' :: atom -> Set.Set (f, Int)
-      funcsAtomEq' = funcsAtomEq
+      axioms = Set.fold (Set.union . function_congruence)
+                        (Set.fold (Set.union . predicate_congruence) equivalence_axioms preds)
+                        (functions' funcsAtomEq fm)
       allpreds = predicates fm
       preds = Set.filter (not . foldEquals (\_ _ -> False) (\_ _ -> True)) allpreds
 
-functions' :: forall formula atom f. (IsFormula formula atom, Ord f) => (atom -> Set.Set (f, Int)) -> formula -> Set.Set (f, Int)
--- functions' fa fm = foldAtoms (\ s a -> Set.union s (fa a)) Set.empty fm
+functions' :: (IsFormula formula atom, Ord f) => (atom -> Set (f, Int)) -> formula -> Set (f, Arity)
 functions' fa fm = overatoms (\ a s -> Set.union s (fa a)) fm Set.empty
 
--- ------------------------------------------------------------------------- 
--- Other variants not mentioned in book.                                     
--- ------------------------------------------------------------------------- 
+funcsAtomEq :: (HasEquality atom p term, IsTerm term v f, Ord f) => atom -> Set (f, Arity)
+funcsAtomEq = foldEquals (\ _ ts -> Set.unions (List.map funcs ts)) (\ t1 t2 -> Set.union (funcs t1) (funcs t2))
 
-funcsAtomEq :: (HasEquality atom p term, IsTerm term v f, Ord f) => atom -> Set.Set (f, Int)
-funcsAtomEq = foldEquals (\ _ ts -> Set.unions (map funcs ts)) (\ t1 t2 -> Set.union (funcs t1) (funcs t2))
+-- -------------------------------------------------------------------------
+-- Other variants not mentioned in book.
+-- -------------------------------------------------------------------------
 
 {-
 {- ************
@@ -159,9 +121,9 @@ funcsAtomEq = foldEquals (\ _ ts -> Set.unions (map funcs ts)) (\ t1 t2 -> Set.u
    (forall x. x * x = 1)
    ==> forall x y. x * y  = y * x>>;;
 
--- ------------------------------------------------------------------------- 
--- With symmetry at leaves and one-sided congruences (Size = 16, 54659 s).   
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- With symmetry at leaves and one-sided congruences (Size = 16, 54659 s).
+-- -------------------------------------------------------------------------
 
 let fm =
  <<(forall x. x = x) /\
@@ -179,9 +141,9 @@ let fm =
 
 time meson fm;;
 
--- ------------------------------------------------------------------------- 
--- Newer version of stratified equalities.                                   
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Newer version of stratified equalities.
+-- -------------------------------------------------------------------------
 
 let fm =
  <<(forall x y z. axiom(x * (y * z),(x * y) * z)) /\
@@ -224,9 +186,9 @@ let fm =
 
 time meson fm;;
 
--- ------------------------------------------------------------------------- 
--- Showing congruence closure.                                               
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Showing congruence closure.
+-- -------------------------------------------------------------------------
 
 let fm = equalitize
  <<forall c. f(f(f(f(f(c))))) = c /\ f(f(f(c))) = c ==> f(c) = c>>;;
@@ -250,9 +212,9 @@ let fm =
 
 time meson fm;;
 
--- ------------------------------------------------------------------------- 
--- With stratified equalities.                                               
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- With stratified equalities.
+-- -------------------------------------------------------------------------
 
 let fm =
  <<(forall x y z. eqA (x * (y * z),(x * y) * z)) /\
@@ -281,9 +243,9 @@ let fm =
    (forall x y z. eqC (x,y) /\ eqT (y,z) ==> eqT (x,z))
    ==> forall x. eqT (x * i(x),1)>>;;
 
--- ------------------------------------------------------------------------- 
--- With transitivity chains...                                               
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- With transitivity chains...
+-- -------------------------------------------------------------------------
 
 let fm =
  <<(forall x y z. eqA (x * (y * z),(x * y) * z)) /\
@@ -308,9 +270,9 @@ let fm =
 
 time meson fm;;
 
--- ------------------------------------------------------------------------- 
--- Enforce canonicity (proof size = 20).                                     
--- ------------------------------------------------------------------------- 
+-- -------------------------------------------------------------------------
+-- Enforce canonicity (proof size = 20).
+-- -------------------------------------------------------------------------
 
 let fm =
  <<(forall x y z. eq1(x * (y * z),(x * y) * z)) /\
@@ -330,4 +292,3 @@ time meson fm;;
 ***************** -}
 END_INTERACTIVE;;
 -}
-

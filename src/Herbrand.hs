@@ -277,6 +277,6 @@ END_INTERACTIVE;;
 -}
 
 #ifndef NOTESTS
-tests :: Test
-tests = TestList [test01, test02]
+testHerbrand :: Test
+testHerbrand = TestList [test01, test02]
 #endif
