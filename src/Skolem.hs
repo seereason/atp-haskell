@@ -18,9 +18,8 @@ module Skolem
     -- * Normal forms
     , nnf
     , pnf
-    , Arity
-    , functions
-    , funcs
+    -- , functions
+    -- , funcs
     -- * Skolem monad
     , SkolemM
     , runSkolem
@@ -47,10 +46,10 @@ import Data.Generics (Data, Typeable)
 import Data.List as List (map)
 import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
-import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union, unions)
+import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
-import FOL (exists, fApp, foldPredicate, foldTerm, for_all, fv, IsFirstOrder, IsFunction, IsQuantified(foldQuantified),
-            IsTerm, pApp, propositionalFromFirstOrder, quant, Quant((:?:), (:!:)), subst, variant, vt)
+import FOL (exists, fApp, for_all, fv, IsFirstOrder, IsFunction, IsQuantified(foldQuantified),
+            pApp, propositionalFromFirstOrder, quant, Quant((:?:), (:!:)), subst, variant, vt)
 #ifndef NOTESTS
 import FOL (Formula, Term, V, FOL, Predicate)
 #endif
@@ -90,6 +89,9 @@ simplify1 fm =
 type MyTerm = Term Function V
 type MyAtom = FOL Predicate MyTerm
 type MyFormula = Formula V MyAtom
+
+--instance HasFunctions MyFormula Function where
+--    funcs = quantifiedFuncs
 
 instance IsFirstOrder MyFormula MyAtom Predicate MyTerm V Function
 
@@ -209,8 +211,7 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" (prettyShow expected) (prettyShow
                exists "y" (exists "z" ((pApp q [vt "y"]) .|. ((.~.)(exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"])))))
 #endif
 
-type Arity = Int
-
+{-
 -- | Get the functions in a term and formula.
 functions :: IsFirstOrder formula atom predicate term v function =>
              formula -> Set (function, Arity)
@@ -224,6 +225,7 @@ functions fm =
 
 funcs :: IsTerm term v function => term -> Set (function, Arity)
 funcs term = foldTerm (\_ -> Set.empty) (\f ts -> Set.singleton (f, length ts)) term
+-}
 
 -- -------------------------------------------------------------------------
 -- State monad for generating Skolem functions and constants.

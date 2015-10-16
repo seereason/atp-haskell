@@ -20,13 +20,13 @@ import Data.String (IsString(..))
 import Debug.Trace
 
 import DP (dpll)
-import FOL (IsFirstOrder, IsTerm, fApp, subst, fv, generalize, exists, for_all, pApp, vt)
+import FOL (Arity, HasFunctions(funcs), IsFirstOrder, IsTerm, fApp, subst, fv, generalize, exists, for_all, pApp, vt)
 import Formulas ((.~.), overatoms, atomic, (.=>.), (.&.), (.|.))
 import Lib (allpairs, distrib)
 import Lit (IsLiteral)
 import Pretty (prettyShow)
 import Prop (IsPropositional, eval, trivial, simpcnf, simpdnf)
-import Skolem (Arity, functions, HasSkolem, runSkolem, skolemize)
+import Skolem (HasSkolem, runSkolem, skolemize)
 
 #ifndef NOTESTS
 import FOL (V)
@@ -39,10 +39,10 @@ pholds :: IsPropositional formula atom => (atom -> Bool) -> formula -> Bool
 pholds d fm = eval fm d
 
 -- | Get the constants for Herbrand base, adding nullary one if necessary.
-herbfuns :: IsFirstOrder fof atom predicate term v function =>
+herbfuns :: HasFunctions fof function =>
             fof -> (Set (function, Arity), Set (function, Arity))
 herbfuns fm =
-  let (cns,fns) = Set.partition (\ (_,ar) -> ar == 0) (functions fm) in
+  let (cns,fns) = Set.partition (\ (_,ar) -> ar == 0) (funcs fm) in
   if Set.null cns then (Set.singleton (fromString "c",0),fns) else (cns,fns)
 
 -- | Enumeration of ground terms and m-tuples, ordered by total fns.

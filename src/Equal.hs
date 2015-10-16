@@ -6,17 +6,16 @@
 {-# OPTIONS_GHC -Wall #-}
 
 module Equal
-{-  ( function_congruence
+    ( function_congruence
     , equalitize
-    ) -} where
+    ) where
 
 import Data.List as List (foldr, map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
-import Formulas ((∧), (⇒), IsFormula(atomic, overatoms), atom_union)
-import FOL (HasEquality(..), foldEquals, (.=.), IsQuantified(..), (∀), IsTerm(..), HasPredicate(applyPredicate))
+import Formulas ((∧), (⇒), IsFormula(atomic), atom_union)
+import FOL (HasEquality(..), foldEquals, (.=.), HasFunctions(funcs), IsQuantified(..), (∀), IsTerm(..), HasPredicate(applyPredicate))
 import Lib ((∅))
-import Skolem (Arity, funcs)
 
 -- is_eq :: (IsQuantified fof atom v, HasEquality atom p term) => fof -> Bool
 -- is_eq = foldFirstOrder (\ _ _ _ -> False) (\ _ -> False) (\ _ -> False) (foldAtomEq (\ _ _ -> False) (\ _ -> False) (\ _ _ -> True))
@@ -88,7 +87,8 @@ equivalence_axioms =
       z :: term
       z = vt (fromString "z")
 
-equalitize :: forall formula atom term v p f. (IsQuantified formula atom v, IsFormula formula atom, HasEquality atom p term, Ord p, Show p, IsTerm term v f, Ord formula, Ord atom, Ord f) =>
+equalitize :: forall formula atom term v p f.
+              (IsQuantified formula atom v, IsFormula formula atom, HasEquality atom p term, HasFunctions formula f, HasFunctions term f, Ord p, Show p, IsTerm term v f, Ord formula, Ord atom, Ord f) =>
               formula -> formula
 equalitize fm =
     if Set.null (Set.filter (foldEquals (\_ _ -> False) (\_ _ -> True)) allpreds)
@@ -97,15 +97,17 @@ equalitize fm =
     where
       axioms = Set.fold (Set.union . function_congruence)
                         (Set.fold (Set.union . predicate_congruence) equivalence_axioms preds)
-                        (functions' funcsAtomEq fm)
+                        (funcs fm)
       allpreds = predicates fm
       preds = Set.filter (not . foldEquals (\_ _ -> False) (\_ _ -> True)) allpreds
 
+{-
 functions' :: (IsFormula formula atom, Ord f) => (atom -> Set (f, Int)) -> formula -> Set (f, Arity)
 functions' fa fm = overatoms (\ a s -> Set.union s (fa a)) fm Set.empty
 
-funcsAtomEq :: (HasEquality atom p term, IsTerm term v f, Ord f) => atom -> Set (f, Arity)
+funcsAtomEq :: (HasEquality atom p term, HasFunctions term f, IsTerm term v f, Ord f) => atom -> Set (f, Arity)
 funcsAtomEq = foldEquals (\ _ ts -> Set.unions (List.map funcs ts)) (\ t1 t2 -> Set.union (funcs t1) (funcs t2))
+-}
 
 -- -------------------------------------------------------------------------
 -- Other variants not mentioned in book.
