@@ -13,6 +13,7 @@ import Tableaux (testTableaux)
 import Resolution (testResolution)
 import Prolog (testProlog)
 import Meson (testMeson)
+import Equal (testEqual)
 import Extra (testExtra)
 
 main :: IO Counts
@@ -22,7 +23,6 @@ main = runTestTT $ TestList [testLib,
                              testDefCNF,
                              testDP,
                              testFOL,
-                             -- testEqual,
                              testSkolem,
                              testHerbrand,
                              testUnif,
@@ -30,4 +30,5 @@ main = runTestTT $ TestList [testLib,
                              testResolution,
                              testProlog,
                              testMeson,
+                             testEqual,
                              testExtra]
