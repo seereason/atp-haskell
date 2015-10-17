@@ -20,9 +20,9 @@ import Formulas ((∧), (⇒), IsFormula(atomic), atom_union)
 import FOL (HasEquality(..), foldEquals, (.=.), HasFunctions(funcs), IsQuantified(..), (∀), IsTerm(..), HasPredicate(applyPredicate))
 import Lib ((∅))
 #ifndef NOTESTS
-import FOL
-import Formulas
-import Lib
+import FOL ((∃), pApp, Predicate, V)
+import Formulas ((.&.), (.=>.), (.<=>.))
+import Lib (Failing (Success, Failure))
 import Meson (meson)
 import Pretty (prettyShow)
 import Skolem
@@ -145,9 +145,6 @@ test01 = TestCase $ assertEqual "function_congruence" expected input
 -- -------------------------------------------------------------------------
 -- A simple example (see EWD1266a and the application to Morley's theorem).
 -- -------------------------------------------------------------------------
-
-test :: (Show a, Eq a) => String -> a -> a -> Test
-test label expected input = TestLabel label $ TestCase $ assertEqual label expected input
 
 test02 :: Test
 test02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expectedProof) input

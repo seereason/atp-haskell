@@ -21,14 +21,14 @@ import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
-import Lib
-import FOL
-import Formulas
-import Lit
+import Lib (Failing(Failure, Success), setAll, settryfind)
+import FOL (exists, fApp, for_all, generalize, IsFirstOrder, IsQuantified, pApp, V, vt)
+import Formulas ((.~.), (.&.), (.|.), (.=>.), false, negative)
+import Lit (IsLiteral)
 import Pretty (prettyShow)
-import Prolog
-import Prop
-import Skolem (askolemize, HasSkolem, pnf, runSkolem, simpdnf', SkolemT, specialize, toSkolem)
+import Prolog (renamerule)
+import Prop (IsPropositional, list_conj, simpcnf)
+import Skolem (askolemize, HasSkolem, pnf, runSkolem, SkolemT, simpdnf', specialize, toSkolem)
 import Tableaux (Depth(Depth), K(K), deepen, tab, unify_literals)
 
 #ifndef NOTESTS
