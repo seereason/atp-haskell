@@ -380,7 +380,7 @@ data Quant
     deriving (Eq, Ord, Data, Typeable, Show)
 
 -- | Class of quantified formulas.
-class (IsPropositional formula atom, IsVariable v) => IsQuantified formula atom v | formula -> atom v where
+class (IsPropositional formula atom, IsVariable v) => IsQuantified formula atom v | formula -> v where
     quant :: Quant -> v -> formula -> formula
     foldQuantified :: (Quant -> v -> formula -> r)
                    -> (Combination formula -> r)
