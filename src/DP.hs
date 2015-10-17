@@ -40,17 +40,16 @@ flatten ss' = Set.fold Set.union Set.empty ss'
 
 -- | The DP procedure.
 dp :: forall lit atom. IsLiteral lit atom => Set (Set lit) -> Failing Bool
-dp clauses =
-  if Set.null clauses
-  then Success True
-  else if Set.member Set.empty clauses
-       then Success False
-       else case one_literal_rule clauses >>= dp of
+dp clauses
+  | Set.null clauses = Success True
+  | Set.member Set.empty clauses = Success False
+  | otherwise =
+      case one_literal_rule clauses >>= dp of
+        Success x -> Success x
+        Failure _ ->
+            case affirmative_negative_rule clauses >>= dp of
               Success x -> Success x
-              Failure _ ->
-                  case affirmative_negative_rule clauses >>= dp of
-                    Success x -> Success x
-                    Failure _ -> resolution_rule clauses >>= dp
+              Failure _ -> resolution_rule clauses >>= dp
 
 one_literal_rule :: IsLiteral lit atom => Set (Set lit) -> Failing (Set (Set lit))
 one_literal_rule clauses =
@@ -113,26 +112,25 @@ test01 = TestCase (assertEqual "dptaut(prime 11) p. 84" (Success True) (dptaut (
 
 -- | The same thing but with the DPLL procedure. (p. 84)
 dpll :: IsLiteral lit atom => Set (Set lit) -> Failing Bool
-dpll clauses =
-  if clauses == Set.empty
-  then Success True
-  else if Set.member Set.empty clauses
-       then Success False
-       else case one_literal_rule clauses >>= dpll of
+dpll clauses
+  | clauses == Set.empty = Success True
+  | Set.member Set.empty clauses = Success False
+  | otherwise =
+      case one_literal_rule clauses >>= dpll of
+        Success x -> Success x
+        Failure _ ->
+            case affirmative_negative_rule clauses >>= dpll of
               Success x -> Success x
               Failure _ ->
-                  case affirmative_negative_rule clauses >>= dpll of
-                    Success x -> Success x
-                    Failure _ ->
-                        let pvs = Set.filter positive (flatten clauses) in
-                        case maximize (posneg_count clauses) pvs of
-                          Nothing -> Failure ["dpll"]
-                          Just p ->
-                              case (dpll (Set.insert (Set.singleton p) clauses), dpll (Set.insert (Set.singleton (negate p)) clauses)) of
-                                (Success a, Success b) -> Success (a || b)
-                                (Failure a, Failure b) -> Failure (a ++ b)
-                                (Failure a, _) -> Failure a
-                                (_, Failure b) -> Failure b
+                  let pvs = Set.filter positive (flatten clauses) in
+                  case maximize (posneg_count clauses) pvs of
+                    Nothing -> Failure ["dpll"]
+                    Just p ->
+                        case (dpll (Set.insert (Set.singleton p) clauses), dpll (Set.insert (Set.singleton (negate p)) clauses)) of
+                          (Success a, Success b) -> Success (a || b)
+                          (Failure a, Failure b) -> Failure (a ++ b)
+                          (Failure a, _) -> Failure a
+                          (_, Failure b) -> Failure b
 
 posneg_count :: IsNegatable formula => Set (Set formula) -> formula -> Int
 posneg_count cls l =

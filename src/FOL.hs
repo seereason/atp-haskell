@@ -108,8 +108,8 @@ class (Ord v, IsString v, Pretty v, Show v) => IsVariable v where
 -- | Return an infinite list of variations on v
 variants :: IsVariable v => v -> [v]
 variants v0 =
-    iter' Set.empty v0
-    where iter' s v = let v' = variant v s in v' : iter' (Set.insert v s) v'
+    loop Set.empty v0
+    where loop s v = let v' = variant v s in v' : loop (Set.insert v s) v'
 
 showVariable :: IsVariable v => v -> String
 showVariable v = "(fromString (" ++ show (show (prettyVariable v)) ++ "))"
@@ -862,7 +862,7 @@ bool_interp =
     where
       func f [] | f == fromString "False" = False
       func f [] | f == fromString "True" = True
-      func f [x,y] | f == fromString "+" = not(x == y)
+      func f [x,y] | f == fromString "+" = x /= y
       func f [x,y] | f == fromString "*" = x && y
       func f _ = error ("bool_interp - uninterpreted function: " ++ show f)
       pred p [x,y] | isEquals p = x == y

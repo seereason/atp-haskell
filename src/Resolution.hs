@@ -184,11 +184,9 @@ term_match env [] = Success env
 term_match env ((p, q) : oth) =
     foldTerm v fn p
     where
-      v x = if not (defined env x)
-            then term_match ((x |-> q) env) oth
-            else if apply env x == Just q
-                 then term_match env oth
-                 else Failure ["term_match"]
+      v x | not (defined env x) = term_match ((x |-> q) env) oth
+          | apply env x == Just q = term_match env oth
+          | otherwise = Failure ["term_match"]
       fn f fa =
           foldTerm v' fn' q
           where

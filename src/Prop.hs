@@ -4,7 +4,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -287,7 +286,7 @@ truthTable fm =
       atl = Set.toAscList ats
 
 instance Pretty atom => Pretty (TruthTable atom) where
-    pPrint (TruthTable ats rows) = vcat (List.map (text . intercalate "|") (List.map center rows''))
+    pPrint (TruthTable ats rows) = vcat (List.map (text . intercalate "|" . center) rows'')
         where
           center :: [String] -> [String]
           center cols = Prelude.map (uncurry center') (zip colWidths cols)

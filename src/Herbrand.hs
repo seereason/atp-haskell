@@ -257,8 +257,7 @@ dp_refine cjs0 fvs dknow need =
       Just (cl, dknow') ->
           let mfn = dp_mfn cjs0 . subst . Map.fromList . zip fvs in
           dpll (Set.fold mfn Set.empty (Set.union need dknow')) >>= \ flag ->
-          if flag then return (Set.insert cl need) else return need >>=
-          dp_refine cjs0 fvs dknow'
+          dp_refine cjs0 fvs dknow' (if flag then Set.insert cl need else need)
 
 {-
 START_INTERACTIVE;;

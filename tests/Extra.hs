@@ -24,7 +24,7 @@ test06 =
     let fm :: MyFormula
         fm = for_all "x" (vt "x" .=. vt "x") .=>. for_all "x" (exists "y" (vt "x" .=. vt "y"))
         expected :: MyFormula
-        expected =  (vt "x" .=. vt "x") .&. ((.~.) (fApp (toSkolem "x") [] .=. vt "x"))
+        expected =  (vt "x" .=. vt "x") .&. (.~.) (fApp (toSkolem "x") [] .=. vt "x")
         -- atoms = [applyPredicate equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x")[]) .=. (vt "x")-}] :: [MyAtom]
         sk = runSkolem (skolemize id ((.~.) fm)) :: MyFormula
         table = truthTable sk :: TruthTable MyAtom in
