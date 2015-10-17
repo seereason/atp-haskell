@@ -277,5 +277,5 @@ END_INTERACTIVE;;
 
 #ifndef NOTESTS
 testHerbrand :: Test
-testHerbrand = TestList [test01, test02]
+testHerbrand = TestLabel "Herbrand" (TestList [test01, test02])
 #endif

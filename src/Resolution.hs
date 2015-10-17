@@ -1097,5 +1097,5 @@ los =
     TestCase $ assertEqual "los (p. 198)" expected result
 
 testResolution :: Test
-testResolution = TestList [test01, test02, p1, los]
+testResolution = TestLabel "Resolution" (TestList [test01, test02, p1, los])
 #endif

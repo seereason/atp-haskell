@@ -249,5 +249,5 @@ test03 =
               TestCase (assertEqual "tautology(prime 11)" True (tautology (prime 11 :: F)))]
 
 testPropExamples :: Test
-testPropExamples = TestList [test01, test02, test03]
+testPropExamples = TestLabel "PropExamples" (TestList [test01, test02, test03])
 #endif

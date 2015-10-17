@@ -440,5 +440,5 @@ purecnf' fm = Set.map (Set.map negate) (purednf' (nnf ((.~.) fm)))
 
 #ifndef NOTESTS
 testSkolem :: Test
-testSkolem = TestList [test01, test02, test03, test04, test05]
+testSkolem = TestLabel "Skolem" (TestList [test01, test02, test03, test04, test05])
 #endif

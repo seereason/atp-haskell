@@ -256,5 +256,5 @@ test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" (Success True) (d
                    TestCase (assertEqual "dplbtaut(prime 101)" (Success True) (dplbtaut (prime 101 :: PFormula (Knows Integer))))]
 
 testDP :: Test
-testDP = TestList [test01, test02, test03]
+testDP = TestLabel "DP" (TestList [test01, test02, test03])
 #endif

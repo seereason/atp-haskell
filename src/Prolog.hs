@@ -201,5 +201,5 @@ END_INTERACTIVE;;
 
 #ifndef NOTESTS
 testProlog :: Test
-testProlog = TestList []
+testProlog = TestLabel "Prolog" (TestList [])
 #endif

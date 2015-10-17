@@ -703,5 +703,5 @@ let davis_putnam_example = time splittab
 -}
 
 testTableaux :: Test
-testTableaux = TestList [p20, p19, p38]
+testTableaux = TestLabel "Tableaux" (TestList [p20, p19, p38])
 #endif

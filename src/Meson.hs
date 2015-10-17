@@ -686,5 +686,5 @@ END_INTERACTIVE;;
 -}
 
 testMeson :: Test
-testMeson = TestList [test00, test01, test02]
+testMeson = TestLabel "Meson" (TestList [test00, test01, test02])
 #endif

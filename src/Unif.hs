@@ -118,5 +118,5 @@ END_INTERACTIVE;;
 -}
 
 testUnif :: Test
-testUnif = TestList [test01, test02, test03, test04]
+testUnif = TestLabel "Unif" (TestList [test01, test02, test03, test04])
 #endif

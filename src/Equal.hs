@@ -331,7 +331,8 @@ test04 = TestCase $ assertEqual "equalitize 3 (p. 248)" (prettyShow expected, ex
                             0,31),Depth 13)]
       vt' = vt . fromString
 
-testEqual = TestList [test01, test02 {-, test03, test04-}]
+testEqual :: Test
+testEqual = TestLabel "Equal" (TestList [test01, test02 {-, test03, test04-}])
 
 #endif
 

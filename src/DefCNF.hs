@@ -200,5 +200,5 @@ test03 =
     TestCase $ assertEqual "defcnf1 (p. 77)" expected input
 
 testDefCNF :: Test
-testDefCNF = TestList [test01, test02, test03]
+testDefCNF = TestLabel "DefCNF" (TestList [test01, test02, test03])
 #endif

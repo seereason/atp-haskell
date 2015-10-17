@@ -883,6 +883,6 @@ let rec first n p = if p(n) then n else first (n +/ Int 1) p;;
 
 #ifndef NOTESTS
 testLib :: Test
-testLib = TestLabel "Lib" $ TestList [test01]
+testLib = TestLabel "Lib" (TestList [test01])
 #endif
 
