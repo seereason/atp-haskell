@@ -21,16 +21,15 @@ import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
-
 import Lib
-import Formulas
-import Pretty (prettyShow)
-import Prop
-import Lit
 import FOL
+import Formulas
+import Lit
+import Pretty (prettyShow)
+import Prolog
+import Prop
 import Skolem (askolemize, HasSkolem, pnf, runSkolem, simpdnf', SkolemT, specialize, toSkolem)
 import Tableaux (Depth(Depth), K(K), deepen, tab, unify_literals)
-import Prolog
 
 #ifndef NOTESTS
 import Resolution (davis_putnam_example_formula)

@@ -288,7 +288,7 @@ tab :: (IsFirstOrder formula atom predicate term v function, HasSkolem function 
        Maybe Depth -> formula -> Failing ((K, Map v term), Depth)
 tab limit fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
-  if sfm == false then undefined else tabrefute limit [sfm]
+  if sfm == false then (error "Tableaux.tab") else tabrefute limit [sfm]
 
 #ifndef NOTESTS
 p38 :: Test
