@@ -399,8 +399,7 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
                        ((.~.)(pApp q [vt "z"]))))
 #endif
 
--- Implement the behavior of simpdnf in prop.ml
-
+-- Versions of the normal form functions that leave quantifiers in place.
 simpdnf' :: IsFirstOrder formula atom predicate term v function => formula -> Set (Set formula)
 simpdnf' fm =
     {-t2 $-}
