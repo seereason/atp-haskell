@@ -72,25 +72,27 @@ unify_and_apply' eqs =
           app (t1, t2) = fullunify eqs >>= \i -> return $ (tsubst i t1, tsubst i t2)
 
 #ifndef NOTESTS
-[f, g] = [fApp "f", fApp "g"]
-[w, x, x_0, x_1, x_2, x_3, y, z] =
-    [vt "w", vt "x", vt "x0", vt "x1", vt "x2", vt "x3", vt "y", vt "z"] :: [MyTerm]
-
-test01 :: Test
+test01, test02, test03, test04 :: Test
 test01 = TestCase (assertEqual "Unify test 1"
                      (Success [(f [f [z],g [y]],
                                 f [f [z],g [y]])]) -- expected
                      (unify_and_apply [(f [x, g [y]], f [f [z], w])]))
-test02 :: Test
+    where
+      [f, g] = [fApp "f", fApp "g"]
+      [w, x, y, z] = [vt "w", vt "x", vt "y", vt "z"] :: [MyTerm]
 test02 = TestCase (assertEqual "Unify test 2"
                      (Success [(f [y,y],
                                 f [y,y])]) -- expected
                      (unify_and_apply [(f [x, y], f [y, x])]))
-test03 :: Test
+    where
+      [f] = [fApp "f"]
+      [x, y] = [vt "x", vt "y"] :: [MyTerm]
 test03 = TestCase (assertEqual "Unify test 3"
                      (Failure ["cyclic"]) -- expected
                      (unify_and_apply [(f [x, g [y]], f [y, x])]))
-test04 :: Test
+    where
+      [f, g] = [fApp "f", fApp "g"]
+      [x, y] = [vt "x", vt "y"] :: [MyTerm]
 test04 = TestCase (assertEqual "Unify test 4"
                      (Success [(f [f [f [x_3,x_3],f [x_3,x_3]], f [f [x_3,x_3],f [x_3,x_3]]],
                                 f [f [f [x_3,x_3],f [x_3,x_3]], f [f [x_3,x_3],f [x_3,x_3]]]),
@@ -102,6 +104,9 @@ test04 = TestCase (assertEqual "Unify test 4"
                                        (x_1, f [x_2, x_2]),
                                        (x_2, f [x_3, x_3])]))
 
+    where
+      f = fApp "f"
+      [x_0, x_1, x_2, x_3] = [vt "x0", vt "x1", vt "x2", vt "x3"] :: [MyTerm]
 {-
 
 START_INTERACTIVE;;

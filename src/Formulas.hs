@@ -11,9 +11,9 @@ module Formulas
       HasBoolean(asBool, fromBool), prettyBool
     , true, false, (⊨), (⊭)
     -- * Negation
-    , IsNegatable(naiveNegate, foldNegation), (.~.), (¬), negate, negated, negative, positive
+    , IsNegatable(naiveNegate, foldNegation, foldNegation'), (.~.), (¬), negate, negated, negative, positive
     -- * IsCombinable
-    , IsCombinable((.|.), (.&.), (.<=>.), (.=>.), (.<=.), (.<~>.), (.~|.), (.~&.))
+    , IsCombinable((.|.), (.&.), (.<=>.), (.=>.), foldCombination), (.<=.), (.<~>.), (.~|.), (.~&.)
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
     , Combination(..), BinOp(..), combine, binop
     -- * Formulas
@@ -60,14 +60,18 @@ class Ord formula => IsNegatable formula where
     foldNegation :: (formula -> r) -- ^ called for normal formulas
                  -> (formula -> r) -- ^ called for negated formulas
                  -> formula -> r
+    foldNegation other ne fm = foldNegation' ne other fm
+    foldNegation' :: (formula -> r) -- ^ called for negated formulas
+                  -> (formula -> r) -- ^ called for other formulas
+                 -> formula -> r
 
 -- | Is this formula negated at the top level?
 negated :: IsNegatable formula => formula -> Bool
-negated = foldNegation (const False) (not . negated)
+negated = foldNegation' (not . negated) (const False)
 
 -- | Negate the formula, avoiding double negation
 (.~.) :: IsNegatable formula => formula -> formula
-(.~.) = foldNegation naiveNegate id
+(.~.) = foldNegation' id naiveNegate
 
 (¬) :: IsNegatable formula => formula -> formula
 (¬) = (.~.)
@@ -104,6 +108,14 @@ class IsNegatable formula => IsCombinable formula where
     -- | Implication
     (.=>.) :: formula -> formula -> formula
     x .=>. y = ((.~.) x .|. y)
+
+    foldCombination :: (formula -> formula -> r) -- disjunction
+                    -> (formula -> formula -> r) -- conjunction
+                    -> (formula -> formula -> r) -- implication
+                    -> (formula -> formula -> r) -- equivalence
+                    -> (formula -> r) -- other
+                    -> formula -> r
+
     -- | Reverse implication:
     (.<=.) :: formula -> formula -> formula
     x .<=. y = y .=>. x

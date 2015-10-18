@@ -55,8 +55,8 @@ instance HasFixity (LFormula atom) where
 
 instance Ord atom => IsNegatable (LFormula atom) where
     naiveNegate = Not
-    foldNegation normal inverted (Not x) = foldNegation inverted normal x
-    foldNegation normal _ x = normal x
+    foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
+    foldNegation' _ normal x = normal x
 
 instance (Ord atom, Pretty atom) => IsFormula (LFormula atom) atom where
     atomic = Atom

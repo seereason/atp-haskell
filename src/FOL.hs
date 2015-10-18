@@ -447,14 +447,21 @@ instance HasBoolean (Formula v atom) where
 
 instance (Ord v, Ord atom) => IsNegatable (Formula v atom) where
     naiveNegate = Not
-    foldNegation normal inverted (Not x) = foldNegation inverted normal x
-    foldNegation normal _ x = normal x
+    foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
+    foldNegation' _ normal x = normal x
 
 instance (Ord v, Ord atom) => IsCombinable (Formula v atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
     (.<=>.) = Iff
+    foldCombination dj cj imp iff other fm =
+        case fm of
+          Or a b -> a `dj` b
+          And a b -> a `cj` b
+          Imp a b -> a `imp` b
+          Iff a b -> a `iff` b
+          _ -> other fm
 
 instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function) => IsQuantified (Formula v atom) atom v where
     quant (:!:) = Forall

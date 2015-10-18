@@ -68,8 +68,8 @@ import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 
 import Formulas (atom_union,
                  HasBoolean(fromBool, asBool), true, false,
-                 IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive,
-                 IsCombinable((.&.), (.|.), (.=>.), (.<=>.)), (¬), (∧), (∨),
+                 IsNegatable(naiveNegate, foldNegation'), (.~.), negate, positive,
+                 IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  IsFormula(atomic, overatoms, onatoms, prettyFormula), onatoms)
 import Lib (distrib, fpf, (|=>), setAny)
@@ -181,14 +181,21 @@ instance HasBoolean (PFormula atom) where
 
 instance Ord atom => IsNegatable (PFormula atom) where
     naiveNegate = Not
-    foldNegation normal inverted (Not x) = foldNegation inverted normal x
-    foldNegation normal _ x = normal x
+    foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
+    foldNegation' _ normal x = normal x
 
 instance Ord atom => IsCombinable (PFormula atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
     (.<=>.) = Iff
+    foldCombination dj cj imp iff other fm =
+        case fm of
+          Or a b -> a `dj` b
+          And a b -> a `cj` b
+          Imp a b -> a `imp` b
+          Iff a b -> a `iff` b
+          _ -> other fm
 
 -- infixr 9 !, ?, ∀, ∃
 
