@@ -23,10 +23,12 @@ module FOL
     -- * Terms
     , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm
     -- * Predicates
-    , IsPredicate(prettyPredicateApplication), HasEquals(equals, isEquals)
+    , IsPredicate, HasEquals(equals, isEquals)
     -- * Atoms
     , HasPredicate(applyPredicate, foldPredicate), convertPredicate, zipPredicates, pApp, atomFuncs
+    , prettyPredicateApplication
     , HasEquality(applyEquals, foldEquals'), (.=.), foldEquals, equalsFuncs, zipEquals
+    , prettyPredicateApplicationEq
     -- * Quantifiers
     , Quant((:!:), (:?:))
     -- Formula
@@ -239,9 +241,7 @@ test00 = TestCase $ assertEqual "print an expression"
 
 -- | A predicate is closely associated with a term type, especially
 -- when pretty printing.
-class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate, Show predicate, Ord term, Pretty term
-      ) => IsPredicate predicate term where
-    prettyPredicateApplication :: predicate -> [term] -> Doc
+class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate, Show predicate) => IsPredicate predicate where
 
 -- | Class of predicates that have an equality predicate.
 class HasEquals predicate where
@@ -256,13 +256,13 @@ data Predicate
     | Equals
     deriving (Eq, Ord, Data, Typeable, Show)
 
-instance (HasEquals p, Ord p, Show p, IsString p, Pretty p, IsFunction function, IsVariable v) => IsPredicate p (Term function v) where
-    prettyPredicateApplication p [a, b] | isEquals p =
-        pPrint a <> text "=" <> pPrint b
-    prettyPredicateApplication p _ts | isEquals p =
-        error "Arity mismatch for equals predicate"
-    prettyPredicateApplication p ts =
-        pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
+prettyPredicateApplication :: (Pretty predicate, Pretty term) => predicate -> [term] -> Doc
+prettyPredicateApplication p ts = pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
+
+prettyPredicateApplicationEq :: (Pretty predicate, Pretty term, HasEquals predicate) => predicate -> [term] -> Doc
+prettyPredicateApplicationEq p [a, b] | isEquals p = pPrint a <> text "=" <> pPrint b
+prettyPredicateApplicationEq p _ts | isEquals p = error "Arity mismatch for equals predicate"
+prettyPredicateApplicationEq p ts = prettyPredicateApplication p ts
 
 -- | Predicates with a 'HasEquals' instance are needed whenever the
 -- '.=.' combiner is used.
@@ -278,13 +278,15 @@ instance Pretty Predicate where
     pPrint Equals = text "="
     pPrint (NamedPredicate "=") = error "Use of = as a predicate name is prohibited"
     pPrint (NamedPredicate s) = text s
+
+instance IsPredicate Predicate
 #endif
 
 ---------------------------
 -- ATOM (Atomic Formula) --
 ---------------------------
 
-class (IsPredicate predicate term) => HasPredicate atom predicate term | atom -> predicate term where
+class (IsPredicate predicate) => HasPredicate atom predicate term | atom -> predicate term where
     applyPredicate :: predicate -> [term] -> atom
     foldPredicate :: (predicate -> [term] -> r) -> atom -> r
 
@@ -336,22 +338,22 @@ convertPredicate cp ct = foldPredicate (\p1 ts1 -> applyPredicate (cp p1) (map c
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable)
 
-instance IsPredicate predicate term => Pretty (FOL predicate term) where
+instance (IsPredicate predicate, Ord term, Pretty term) => Pretty (FOL predicate term) where
     pPrint = foldPredicate prettyPredicateApplication
 
-instance (IsPredicate predicate term, Show predicate, Show term) => Show (FOL predicate term) where
+instance (IsPredicate predicate, Show predicate, Show term) => Show (FOL predicate term) where
     show (R p ts) = "applyPredicate " ++ show p ++ " [" ++ intercalate ", " (map show ts) ++ "]"
 
-instance (IsPredicate predicate term, Pretty term, Ord term) => HasPredicate (FOL predicate term) predicate term where
+instance (IsPredicate predicate, Pretty term, Ord term) => HasPredicate (FOL predicate term) predicate term where
     applyPredicate = R
     foldPredicate f (R p ts) = f p ts
 
-instance IsPredicate Predicate term => HasEquality (FOL Predicate term) Predicate term where
+instance (IsPredicate Predicate, Ord term, Pretty term) => HasEquality (FOL Predicate term) Predicate term where
     applyEquals lhs rhs = applyPredicate Equals [lhs, rhs]
     foldEquals' f (R Equals [lhs, rhs]) = Just (f lhs rhs)
     foldEquals' _ _ = Nothing
 
-instance (IsPredicate Predicate term, IsTerm term v function, HasFunctions term function
+instance (IsPredicate Predicate, IsTerm term v function, HasFunctions term function
          ) => HasFunctions (FOL Predicate term) function where
     funcs = equalsFuncs
 

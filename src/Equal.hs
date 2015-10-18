@@ -19,6 +19,7 @@ import Data.String (IsString(fromString))
 import Formulas ((∧), (⇒), IsFormula(atomic), atom_union)
 import FOL (HasEquality(..), foldEquals, (.=.), HasFunctions(funcs), IsQuantified(..), (∀), IsTerm(..), HasPredicate(applyPredicate))
 import Lib ((∅))
+import Prelude hiding ((*))
 #ifndef NOTESTS
 import FOL ((∃), pApp, Predicate, V)
 import Formulas ((.&.), (.=>.), (.<=>.))
