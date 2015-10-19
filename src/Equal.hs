@@ -17,7 +17,7 @@ import Data.Map as Map (fromList, Map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
 import Formulas ((∧), (⇒), IsFormula(atomic), atom_union)
-import FOL (HasEquality(..), foldEquals, (.=.), HasFunctions(funcs), IsQuantified(..), (∀), IsTerm(..), HasPredicate(applyPredicate))
+import FOL (HasEquate(..), foldEquate, (.=.), HasFunctions(funcs), IsQuantified(..), (∀), IsTerm(..), HasPredicate(applyPredicate))
 import Lib ((∅))
 import Prelude hiding ((*))
 #ifndef NOTESTS
@@ -31,32 +31,32 @@ import Tableaux (Depth(Depth))
 import Test.HUnit
 #endif
 
--- is_eq :: (IsQuantified fof atom v, HasEquality atom p term) => fof -> Bool
+-- is_eq :: (IsQuantified fof atom v, HasEquate atom p term) => fof -> Bool
 -- is_eq = foldFirstOrder (\ _ _ _ -> False) (\ _ -> False) (\ _ -> False) (foldAtomEq (\ _ _ -> False) (\ _ -> False) (\ _ _ -> True))
 --
--- mk_eq :: (IsQuantified fof atom v, HasEquality atom p term) => term -> term -> fof
+-- mk_eq :: (IsQuantified fof atom v, HasEquate atom p term) => term -> term -> fof
 -- mk_eq = (.=.)
 --
--- dest_eq :: (IsQuantified fof atom v, HasEquality atom p term) => fof -> Failing (term, term)
+-- dest_eq :: (IsQuantified fof atom v, HasEquate atom p term) => fof -> Failing (term, term)
 -- dest_eq fm =
 --     foldFirstOrder (\ _ _ _ -> err) (\ _ -> err) (\ _ -> err) at fm
 --     where
 --       at = foldAtomEq (\ _ _ -> err) (\ _ -> err) (\ s t -> Success (s, t))
 --       err = Failure ["dest_eq: not an equation"]
 --
--- lhs :: (IsQuantified fof atom v, HasEquality atom p term) => fof -> Failing term
+-- lhs :: (IsQuantified fof atom v, HasEquate atom p term) => fof -> Failing term
 -- lhs eq = dest_eq eq >>= return . fst
--- rhs :: (IsQuantified fof atom v, HasEquality atom p term) => fof -> Failing term
+-- rhs :: (IsQuantified fof atom v, HasEquate atom p term) => fof -> Failing term
 -- rhs eq = dest_eq eq >>= return . snd
 
 -- | The set of predicates in a formula.
-predicates :: (IsQuantified formula atom v, HasEquality atom p term, Ord atom, Ord p) => formula -> Set atom
+predicates :: (IsQuantified formula atom v, HasEquate atom p term, Ord atom, Ord p) => formula -> Set atom
 predicates fm =
     atom_union pair fm
-    where pair atom = foldEquals (\ _ _ -> Set.singleton atom) (\ _ _ -> Set.singleton atom) atom
+    where pair atom = foldEquate (\ _ _ -> Set.singleton atom) (\ _ _ -> Set.singleton atom) atom
 
--- | Code to generate equality axioms for functions.
-function_congruence :: forall fof atom term v p f. (IsQuantified fof atom v, HasEquality atom p term, IsTerm term v f, Ord fof) =>
+-- | Code to generate equate axioms for functions.
+function_congruence :: forall fof atom term v p f. (IsQuantified fof atom v, HasEquate atom p term, IsTerm term v f, Ord fof) =>
                        (f, Int) -> Set fof
 function_congruence (_,0) = (∅)
 function_congruence (f,n) =
@@ -72,10 +72,10 @@ function_congruence (f,n) =
       con = fApp f args_x .=. fApp f args_y
 
 -- | And for predicates.
-predicate_congruence :: (IsQuantified fof atom v, HasEquality atom p term, IsTerm term v f, Ord p) =>
+predicate_congruence :: (IsQuantified fof atom v, HasEquate atom p term, IsTerm term v f, Ord p) =>
                         atom -> Set fof
 predicate_congruence =
-    foldEquals (\p ts -> ap p (length ts)) (\_ _ -> Set.empty)
+    foldEquate (\p ts -> ap p (length ts)) (\_ _ -> Set.empty)
     where
       ap _ 0 = Set.empty
       ap p n = Set.singleton (List.foldr (∀) (ant ⇒ con) (argnames_x ++ argnames_y))
@@ -87,8 +87,8 @@ predicate_congruence =
             ant = foldr1 (∧) (List.map (uncurry (.=.)) (zip args_x args_y))
             con = atomic (applyPredicate p args_x) ⇒ atomic (applyPredicate p args_y)
 
--- | Hence implement logic with equality just by adding equality "axioms".
-equivalence_axioms :: forall fof atom term v p f. (IsQuantified fof atom v, HasEquality atom p term, IsTerm term v f, Ord fof) => Set fof
+-- | Hence implement logic with equate just by adding equate "axioms".
+equivalence_axioms :: forall fof atom term v p f. (IsQuantified fof atom v, HasEquate atom p term, IsTerm term v f, Ord fof) => Set fof
 equivalence_axioms =
     Set.fromList
     [(∀) "x" (x .=. x),
@@ -102,7 +102,7 @@ equivalence_axioms =
       z = vt (fromString "z")
 
 equalitize :: forall formula atom term v p f.
-              (IsQuantified formula atom v, IsFormula formula atom, HasEquality atom p term, HasFunctions formula f, HasFunctions term f, Ord p, Show p, IsTerm term v f, Ord formula, Ord atom, Ord f) =>
+              (IsQuantified formula atom v, IsFormula formula atom, HasEquate atom p term, HasFunctions formula f, HasFunctions term f, Ord p, Show p, IsTerm term v f, Ord formula, Ord atom, Ord f) =>
               formula -> formula
 equalitize fm =
     if Set.null eqPreds then fm else foldr1 (∧) (Set.toList axioms) ⇒ fm
@@ -110,7 +110,7 @@ equalitize fm =
       axioms = Set.fold (Set.union . function_congruence)
                         (Set.fold (Set.union . predicate_congruence) equivalence_axioms otherPreds)
                         (funcs fm)
-      (eqPreds, otherPreds) = Set.partition (foldEquals (\_ _ -> False) (\_ _ -> True)) (predicates fm)
+      (eqPreds, otherPreds) = Set.partition (foldEquate (\_ _ -> False) (\_ _ -> True)) (predicates fm)
 
 #ifndef NOTESTS
 
@@ -338,8 +338,8 @@ testEqual = TestLabel "Equal" (TestList [test01, test02 {-, test03, test04-}])
 functions' :: (IsFormula formula atom, Ord f) => (atom -> Set (f, Int)) -> formula -> Set (f, Arity)
 functions' fa fm = overatoms (\ a s -> Set.union s (fa a)) fm Set.empty
 
-funcsAtomEq :: (HasEquality atom p term, HasFunctions term f, IsTerm term v f, Ord f) => atom -> Set (f, Arity)
-funcsAtomEq = foldEquals (\ _ ts -> Set.unions (List.map funcs ts)) (\ t1 t2 -> Set.union (funcs t1) (funcs t2))
+funcsAtomEq :: (HasEquate atom p term, HasFunctions term f, IsTerm term v f, Ord f) => atom -> Set (f, Arity)
+funcsAtomEq = foldEquate (\ _ ts -> Set.unions (List.map funcs ts)) (\ t1 t2 -> Set.union (funcs t1) (funcs t2))
 -}
 
 -- -------------------------------------------------------------------------

@@ -26,7 +26,7 @@ import Data.Set as Set (Set, empty, union)
 import Data.Typeable (Typeable)
 import Prelude hiding (negate)
 
-import Pretty (Doc, Fixity, HasFixity, Side, text)
+import Pretty (Doc, Fixity, text)
 
 -- |Types that need to have True and False elements.
 class HasBoolean p where
@@ -187,14 +187,14 @@ binop a (:=>:) b = a .=>. b
 binop a (:<=>:) b = a .<=>. b
 
 -- | Class associating a formula type with its atom type.
-class (Eq formula, Ord formula, HasFixity formula) => IsFormula formula atom | formula -> atom where
+class (Eq formula, Ord formula) => IsFormula formula atom | formula -> atom where
     atomic :: atom -> formula
     -- ^ Build a formula from an atom.
     overatoms :: (atom -> r -> r) -> formula -> r -> r
     -- ^ Formula analog of list iterator "itlist".
     onatoms :: (atom -> formula) -> formula -> formula
     -- ^ Apply a function to the atoms, otherwise keeping structure.
-    prettyFormula :: Fixity -> Side -> formula -> Doc
+    prettyFormula :: formula -> Doc
     -- ^ Pretty print a formula, with proper parenthesization
 
 -- | Special case of a union of the results of a function over the atoms.

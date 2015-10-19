@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -6,6 +7,7 @@
 module Lit
     ( IsLiteral(foldLiteral)
     , zipLiterals
+    , prettyLiteral
     , LFormula(T, F, Atom, Not)
     ) where
 
@@ -13,7 +15,7 @@ import Data.Monoid ((<>))
 import Prelude hiding (negate, null)
 
 import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms, prettyFormula))
-import Pretty (Associativity(..), Fixity(..), HasFixity(fixity), Pretty(pPrint), rootFixity, Side(Unary), text)
+import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), rootFixity, Side(Unary), text)
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- |forms.  They support negation and must include True and False elements.
@@ -33,6 +35,15 @@ zipLiterals neg tf at fm1 fm2 =
       tf' x1 = foldLiteral (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
       at' a1 = foldLiteral (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
 
+prettyLiteral :: (Pretty atom, IsLiteral formula atom) => formula -> Doc
+prettyLiteral lit =
+    foldLiteral ne tf at lit
+    where
+      ne p = text "¬" <> prettyFormula p
+      tf = pPrint
+      at a = pPrint a
+
+#ifndef NOTESTS
 data LFormula atom
     = F
     | T
@@ -70,15 +81,10 @@ instance (Ord atom, Pretty atom) => IsFormula (LFormula atom) atom where
           Atom a -> f a
           Not p -> Not (onatoms f p)
           _ -> fm
-    prettyFormula _fix _ lit =
-        foldLiteral ne tf at lit
-        where
-          ne p = text "¬" <> prettyFormula (fixity lit) Unary p
-          tf = pPrint
-          at a = pPrint a
+    prettyFormula = prettyLiteral
 
 instance (Ord atom, Pretty atom) => Pretty (LFormula atom) where
-    pPrint = prettyFormula rootFixity Unary
+    pPrint = prettyLiteral
 
 instance (Ord atom, Pretty atom) => IsLiteral (LFormula atom) atom where
     foldLiteral ne tf at lit =
@@ -87,3 +93,4 @@ instance (Ord atom, Pretty atom) => IsLiteral (LFormula atom) atom where
           T -> tf True
           Atom a -> at a
           Not f -> ne f
+#endif

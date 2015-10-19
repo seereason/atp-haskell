@@ -23,17 +23,19 @@ module FOL
     -- * Terms
     , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm
     -- * Predicates
-    , IsPredicate, HasEquals(equals, isEquals)
+    , IsPredicate
     -- * Atoms
     , HasPredicate(applyPredicate, foldPredicate), convertPredicate, zipPredicates, pApp, atomFuncs
     , prettyPredicateApplication
-    , HasEquality(applyEquals, foldEquals'), (.=.), foldEquals, equalsFuncs, zipEquals
+    , HasEquate(equate, foldEquate'), isEquate, (.=.), foldEquate, equalsFuncs, zipEquals
+    , HasEquals(equals, isEquals) -- deprecated
     , prettyPredicateApplicationEq
     -- * Quantifiers
     , Quant((:!:), (:?:))
     -- Formula
     , IsQuantified(quant, foldQuantified), for_all, exists, (∀), (∃)
     , quantifiedFuncs
+    , prettyQuantified
     , IsFirstOrder
     , zipFirstOrder
     , fixityFirstOrder
@@ -182,7 +184,7 @@ class (Eq term, Ord term, Pretty term, IsVariable v, IsFunction function) => IsT
     -- ^ A fold for the term data type, which understands terms built
     -- from a variable and a term built from the application of a
     -- primitive function to other terms.
-    zipTerms :: (v -> v -> Maybe r) -> (function -> [term] -> function -> [term] -> Maybe r) -> term -> term -> Maybe r
+    zipTerms :: (v -> v -> r) -> (function -> [term] -> function -> [term] -> r) -> term -> term -> Maybe r
     -- ^ Combine two terms if they are similar (i.e. two variables or
     -- two function applications.)
 
@@ -217,8 +219,8 @@ instance (IsFunction function, IsVariable v) => IsTerm (Term function v) v funct
           FApply f ts -> fn f ts
     zipTerms v f t1 t2 =
         case (t1, t2) of
-          (Var v1, Var v2) -> v v1 v2
-          (FApply f1 ts1, FApply f2 ts2) -> f f1 ts1 f2 ts2
+          (Var v1, Var v2) -> Just (v v1 v2)
+          (FApply f1 ts1, FApply f2 ts2) | length ts1 == length ts2 -> Just (f f1 ts1 f2 ts2)
           _ -> Nothing
 
 instance (Pretty function, Pretty v) => Pretty (Term function v) where
@@ -243,10 +245,8 @@ test00 = TestCase $ assertEqual "print an expression"
 -- when pretty printing.
 class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate, Show predicate) => IsPredicate predicate where
 
--- | Class of predicates that have an equality predicate.
-class HasEquals predicate where
-    equals :: predicate
-    isEquals :: predicate -> Bool
+prettyPredicateApplication :: (Pretty predicate, Pretty term) => predicate -> [term] -> Doc
+prettyPredicateApplication p ts = pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
 
 #ifndef NOTESTS
 -- | This Predicate type includes an distinct Equals constructor, so
@@ -255,21 +255,6 @@ data Predicate
     = NamedPredicate String
     | Equals
     deriving (Eq, Ord, Data, Typeable, Show)
-
-prettyPredicateApplication :: (Pretty predicate, Pretty term) => predicate -> [term] -> Doc
-prettyPredicateApplication p ts = pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
-
-prettyPredicateApplicationEq :: (Pretty predicate, Pretty term, HasEquals predicate) => predicate -> [term] -> Doc
-prettyPredicateApplicationEq p [a, b] | isEquals p = pPrint a <> text "=" <> pPrint b
-prettyPredicateApplicationEq p _ts | isEquals p = error "Arity mismatch for equals predicate"
-prettyPredicateApplicationEq p ts = prettyPredicateApplication p ts
-
--- | Predicates with a 'HasEquals' instance are needed whenever the
--- '.=.' combiner is used.
-instance HasEquals Predicate where
-    equals = Equals
-    isEquals Equals = True
-    isEquals _ = False
 
 instance IsString Predicate where
     fromString = NamedPredicate
@@ -306,35 +291,55 @@ zipPredicates f atom1 atom2 =
                                      else f p1 (zip ts1 ts2)) atom2
 
 -- | A predicate that HasEquals can be used to build an
--- atom/predicate/term combo that HasEquality.
-class (HasPredicate atom predicate term, HasEquals predicate) => HasEquality atom predicate term where
-    applyEquals :: term -> term -> atom
-    foldEquals' :: (term -> term -> r) -> atom -> Maybe r
+-- atom/predicate/term combo that HasEquate.
+class (HasPredicate atom predicate term) => HasEquate atom predicate term where
+    equate :: term -> term -> atom
+    foldEquate' :: (term -> term -> r) -> atom -> Maybe r
 
-foldEquals :: HasEquality atom predicate term => (predicate -> [term] -> r) -> (term -> term -> r) -> atom -> r
-foldEquals ap eq atom = fromMaybe (foldPredicate ap atom) (foldEquals' eq atom)
+foldEquate :: HasEquate atom predicate term => (predicate -> [term] -> r) -> (term -> term -> r) -> atom -> r
+foldEquate ap eq atom = fromMaybe (foldPredicate ap atom) (foldEquate' eq atom)
+
+isEquate :: HasEquate atom predicate term => atom -> Bool
+isEquate = foldEquate (\_ _ -> False) (\_ _ -> True)
 
 -- | Implementation of funcs for atoms with equality.
-equalsFuncs :: (HasEquality atom predicate term, HasFunctions term function) => atom -> Set (function, Arity)
-equalsFuncs = foldEquals (\_ ts -> unions (map funcs ts)) (\t1 t2 -> union (funcs t1) (funcs t2))
+equalsFuncs :: (HasEquate atom predicate term, HasFunctions term function) => atom -> Set (function, Arity)
+equalsFuncs = foldEquate (\_ ts -> unions (map funcs ts)) (\t1 t2 -> union (funcs t1) (funcs t2))
 
-zipEquals :: HasEquality atom predicate term =>
+zipEquals :: HasEquate atom predicate term =>
              (predicate -> predicate -> [(term, term)] -> Maybe r)
           -> (term -> term -> term -> term -> Maybe r)
           -> atom -> atom -> Maybe r
 zipEquals ap eq atom1 atom2 =
-    foldEquals ap' eq' atom1
+    foldEquate ap' eq' atom1
     where
-      ap' p ts = foldEquals (ap'' p ts) (\_ _ -> Nothing) atom2
+      ap' p ts = foldEquate (ap'' p ts) (\_ _ -> Nothing) atom2
       ap'' _p1 ts1 _p2 ts2 | length ts1 /= length ts2 = Nothing
       ap'' p1 ts1 p2 ts2 = ap p1 p2 (zip ts1 ts2)
-      eq' lhs1 rhs1 = foldEquals (\_ _ -> Nothing) (eq lhs1 rhs1) atom2
+      eq' lhs1 rhs1 = foldEquate (\_ _ -> Nothing) (eq lhs1 rhs1) atom2
 
 -- | Convert between two instances of HasPredicate
 convertPredicate :: (HasPredicate atom1 p1 t1, HasPredicate atom2 p2 t2) => (p1 -> p2) -> (t1 -> t2) -> atom1 -> atom2
 convertPredicate cp ct = foldPredicate (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
+-- | Class of predicates that have an equality predicate.  This is in
+-- the process of being deprecated.
+class HasEquals predicate where
+    equals :: predicate
+    isEquals :: predicate -> Bool
+
+-- This should use HasEquate atom p term
+prettyPredicateApplicationEq :: ({-HasEquate atom p term,-} HasEquals p, Pretty p, Pretty term) => p -> [term] -> Doc
+prettyPredicateApplicationEq p [a, b] | isEquals p = pPrint a <> text "=" <> pPrint b
+prettyPredicateApplicationEq p _ts | isEquals p = error "Arity mismatch for equals predicate"
+prettyPredicateApplicationEq p ts = prettyPredicateApplication p ts
+
 #ifndef NOTESTS
+instance HasEquals Predicate where
+    equals = Equals
+    isEquals Equals = True
+    isEquals _ = False
+
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable)
 
@@ -348,10 +353,10 @@ instance (IsPredicate predicate, Pretty term, Ord term) => HasPredicate (FOL pre
     applyPredicate = R
     foldPredicate f (R p ts) = f p ts
 
-instance (IsPredicate Predicate, Ord term, Pretty term) => HasEquality (FOL Predicate term) Predicate term where
-    applyEquals lhs rhs = applyPredicate Equals [lhs, rhs]
-    foldEquals' f (R Equals [lhs, rhs]) = Just (f lhs rhs)
-    foldEquals' _ _ = Nothing
+instance (IsPredicate Predicate, Ord term, Pretty term) => HasEquate (FOL Predicate term) Predicate term where
+    equate lhs rhs = applyPredicate Equals [lhs, rhs]
+    foldEquate' f (R Equals [lhs, rhs]) = Just (f lhs rhs)
+    foldEquate' _ _ = Nothing
 
 instance (IsPredicate Predicate, IsTerm term v function, HasFunctions term function
          ) => HasFunctions (FOL Predicate term) function where
@@ -370,8 +375,8 @@ pApp :: (IsFormula formula atom, HasPredicate atom predicate term) => predicate 
 pApp p args = atomic (applyPredicate p args)
 
 -- | Build an equality formula from two terms.
-(.=.) :: (IsFormula formula atom, HasEquality atom predicate term) => term -> term -> formula
-a .=. b = atomic (applyEquals a b)
+(.=.) :: (IsFormula formula atom, HasEquate atom predicate term) => term -> term -> formula
+a .=. b = atomic (equate a b)
 
 infix 5 .=. -- , .!=., ≡, ≢
 
@@ -412,6 +417,21 @@ quantifiedFuncs = foldQuantified qu co tf at
           tf _ = Set.empty
           at = funcs
 
+prettyQuantified :: (IsQuantified formula atom v, HasFixity formula, Pretty atom) => Fixity -> Side -> formula -> Doc
+prettyQuantified pfix side fm =
+    parenthesize pfix fix side $ foldQuantified qu co tf at fm
+    where
+      fix = fixity fm
+      qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> prettyQuantified fix RHS p
+      qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> prettyQuantified fix RHS p
+      co ((:~:) f) = text "¬" <> prettyQuantified fix Unary f
+      co (BinOp f (:&:) g) = prettyQuantified fix LHS f <> text "∧" <> prettyQuantified fix RHS g
+      co (BinOp f (:|:) g) = prettyQuantified fix LHS f <> text "∨" <> prettyQuantified fix RHS g
+      co (BinOp f (:=>:) g) = prettyQuantified fix LHS f <> text "⇒" <> prettyQuantified fix RHS g
+      co (BinOp f (:<=>:) g) = prettyQuantified fix LHS f <> text "⇔" <> prettyQuantified fix RHS g
+      tf = pPrint
+      at = pPrint
+
 #ifndef NOTESTS
 data Formula v atom
     = F
@@ -438,7 +458,7 @@ instance (HasPredicate atom predicate term,
 
 instance (Ord atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function,
           IsVariable v, HasFixity atom, Pretty v) => Pretty (Formula v atom) where
-    pPrint = prettyFormula rootFixity Unary
+    pPrint = prettyFormula
 
 instance HasBoolean (Formula v atom) where
     asBool T = Just True
@@ -523,19 +543,7 @@ instance (HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm 
         Forall x p -> Forall x (onatoms f p)
         Exists x p -> Exists x (onatoms f p)
         _ -> fm
-    prettyFormula pfix side fm =
-      parenthesize pfix fix side $ foldQuantified qu co tf at fm
-        where
-          fix = fixity fm
-          qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> prettyFormula fix RHS p
-          qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> prettyFormula fix RHS p
-          co ((:~:) f) = text "¬" <> prettyFormula fix Unary f
-          co (BinOp f (:&:) g) = prettyFormula fix LHS f <> text "∧" <> prettyFormula fix RHS g
-          co (BinOp f (:|:) g) = prettyFormula fix LHS f <> text "∨" <> prettyFormula fix RHS g
-          co (BinOp f (:=>:) g) = prettyFormula fix LHS f <> text "⇒" <> prettyFormula fix RHS g
-          co (BinOp f (:<=>:) g) = prettyFormula fix LHS f <> text "⇔" <> prettyFormula fix RHS g
-          tf = pPrint
-          at = pPrint
+    prettyFormula = prettyQuantified rootFixity Unary
 
 instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional co tf at fm =
@@ -955,8 +963,8 @@ fv fm =
       at = foldPredicate (\_ args -> unions (map fvt args))
 #endif
 
-fva :: (HasEquality atom predicate term, IsTerm term v function) => atom -> Set v
-fva = foldEquals (\_ args -> unions (map fvt args)) (\lhs rhs -> union (fvt lhs) (fvt rhs))
+fva :: (HasEquate atom predicate term, IsTerm term v function) => atom -> Set v
+fva = foldEquate (\_ args -> unions (map fvt args)) (\lhs rhs -> union (fvt lhs) (fvt rhs))
 
 -- | Find the variables in a formula.
 #if 0
