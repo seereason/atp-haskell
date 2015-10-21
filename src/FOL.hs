@@ -21,7 +21,7 @@ module FOL
     , Arity
     , HasFunctions(funcs)
     -- * Terms
-    , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm
+    , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm, showTerm, prettyTerm
     -- * Predicates
     , IsPredicate
     -- * Atoms
@@ -198,6 +198,12 @@ convertTerm cv cf = foldTerm (vt . cv) (\f ts -> fApp (cf f) (map (convertTerm c
 showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
 showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp " ++ show fn ++ "[" ++ intercalate ", " (map showTerm ts) ++ "]")
 
+prettyTerm :: (IsTerm term v function, Pretty v, Pretty function) => term -> Doc
+prettyTerm = foldTerm pPrint (\f args -> pPrint f <> prettyArguments args)
+    where
+      prettyArguments [] = mempty
+      prettyArguments args = text " [" <> mconcat (intersperse (text ", ") (map pPrint args)) <> text "]"
+
 #ifndef NOTESTS
 data Term function v
     = Var v
@@ -223,10 +229,8 @@ instance (IsFunction function, IsVariable v) => IsTerm (Term function v) v funct
           (FApply f1 ts1, FApply f2 ts2) | length ts1 == length ts2 -> Just (f f1 ts1 f2 ts2)
           _ -> Nothing
 
-instance (Pretty function, Pretty v) => Pretty (Term function v) where
-    pPrint (Var v) = pPrint v
-    pPrint (FApply fn []) = pPrint fn
-    pPrint (FApply fn args) = pPrint fn <> text " [" <> mconcat (intersperse (text ", ") (map pPrint args)) <> text "]"
+instance (IsTerm (Term function v) v function) => Pretty (Term function v) where
+    pPrint = prettyTerm
 
 -- Example.
 test00 :: Test

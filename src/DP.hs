@@ -197,12 +197,12 @@ unit_propagate :: forall t. (IsNegatable t, Ord t) =>
                -> (Set (Set t), Set (t, TrailMix))
 unit_propagate (cls,trail) =
   let fn = Set.fold (\ (x,_) -> (x |-> ())) Map.empty trail in
-  let (cls',fn',trail') = unit_subpropagate (cls,fn,trail) in (cls',trail')
+  let (cls',_fn',trail') = unit_subpropagate (cls,fn,trail) in (cls',trail')
 
 backtrack :: forall t. Set (t, TrailMix) -> Set (t, TrailMix)
 backtrack trail =
   case Set.minView trail of
-    Just ((p,Deduced), tt) -> backtrack tt
+    Just ((_p,Deduced), tt) -> backtrack tt
     _ -> trail
 
 dplisat :: forall pf atom. (IsPropositional pf atom, IsLiteral pf atom, NumAtom atom) =>
@@ -236,8 +236,8 @@ dplb cls trail =
 backjump :: (IsNegatable a, Ord a) => Set (Set a) -> a -> Set (a, TrailMix) -> Set (a, TrailMix)
 backjump cls p trail =
   case Set.minView (backtrack trail) of
-    Just ((q,Guessed), tt) ->
-        let (cls',trail') = unit_propagate (cls, Set.insert (p,Guessed) tt) in
+    Just ((_q,Guessed), tt) ->
+        let (cls',_trail') = unit_propagate (cls, Set.insert (p,Guessed) tt) in
         if Set.member Set.empty cls' then backjump cls p tt else trail
     _ -> trail
 

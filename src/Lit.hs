@@ -15,7 +15,7 @@ import Data.Monoid ((<>))
 import Prelude hiding (negate, null)
 
 import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms, prettyFormula))
-import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), rootFixity, Side(Unary), text)
+import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- |forms.  They support negation and must include True and False elements.

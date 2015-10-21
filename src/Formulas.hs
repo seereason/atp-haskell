@@ -26,7 +26,7 @@ import Data.Set as Set (Set, empty, union)
 import Data.Typeable (Typeable)
 import Prelude hiding (negate)
 
-import Pretty (Doc, Fixity, text)
+import Pretty (Doc, text)
 
 -- |Types that need to have True and False elements.
 class HasBoolean p where
