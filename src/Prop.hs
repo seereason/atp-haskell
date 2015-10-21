@@ -40,7 +40,7 @@ module Prop
     , list_disj
     , mk_lits
     , allsatvaluations
-    , dnfList
+    , dnfSet
     , purednf
     , simpdnf
     , rawdnf
@@ -697,25 +697,25 @@ test28 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           q' = Atom (P "q'")
 #endif
 
+-- This is only used in the test below, its easier to match lists than sets.
 dnfList :: (Ord atom, IsPropositional formula atom) => formula -> formula
 dnfList fm =
-    list_disj (List.map (mk_lits (List.map atomic (Set.toAscList pvs))) satvals)
+    list_disj (List.map (mk_lits' (List.map atomic (Set.toAscList pvs))) satvals)
      where
        satvals = allsatvaluations (eval fm) (\_s -> False) pvs
        pvs = atoms fm
+       mk_lits' :: IsPropositional formula atom => [formula] -> (atom -> Bool) -> formula
+       mk_lits' pvs v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs)
 
 dnfSet :: (Ord atom, IsPropositional formula atom) => formula -> formula
 dnfSet fm =
-    list_disj (List.map (mk_lits' (Set.map atomic pvs)) satvals)
+    list_disj (List.map (mk_lits (Set.map atomic pvs)) satvals)
     where
       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
       pvs = atoms fm
 
-mk_lits :: IsPropositional formula atom => [formula] -> (atom -> Bool) -> formula
-mk_lits pvs v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs)
-
-mk_lits' :: IsPropositional formula atom => Set formula -> (atom -> Bool) -> formula
-mk_lits' pvs v = list_conj (Set.map (\ p -> if eval p v then p else (.~.) p) pvs)
+mk_lits :: IsPropositional formula atom => Set formula -> (atom -> Bool) -> formula
+mk_lits pvs v = list_conj (Set.map (\ p -> if eval p v then p else (.~.) p) pvs)
 
 allsatvaluations :: Ord atom => ((atom -> Bool) -> Bool) -> (atom -> Bool) -> Set atom -> [atom -> Bool]
 allsatvaluations subfn v pvs =
