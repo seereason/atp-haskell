@@ -23,10 +23,10 @@ test06 :: Test
 test06 =
     let fm :: MyFormula
         fm = for_all "x" (vt "x" .=. vt "x") .=>. for_all "x" (exists "y" (vt "x" .=. vt "y"))
-        expected :: MyFormula
+        expected :: PFormula MyAtom
         expected =  (vt "x" .=. vt "x") .&. (.~.) (fApp (toSkolem "x") [] .=. vt "x")
         -- atoms = [applyPredicate equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x")[]) .=. (vt "x")-}] :: [MyAtom]
-        sk = runSkolem (skolemize id ((.~.) fm)) :: MyFormula
+        sk = runSkolem (skolemize id ((.~.) fm)) :: PFormula MyAtom
         table = truthTable sk :: TruthTable MyAtom in
     TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y"
                            (expected,

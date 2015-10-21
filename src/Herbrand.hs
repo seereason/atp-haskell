@@ -25,7 +25,7 @@ import Formulas ((.~.), overatoms, atomic, (.=>.), (.&.), (.|.))
 import Lib (allpairs, distrib)
 import Lit (IsLiteral)
 import Pretty (prettyShow)
-import Prop (IsPropositional, eval, trivial, simpcnf, simpdnf)
+import Prop (eval, IsPropositional, JustPropositional, simpcnf, simpdnf, trivial)
 import Skolem (HasSkolem, runSkolem, skolemize)
 
 #ifndef NOTESTS
@@ -35,7 +35,7 @@ import Test.HUnit hiding (tried)
 #endif
 
 -- | Propositional valuation.
-pholds :: IsPropositional formula atom => (atom -> Bool) -> formula -> Bool
+pholds :: (IsPropositional pf atom, JustPropositional pf) => (atom -> Bool) -> pf -> Bool
 pholds d fm = eval fm d
 
 -- | Get the constants for Herbrand base, adding nullary one if necessary.

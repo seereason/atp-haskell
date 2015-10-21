@@ -371,7 +371,7 @@ data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
 type TruthTableRow = ([Bool], Bool)
 
 -- | Code to print out truth tables.
-truthTable :: (IsPropositional formula atom, Ord atom) => formula -> TruthTable atom
+truthTable :: (IsPropositional pf atom, JustPropositional pf, Ord atom) => pf -> TruthTable atom
 truthTable fm =
     TruthTable atl (onallvaluations (<>) mkRow (const False) ats)
     where
@@ -503,11 +503,11 @@ test09 = TestCase $
 #endif
 
 -- | Recognizing tautologies.
-tautology :: (IsPropositional formula atom, Ord atom) => formula -> Bool
+tautology :: (IsPropositional pf atom, JustPropositional pf, Ord atom) => pf -> Bool
 tautology fm = onallvaluations (&&) (eval fm) (\_s -> False) (atoms fm)
 
 -- | Interpretation of formulas.
-eval :: IsPropositional formula atom => formula -> (atom -> Bool) -> Bool
+eval :: (IsPropositional pf atom, JustPropositional pf) => pf -> (atom -> Bool) -> Bool
 eval fm v =
     foldPropositional co tf at fm
     where
@@ -528,7 +528,7 @@ onallvaluations cmb subfn v ats =
           cmb (onallvaluations cmb subfn (v' False) ps) (onallvaluations cmb subfn (v' True) ps)
 
 -- | Return the set of propositional variables in a formula.
-atoms :: (Ord atom, IsFormula formula atom) => formula -> Set atom
+atoms :: IsFormula formula atom => formula -> Set atom
 atoms fm = atom_union singleton fm
 
 #ifndef NOTESTS
@@ -545,13 +545,13 @@ test13 = TestCase $ assertEqual "tautology 4 (p. 41)" True (tautology $ (p .|. q
 #endif
 
 -- | Related concepts.
-unsatisfiable :: (Ord atom, IsPropositional formula atom) => formula -> Bool
+unsatisfiable :: (IsPropositional pf atom, JustPropositional pf) => pf -> Bool
 unsatisfiable = tautology . (.~.)
-satisfiable :: (Ord atom, IsPropositional formula atom)  => formula -> Bool
+satisfiable :: (IsPropositional pf atom, JustPropositional pf)  => pf -> Bool
 satisfiable = not . unsatisfiable
 
 -- | Substitution operation.
-psubst :: (Ord atom, IsPropositional formula atom) => Map atom formula -> formula -> formula
+psubst :: IsPropositional formula atom => Map atom formula -> formula -> formula
 psubst subfn fm = onatoms (\ p -> maybe (atomic p) id (fpf subfn p)) fm
 
 #ifndef NOTESTS
@@ -781,23 +781,23 @@ test28 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
 #endif
 
 -- This is only used in the test below, its easier to match lists than sets.
-dnfList :: (Ord atom, IsPropositional formula atom) => formula -> formula
+dnfList :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
 dnfList fm =
     list_disj (List.map (mk_lits' (List.map atomic (Set.toAscList pvs))) satvals)
      where
        satvals = allsatvaluations (eval fm) (\_s -> False) pvs
        pvs = atoms fm
-       mk_lits' :: IsPropositional formula atom => [formula] -> (atom -> Bool) -> formula
+       mk_lits' :: (IsPropositional pf atom, JustPropositional pf) => [pf] -> (atom -> Bool) -> pf
        mk_lits' pvs' v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs')
 
-dnfSet :: (Ord atom, IsPropositional formula atom) => formula -> formula
+dnfSet :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
 dnfSet fm =
     list_disj (List.map (mk_lits (Set.map atomic pvs)) satvals)
     where
       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
       pvs = atoms fm
 
-mk_lits :: IsPropositional formula atom => Set formula -> (atom -> Bool) -> formula
+mk_lits :: (IsPropositional pf atom, JustPropositional pf) => Set pf -> (atom -> Bool) -> pf
 mk_lits pvs v = list_conj (Set.map (\ p -> if eval p v then p else (.~.) p) pvs)
 
 allsatvaluations :: Ord atom => ((atom -> Bool) -> Bool) -> (atom -> Bool) -> Set atom -> [atom -> Bool]

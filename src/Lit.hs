@@ -16,11 +16,16 @@ import Data.Monoid ((<>))
 import Prelude hiding (negate, null)
 
 import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms, prettyFormula), (.~.))
-import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), rootFixity, Side(Unary), text)
+import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- |forms.  They support negation and must include True and False elements.
-class (IsFormula lit atom, IsNegatable lit, HasBoolean lit) => IsLiteral lit atom where
+class (IsFormula lit atom,
+       IsNegatable lit,
+       HasBoolean lit,
+       Pretty atom, -- We will definitely want to render these
+       Ord atom -- atoms almost always end up in sets, so this is indispensable
+      ) => IsLiteral lit atom where
     foldLiteral :: (lit -> r) -> (Bool -> r) -> (atom -> r) -> lit -> r
 
 -- | Unify two literals
@@ -39,7 +44,7 @@ zipLiterals neg tf at fm1 fm2 =
 convertLiteral :: (IsLiteral lit1 atom1, IsLiteral lit2 atom2) => (atom1 -> atom2) -> lit1 -> lit2
 convertLiteral ca fm = foldLiteral (\fm' -> (.~.) (convertLiteral ca fm')) fromBool (atomic . ca) fm
 
-prettyLiteral :: (Pretty atom, IsLiteral formula atom) => formula -> Doc
+prettyLiteral :: IsLiteral formula atom => formula -> Doc
 prettyLiteral lit =
     foldLiteral ne tf at lit
     where
