@@ -96,11 +96,11 @@ resolution_rule clauses =
       Nothing -> Failure ["resolution_rule"]
 
 -- | Davis-Putnam satisfiability tester.
-dpsat :: forall pf atom. (IsPropositional pf atom, IsLiteral pf atom, NumAtom atom) => pf -> Failing Bool
-dpsat fm = dp (defcnfs fm :: Set (Set pf))
+dpsat :: forall pf atom. (IsPropositional pf atom, NumAtom atom) => pf -> Failing Bool
+dpsat fm = (dp . defcnfs) fm
 
 -- | Davis-Putnam tautology checker.
-dptaut :: forall pf atom. (IsPropositional pf atom, IsLiteral pf atom, NumAtom atom) => pf -> Failing Bool
+dptaut :: forall pf atom. (IsPropositional pf atom, NumAtom atom) => pf -> Failing Bool
 dptaut fm = not <$> dpsat (negate fm)
 
 #ifndef NOTESTS
@@ -138,13 +138,13 @@ posneg_count cls l =
       n = Set.size(Set.filter (Set.member (negate l)) cls) in
   m + n
 
-dpllsat :: forall pf. (IsPropositional pf (Knows Integer), IsLiteral pf (Knows Integer)) =>
+dpllsat :: forall pf. (IsPropositional pf (Knows Integer)) =>
            pf -> Failing Bool
-dpllsat fm = dpll(defcnfs fm :: Set (Set pf))
+dpllsat fm = (dpll . defcnfs) fm
 
-dplltaut :: forall pf. (IsPropositional pf (Knows Integer), IsLiteral pf (Knows Integer)) =>
+dplltaut :: forall pf. (IsPropositional pf (Knows Integer)) =>
             pf -> Failing Bool
-dplltaut fm = dpllsat (negate fm) >>= return . not
+dplltaut fm = not <$> (dpllsat . negate) fm
 
 #ifndef NOTESTS
 -- Example.
@@ -154,18 +154,18 @@ test02 = TestCase (assertEqual "dplltaut(prime 11)" (Success True) (dplltaut (pr
 
 -- | Iterative implementation with explicit trail instead of recursion.
 dpli :: forall atomic pf. (IsPropositional pf atomic) =>
-        Set (Set pf) -> Set (pf, TrailMix) -> Failing Bool
-dpli cls trail =
+        Set (pf, TrailMix) -> Set (Set pf) -> Failing Bool
+dpli trail cls =
   let (cls', trail') = unit_propagate (cls, trail) in
   if Set.member Set.empty cls' then
     case Set.minView trail of
-      Just ((p,Guessed), tt) -> dpli cls (Set.insert (negate p, Deduced) tt)
+      Just ((p,Guessed), tt) -> dpli (Set.insert (negate p, Deduced) tt) cls
       _ -> Success False
   else
       case unassigned cls (trail' :: Set (pf, TrailMix)) of
         s | Set.null s -> Success True
         ps -> case maximize (posneg_count cls') ps of
-                Just p -> dpli cls (Set.insert (p :: pf, Guessed) trail')
+                Just p -> dpli (Set.insert (p :: pf, Guessed) trail') cls
                 Nothing -> Failure ["dpli"]
 
 data TrailMix = Guessed | Deduced deriving (Eq, Ord)
@@ -205,18 +205,18 @@ backtrack trail =
     Just ((_p,Deduced), tt) -> backtrack tt
     _ -> trail
 
-dplisat :: forall pf atom. (IsPropositional pf atom, IsLiteral pf atom, NumAtom atom) =>
+dplisat :: forall pf atom. (IsPropositional pf atom, NumAtom atom) =>
            pf -> Failing Bool
-dplisat fm = dpli (defcnfs fm :: Set (Set pf)) Set.empty
+dplisat fm = (dpli Set.empty . defcnfs) fm
 
-dplitaut :: forall pf atom. (IsPropositional pf atom, IsLiteral pf atom, NumAtom atom) =>
+dplitaut :: forall pf atom. (IsPropositional pf atom, NumAtom atom) =>
             pf -> Failing Bool
-dplitaut fm = dplisat (negate fm) >>= return . not
+dplitaut fm = not <$> (dplisat . negate) fm
 
 -- | With simple non-chronological backjumping and learning.
 dplb :: forall a. (IsNegatable a, Ord a) =>
-        Set (Set a) -> Set (a, TrailMix) -> Failing Bool
-dplb cls trail =
+        Set (a, TrailMix) -> Set (Set a) -> Failing Bool
+dplb trail cls =
   let (cls',trail') = unit_propagate (cls,trail) in
   if Set.member Set.empty cls' then
     case Set.minView (backtrack trail) of
@@ -224,13 +224,13 @@ dplb cls trail =
         let trail'' = backjump cls p tt in
         let declits = Set.filter (\ (_,d) -> d == Guessed) trail'' in
         let conflict = Set.insert (negate p) (Set.map (negate . fst) declits) in
-        dplb (Set.insert conflict cls) (Set.insert (negate p, Deduced) trail'')
+        dplb (Set.insert (negate p, Deduced) trail'') (Set.insert conflict cls)
       _ -> Success False
   else
     case unassigned cls trail' of
       s | Set.null s -> Success True
       ps -> case maximize (posneg_count cls') ps of
-              Just p -> dplb cls (Set.insert (p,Guessed) trail')
+              Just p -> dplb (Set.insert (p,Guessed) trail') cls
               Nothing -> Failure ["dpib"]
 
 backjump :: (IsNegatable a, Ord a) => Set (Set a) -> a -> Set (a, TrailMix) -> Set (a, TrailMix)
@@ -241,13 +241,13 @@ backjump cls p trail =
         if Set.member Set.empty cls' then backjump cls p tt else trail
     _ -> trail
 
-dplbsat :: forall pf atom. (IsPropositional pf atom, IsLiteral pf atom, NumAtom atom) =>
+dplbsat :: forall pf atom. (IsPropositional pf atom, NumAtom atom) =>
            pf -> Failing Bool
-dplbsat fm = dplb (defcnfs fm :: Set (Set pf)) Set.empty
+dplbsat fm = (dplb Set.empty . defcnfs) fm
 
-dplbtaut :: forall pf atom. (IsPropositional pf atom, IsLiteral pf atom, NumAtom atom) =>
+dplbtaut :: forall pf atom. (IsPropositional pf atom, NumAtom atom) =>
             pf -> Failing Bool
-dplbtaut fm = dplbsat (negate fm) >>= return . not
+dplbtaut fm = not <$> (dplbsat . negate) fm
 
 #ifndef NOTESTS
 -- | Examples.
