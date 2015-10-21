@@ -2,11 +2,13 @@
 {-# OPTIONS_GHC -Wall #-}
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Prop
     ( IsPropositional(foldPropositional)
@@ -15,6 +17,16 @@ module Prop
     , propositionalFromLiteral
     , literalFromPropositional
     , prettyPropositional
+    -- * Formula marker types and restricted formula classes
+    , Marked(Mark)
+    , Literal
+    , Propositional
+    , markLiteral
+    , unmarkLiteral
+    , JustLiteral
+    , JustPropositional
+    , markPropositional
+    , unmarkPropositional
     -- * Interpretation of formulas.
     , eval
     , atoms
@@ -74,7 +86,7 @@ import Formulas (atom_union,
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  IsFormula(atomic, overatoms, onatoms, prettyFormula), onatoms)
 import Lib (distrib, fpf, (|=>), setAny)
-import Lit (IsLiteral(foldLiteral))
+import Lit (IsLiteral(foldLiteral), convertLiteral, LFormula)
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 import Text.PrettyPrint.HughesPJClass (vcat)
@@ -156,6 +168,77 @@ prettyPropositional pfix side fm =
       co (BinOp f (:<=>:) g) = prettyPropositional fix LHS f <> text "⇔" <> prettyPropositional fix RHS g
       tf = pPrint
       at a = pPrint a
+
+---------------------------------------------------------
+-- Formula marker types and restricted formula classes --
+---------------------------------------------------------
+
+data Marked mark formula = Mark {unMark' :: formula} deriving (Eq, Ord, Read, Show)
+
+instance IsFormula formula atom => IsFormula (Marked mk formula) atom where
+    atomic = Mark . atomic
+    overatoms at (Mark fm) = overatoms at fm
+    onatoms at (Mark fm) = Mark (onatoms (unMark' . at) fm)
+    prettyFormula = undefined
+
+instance HasBoolean formula => HasBoolean (Marked mk formula) where
+    asBool (Mark x) = asBool x
+    fromBool x = Mark (fromBool x)
+
+instance IsNegatable formula => IsNegatable (Marked mk formula) where
+    naiveNegate (Mark x) = Mark (naiveNegate x)
+    foldNegation' ne ot (Mark x) = foldNegation' (ne . Mark) (ot . Mark) x
+
+instance (IsFormula (Marked mk formula) atom, IsLiteral formula atom, HasBoolean (Marked mk formula)
+         ) => IsLiteral (Marked mk formula) atom where
+    foldLiteral ne tf at (Mark x) = foldLiteral (ne . Mark) tf at x
+
+instance IsCombinable formula => IsCombinable (Marked mk formula) where
+    (Mark a) .|. (Mark b) = Mark (a .|. b)
+    foldCombination dj cj imp iff other fm =
+        foldCombination (\a b -> dj a b)
+                        (\a b -> cj a b)
+                        (\a b -> imp a b)
+                        (\a b -> iff a b)
+                        (\a -> other a)
+                        fm
+
+instance (IsPropositional formula atom, Pretty formula) => Pretty (Marked Propositional formula) where
+    pPrint = pPrint . unMark'
+
+instance IsPropositional formula atom => IsPropositional (Marked Propositional formula) atom where
+    foldPropositional co tf at (Mark x) = foldPropositional co' tf at x
+        where
+          co' ((:~:) fm) = co ((:~:) (Mark fm))
+          co' (BinOp lhs op rhs) = co (BinOp (Mark lhs) op (Mark rhs))
+
+-- | The formula marker types
+data Literal
+data Propositional
+
+-- | Classes that indicate a formula only contains Literal or
+-- Propositional features
+class JustLiteral formula
+class JustPropositional formula
+
+instance JustLiteral (LFormula atom)
+instance JustPropositional (PFormula atom)
+instance JustLiteral (Marked Literal formula)
+instance JustPropositional (Marked Propositional formula)
+instance JustPropositional (LFormula atom)
+instance JustPropositional (Marked Literal formula)
+
+markLiteral :: IsLiteral lit atom => lit -> Marked Literal lit
+markLiteral fm = convertLiteral id fm
+
+unmarkLiteral :: IsLiteral pf atom => Marked Literal pf -> pf
+unmarkLiteral fm = convertLiteral id fm
+
+markPropositional :: IsPropositional lit atom => lit -> Marked Propositional lit
+markPropositional fm = convertPropositional id fm
+
+unmarkPropositional :: IsPropositional pf atom => Marked Propositional pf -> pf
+unmarkPropositional fm = convertPropositional id fm
 
 #ifndef NOTESTS
 data Prop = P {pname :: String} deriving (Eq, Ord)
