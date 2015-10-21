@@ -7,6 +7,7 @@
 module Lit
     ( IsLiteral(foldLiteral)
     , zipLiterals
+    , convertLiteral
     , prettyLiteral
     , LFormula(T, F, Atom, Not)
     ) where
@@ -14,8 +15,8 @@ module Lit
 import Data.Monoid ((<>))
 import Prelude hiding (negate, null)
 
-import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms, prettyFormula))
-import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
+import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms, prettyFormula), (.~.))
+import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), rootFixity, Side(Unary), text)
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- |forms.  They support negation and must include True and False elements.
@@ -34,6 +35,9 @@ zipLiterals neg tf at fm1 fm2 =
       neg' p1 = foldLiteral (neg p1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
       tf' x1 = foldLiteral (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
       at' a1 = foldLiteral (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
+
+convertLiteral :: (IsLiteral lit1 atom1, IsLiteral lit2 atom2) => (atom1 -> atom2) -> lit1 -> lit2
+convertLiteral ca fm = foldLiteral (\fm' -> (.~.) (convertLiteral ca fm')) fromBool (atomic . ca) fm
 
 prettyLiteral :: (Pretty atom, IsLiteral formula atom) => formula -> Doc
 prettyLiteral lit =

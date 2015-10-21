@@ -705,7 +705,7 @@ dnfList fm =
        satvals = allsatvaluations (eval fm) (\_s -> False) pvs
        pvs = atoms fm
        mk_lits' :: IsPropositional formula atom => [formula] -> (atom -> Bool) -> formula
-       mk_lits' pvs v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs)
+       mk_lits' pvs' v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs')
 
 dnfSet :: (Ord atom, IsPropositional formula atom) => formula -> formula
 dnfSet fm =
