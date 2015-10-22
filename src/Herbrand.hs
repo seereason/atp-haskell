@@ -20,12 +20,12 @@ import Data.String (IsString(..))
 import Debug.Trace
 
 import DP (dpll)
-import FOL (Arity, HasFunctions(funcs), IsFirstOrder, IsTerm, fApp, subst, fv, generalize, exists, for_all, pApp, vt)
+import FOL (Arity, HasFunctions(funcs), HasPredicate, IsFirstOrder, IsTerm, fApp, lsubst, subst, fv, generalize, exists, for_all, pApp, vt)
 import Formulas ((.~.), overatoms, atomic, (.=>.), (.&.), (.|.))
 import Lib (allpairs, distrib)
 import Lit (IsLiteral)
 import Pretty (prettyShow)
-import Prop (eval, IsPropositional, JustPropositional, simpcnf, simpdnf, trivial)
+import Prop (eval, IsPropositional, JustPropositional, Marked, Propositional, simpcnf, simpdnf, trivial)
 import Skolem (HasSkolem, runSkolem, skolemize)
 
 #ifndef NOTESTS
@@ -62,8 +62,12 @@ groundtuples cntms fns n m =
       tuples k l = Set.union (allpairs (:) (groundterms cntms fns k) (groundtuples cntms fns (n - k) (m - 1))) l
 
 -- | Iterate modifier "mfn" over ground terms till "tfn" fails.
-herbloop :: IsFirstOrder formula atom predicate term v function =>
-            (Set (Set lit) -> (formula -> formula) -> Set (Set lit) -> Set (Set lit))
+herbloop :: forall lit atom predicate term v function.
+            (IsLiteral lit atom,
+             HasPredicate atom predicate term,
+             IsTerm term v function,
+             HasFunctions lit function) =>
+            (Set (Set lit) -> (lit -> lit) -> Set (Set lit) -> Set (Set lit))
          -> (Set (Set lit) -> Failing Bool)
          -> Set (Set lit)
          -> Set term
@@ -82,7 +86,7 @@ herbloop mfn tfn fl0 cntms fns fvs n fl tried tuples =
           herbloop mfn tfn fl0 cntms fns fvs (n + 1) fl tried newtups
     Just (tup, tups) ->
         let fpf' = Map.fromList (zip fvs tup) in
-        let fl' = mfn fl0 (subst fpf') fl in
+        let fl' = mfn fl0 (lsubst fpf') fl in
         case tfn fl' of
           Failure msgs -> Failure msgs
           Success x ->
@@ -91,7 +95,10 @@ herbloop mfn tfn fl0 cntms fns fvs n fl tried tuples =
               else herbloop mfn tfn fl0 cntms fns fvs n fl' (Set.insert tup tried) tups
 
 -- | Hence a simple Gilmore-type procedure.
-gilmore_loop :: (IsFirstOrder lit atom predicate term v function, IsLiteral lit atom) =>
+gilmore_loop :: (IsLiteral lit atom,
+                 HasPredicate atom predicate term,
+                 IsTerm term v function,
+                 HasFunctions lit function) =>
                 Set (Set lit)
              -> Set term
              -> Set (function, Int)
@@ -109,15 +116,16 @@ gilmore_loop =
 gilmore :: forall formula atom predicate term function v.
            (IsFirstOrder formula atom predicate term v function,
             IsPropositional formula atom,
+            HasFunctions formula function,
             IsLiteral formula atom,
             HasSkolem function v) =>
            formula -> Failing Int
 gilmore fm =
-  let (sfm :: formula) = runSkolem (skolemize id ((.~.) (generalize fm))) in
+  let (sfm :: Marked Propositional formula) = runSkolem (skolemize id ((.~.) (generalize fm))) in
   let fvs = Set.toList (overatoms (\ a s -> Set.union s (fv (atomic a :: formula))) sfm (Set.empty))
       (consts,fns) = herbfuns sfm in
   let cntms = Set.map (\ (c,_) -> fApp c []) consts in
-  gilmore_loop (simpdnf id sfm :: Set (Set formula)) cntms fns (fvs) 0 (Set.singleton Set.empty) Set.empty Set.empty >>= return . Set.size
+  gilmore_loop (simpdnf id sfm :: Set (Set (Marked Propositional formula))) cntms fns (fvs) 0 (Set.singleton Set.empty) Set.empty Set.empty >>= return . Set.size
 
 #ifndef NOTESTS
 -- | First example and a little tracing.
@@ -205,7 +213,7 @@ davisputnam :: forall formula atom term v predicate function.
                 HasSkolem function v) =>
                formula -> Failing Int
 davisputnam fm =
-  let (sfm :: formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
+  let (sfm :: Marked Propositional formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
   let fvs = Set.toList (overatoms (\ a s -> Set.union (fv (atomic a :: formula)) s) sfm Set.empty)
       (consts,fns) = herbfuns sfm in
   let cntms = Set.map (\ (c,_) -> fApp c []) consts in
@@ -228,7 +236,7 @@ davisputnam' :: forall formula atom predicate term v f.
                  HasSkolem f v) =>
                 formula -> formula -> formula -> Failing Int
 davisputnam' _ _ fm =
-    let (sfm :: formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
+    let (sfm :: Marked Propositional formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
     let fvs = Set.toList (overatoms (\ (a :: atom) s -> Set.union (fv (atomic a :: formula)) s) sfm Set.empty)
         (consts,fns) = herbfuns sfm in
     let cntms = Set.map (\ (c,_) -> fApp c []) consts in

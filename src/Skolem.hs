@@ -57,7 +57,7 @@ import Formulas (Combination((:~:), BinOp), BinOp ((:&:), (:|:), (:=>:), (:<=>:)
 import Lib (setAny, distrib)
 import Prelude hiding (negate)
 import Pretty (Pretty(pPrint), prettyShow, text)
-import Prop (IsPropositional, psimplify1, trivial)
+import Prop (IsPropositional, JustPropositional, Marked, Propositional, psimplify1, trivial)
 import Test.HUnit
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
@@ -344,7 +344,7 @@ specialize ca fm =
 -- are gone we can convert to any instance of IsPropositional.
 skolemize :: (IsFirstOrder formula atom predicate term v function,
               HasSkolem function v,
-              IsPropositional pf atom2, Monad m) =>
+              IsPropositional pf atom2, JustPropositional pf, Monad m) =>
              (atom -> atom2) -> formula -> StateT SkolemState m pf
 skolemize ca fm = (specialize ca . pnf) <$> askolemize fm
 
@@ -377,7 +377,7 @@ instance HasSkolem Function V where
 
 test04 :: Test
 test04 = TestCase $ assertEqual "skolemize 1 (p. 150)" expected input
-    where input = runSkolem (skolemize id fm) :: MyFormula
+    where input = runSkolem (skolemize id fm) :: Marked Propositional MyFormula
           fm :: MyFormula
           fm = exists "y" (pApp ("<") [vt "x", vt "y"] .=>.
                            for_all "u" (exists "v" (pApp ("<") [fApp "*" [vt "x", vt "u"],  fApp "*" [vt "y", vt "v"]])))
@@ -388,7 +388,7 @@ test05 :: Test
 test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
     where p = "P"
           q = "Q"
-          input = runSkolem (skolemize id fm) :: MyFormula
+          input = runSkolem (skolemize id fm) :: Marked Propositional MyFormula
           fm :: MyFormula
           fm = for_all "x" ((pApp p [vt "x"]) .=>.
                             (exists "y" (exists "z" ((pApp q [vt "y"]) .|.

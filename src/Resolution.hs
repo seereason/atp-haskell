@@ -53,7 +53,7 @@ test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p
           fx = fApp (Skolem "x") :: [MyTerm] -> MyTerm
           barb = exists "b" (for_all "x" (shaves [b, x] .<=>. (.~.)(shaves [x, x]))) :: MyFormula
           input :: Set (Set MyFormula)
-          input = simpcnf id (runSkolem (skolemize id ((.~.)barb)) :: MyFormula)
+          input = simpcnf id (runSkolem (skolemize id ((.~.)barb)) :: Marked Propositional MyFormula)
           -- This is not exactly what is in the book
           expected :: Set (Set MyFormula)
           expected = Set.fromList [Set.fromList [shaves [b,     fx [b]], (.~.)(shaves [fx [b],fx [b]])],
@@ -146,7 +146,7 @@ pure_resolution1 :: forall fof atom predicate v term function.
                     (IsFirstOrder fof atom predicate term v function,
                      IsLiteral fof atom) =>
                     fof -> Failing Bool
-pure_resolution1 fm = resloop1 Set.empty (simpcnf id (specialize id (pnf fm) :: fof) :: Set (Set fof))
+pure_resolution1 fm = resloop1 Set.empty (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set fof))
 
 resolution1 :: forall m fof term function atom predicate v.
                (IsFirstOrder fof atom predicate term v function,
@@ -275,7 +275,7 @@ pure_resolution2 :: forall fof atom predicate v term function.
                     (IsFirstOrder fof atom predicate term v function,
                      IsLiteral fof atom) =>
                     fof -> Failing Bool
-pure_resolution2 fm = resloop2 Set.empty (simpcnf id (specialize id (pnf fm) :: fof) :: Set (Set fof))
+pure_resolution2 fm = resloop2 Set.empty (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set fof))
 
 resolution2 :: forall fof atom predicate term v function m.
                (IsFirstOrder fof atom predicate term v function,
@@ -322,7 +322,7 @@ pure_presolution :: forall fof pf lit atom predicate v term function.
                      lit ~ fof,
                      pf ~ fof) =>
                     fof -> Failing Bool
-pure_presolution fm = presloop Set.empty (simpcnf id (specialize id (pnf fm :: fof) :: pf) :: Set (Set lit))
+pure_presolution fm = presloop Set.empty (simpcnf id (specialize id (pnf fm :: fof) ::  Marked Propositional pf) :: Set (Set lit))
 
 presolution :: forall fof pf atom predicate term v function m.
                (IsFirstOrder fof atom predicate term v function,
@@ -341,7 +341,7 @@ pure_resolution3 :: forall fof atom v function predicate term.
                     (IsFirstOrder fof atom predicate term v function, IsLiteral fof atom) =>
                     fof -> Failing Bool
 pure_resolution3 fm =
-    uncurry resloop2 (Set.partition (setAny positive) (simpcnf id (specialize id (pnf fm) :: fof) :: Set (Set fof)))
+    uncurry resloop2 (Set.partition (setAny positive) (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set fof)))
 
 resolution3 :: forall fof atom predicate term v function m.
                (IsFirstOrder fof atom predicate term v function, IsLiteral fof atom, IsPropositional fof atom, HasSkolem function v, Monad m) =>

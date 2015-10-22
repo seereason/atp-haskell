@@ -27,7 +27,7 @@ import Formulas ((.~.), (.&.), (.|.), (.=>.), false, negative)
 import Lit (IsLiteral)
 import Pretty (prettyShow)
 import Prolog (renamerule)
-import Prop (IsPropositional, list_conj, simpcnf)
+import Prop (IsPropositional, list_conj, Marked, Propositional, simpcnf)
 import Skolem (askolemize, HasSkolem, pnf, runSkolem, SkolemT, simpdnf', specialize, toSkolem)
 import Tableaux (Depth(Depth), K(K), deepen, tab, unify_literals)
 
@@ -227,7 +227,7 @@ puremeson maxdl fm =
       f :: Depth -> Failing (Map v term, Int, Int)
       f n = mexpand rules (Set.empty :: Set fof) false return (Map.empty, fromEnum n, 0)
       rules = Set.fold (Set.union . contrapositives) Set.empty cls
-      cls = simpcnf id (specialize id (pnf fm) :: fof)
+      cls = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
 
 meson :: forall m fof atom predicate term f v.
          (IsFirstOrder fof atom predicate term v f, IsPropositional fof atom, IsLiteral fof atom,

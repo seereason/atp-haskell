@@ -19,7 +19,7 @@ module Prop
     , literalFromPropositional
     , prettyPropositional
     -- * Formula marker types and restricted formula classes
-    , Marked(Mark)
+    , Marked(Mark, unMark')
     , Literal
     , Propositional
     , markLiteral

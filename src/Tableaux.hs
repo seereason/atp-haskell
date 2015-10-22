@@ -35,7 +35,7 @@ import Formulas
 import Herbrand (davisputnam)
 import Lit
 import Pretty (Pretty(pPrint), prettyShow, text)
-import Prop (simpdnf)
+import Prop (Marked, Propositional, simpdnf, unmarkPropositional)
 import FOL
 import Skolem (askolemize, HasSkolem, runSkolem, skolemize)
 import Unif (unify)
@@ -130,7 +130,7 @@ prawitz fm =
       dnf0 = Set.singleton Set.empty
       dnf = simpdnf id pf :: Set (Set formula)
       fvs = overatoms (\ a s -> Set.union (fv (atomic a :: formula)) s) pf (Set.empty :: Set v)
-      pf = runSkolem (skolemize id ((.~.)(generalize fm))) :: formula
+      pf = runSkolem (skolemize id ((.~.)(generalize fm))) :: Marked Propositional formula
 
 #ifndef NOTESTS
 -- -------------------------------------------------------------------------
@@ -334,9 +334,11 @@ END_INTERACTIVE;;
 splittab :: forall formula atom predicate term v function.
             (IsFirstOrder formula atom predicate term v function, HasSkolem function v) => formula -> [Failing ((K, Map v term), Depth)]
 splittab fm =
-  List.map (tabrefute Nothing) $ ssll (simpdnf id (runSkolem (askolemize((.~.)(generalize fm)))) :: Set (Set formula))
-      where ssll :: Set (Set a) -> [[a]]
-            ssll = List.map Set.toList . Set.toList
+    (List.map (tabrefute Nothing) . ssll . simpdnf' . runSkolem . skolemize id . (.~.) . generalize) fm
+    where ssll :: Set (Set (Marked Propositional formula)) -> [[formula]]
+          ssll = List.map Set.toList . Set.toList . Set.map (Set.map unmarkPropositional)
+          simpdnf' :: Marked Propositional formula -> Set (Set (Marked Propositional formula))
+          simpdnf' = simpdnf id
 
 #ifndef NOTESTS
 {-

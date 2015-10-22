@@ -86,7 +86,7 @@ import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), Is
                  (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
-import Prop (IsPropositional(foldPropositional'))
+import Prop (IsPropositional(foldPropositional'), Marked(unMark'))
 
 #ifndef NOTESTS
 import Test.HUnit
@@ -152,6 +152,9 @@ type Arity = Int
 -- | Class of objects for which we can find a set of (function, arity) pairs.
 class (IsFunction function, Ord function) => HasFunctions t function where
     funcs :: t -> Set (function, Arity)
+
+instance HasFunctions t function => HasFunctions (Marked mk t) function where
+    funcs = funcs . unMark'
 
 #ifndef NOTESTS
 -- | A simple type to use as the function parameter of Term, FOL, etc.
