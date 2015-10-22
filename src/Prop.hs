@@ -2,12 +2,14 @@
 {-# OPTIONS_GHC -Wall #-}
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Prop
@@ -72,6 +74,7 @@ module Prop
     ) where
 
 import Data.Foldable as Foldable (null)
+import Data.Generics (Data, Typeable)
 import Data.List as List (map, intercalate)
 import Data.Map as Map (Map)
 import Data.Monoid ((<>))
@@ -193,7 +196,7 @@ prettyPropositional pfix side fm =
 -- Formula marker types and restricted formula classes --
 ---------------------------------------------------------
 
-data Marked mark formula = Mark {unMark' :: formula} deriving (Eq, Ord, Read, Show)
+data Marked mark formula = Mark {unMark' :: formula} deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 instance IsFormula formula atom => IsFormula (Marked mk formula) atom where
     atomic = Mark . atomic
@@ -226,10 +229,10 @@ instance IsCombinable formula => IsCombinable (Marked mk formula) where
                         (\a -> other a)
                         fm
 
-instance (IsPropositional formula atom, Pretty formula) => Pretty (Marked Propositional formula) where
+instance (IsPropositional formula atom, Pretty formula) => Pretty (Marked mk formula) where
     pPrint = pPrint . unMark'
 
-instance IsPropositional formula atom => IsPropositional (Marked Propositional formula) atom where
+instance IsPropositional formula atom => IsPropositional (Marked mk formula) atom where
     foldPropositional' ho co tf at (Mark x) = foldPropositional' (ho . Mark) co' tf at x
         where
           co' ((:~:) fm) = co ((:~:) (Mark fm))
@@ -238,6 +241,8 @@ instance IsPropositional formula atom => IsPropositional (Marked Propositional f
 -- | The formula marker types
 data Literal
 data Propositional
+deriving instance Data Literal
+deriving instance Data Propositional
 
 -- | Classes that indicate a formula only contains Literal or
 -- Propositional features
@@ -290,7 +295,7 @@ data PFormula atom
     | Or (PFormula atom) (PFormula atom)
     | Imp (PFormula atom) (PFormula atom)
     | Iff (PFormula atom) (PFormula atom)
-    deriving (Eq, Ord, Read)
+    deriving (Eq, Ord, Read, Data, Typeable)
 
 instance HasBoolean (PFormula atom) where
     asBool T = Just True
