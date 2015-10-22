@@ -32,7 +32,7 @@ import Data.Set as Set
 import Formulas as P
 import Lit (IsLiteral)
 import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
-import Prop as P (IsPropositional, cnf', foldPropositional, nenf, simpcnf, list_conj, list_disj)
+import Prop as P (cnf', foldPropositional, IsPropositional(foldPropositional'), JustPropositional, list_conj, list_disj, nenf, simpcnf)
 
 #ifndef NOTESTS
 import Test.HUnit
@@ -71,8 +71,9 @@ mkprop n = (atomic (ma n :: atom), n + 1)
 -- |  Core definitional CNF procedure.
 maincnf :: (IsPropositional pf atom, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 maincnf trip@(fm, _defs, _n) =
-    foldPropositional co tf at fm
+    foldPropositional' ho co tf at fm
     where
+      ho _ = trip
       co (BinOp p (:&:) q) = defstep (.&.) (p,q) trip
       co (BinOp p (:|:) q) = defstep (.|.) (p,q) trip
       co (BinOp p (:<=>:) q) = defstep (.<=>.) (p,q) trip
@@ -96,19 +97,19 @@ max_varindex :: NumAtom atom =>  atom -> Integer -> Integer
 max_varindex atom n = max n (ai atom)
 
 -- | Overall definitional CNF.
-defcnf1 :: forall pf atom. (IsPropositional pf atom, NumAtom atom) => pf -> pf
+defcnf1 :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> pf
 defcnf1 fm = list_conj (Set.map list_disj (mk_defcnf id maincnf fm))
 
-mk_defcnf :: forall formula atom lit atom2. (IsPropositional formula atom, NumAtom atom, IsLiteral lit atom2) =>
+mk_defcnf :: forall pf atom lit atom2. (IsPropositional pf atom, JustPropositional pf, NumAtom atom, IsLiteral lit atom2) =>
              (atom -> atom2)
-          -> ((formula, Map formula formula, Integer) -> (formula, Map formula formula, Integer))
-          -> formula -> Set (Set lit)
+          -> ((pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer))
+          -> pf -> Set (Set lit)
 mk_defcnf ca fn fm =
-  let (fm' :: formula) = nenf fm in
+  let (fm' :: pf) = nenf fm in
   let n = 1 + overatoms max_varindex fm' 0 in
   let (fm'',defs,_) = fn (fm',Map.empty,n) in
-  let (deflist :: [formula]) = Map.elems defs in
-  Set.unions (List.map (simpcnf ca :: formula -> Set (Set lit)) (fm'' : deflist))
+  let (deflist :: [pf]) = Map.elems defs in
+  Set.unions (List.map (simpcnf ca :: pf -> Set (Set lit)) (fm'' : deflist))
 
 #ifndef NOTESTS
 testfm :: PFormula Atom
@@ -142,20 +143,20 @@ strings ss = sortBy (compare `on` length) . sort . Set.toList $ Set.map (sort . 
 #endif
 
 -- | Version tweaked to exploit initial structure.
-defcnf2 :: (IsPropositional formula atom, NumAtom atom) => formula -> formula
+defcnf2 :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> pf
 defcnf2 fm = list_conj (Set.map list_disj (defcnfs fm))
 
-defcnfs :: (IsPropositional pf atom, NumAtom atom) => pf -> Set (Set pf)
+defcnfs :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> Set (Set pf)
 defcnfs fm = mk_defcnf id andcnf fm
 
-andcnf :: (IsPropositional pf atom, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
+andcnf :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 andcnf trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> orcnf trip) (\ _ -> orcnf trip) fm
     where
       co (BinOp p (:&:) q) = subcnf andcnf (.&.) p q trip
       co _ = orcnf trip
 
-orcnf :: (IsPropositional pf atom, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
+orcnf :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 orcnf trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> maincnf trip) (\ _ -> maincnf trip) fm
     where
@@ -175,10 +176,10 @@ subcnf sfn op p q (_fm,defs,n) =
   (op fm1 fm2, defs2, n2)
 
 -- | Version that guarantees 3-CNF.
-defcnf3 :: (IsPropositional formula atom, NumAtom atom, IsLiteral formula atom) => formula -> formula
+defcnf3 :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> pf
 defcnf3 = list_conj . Set.map list_disj . mk_defcnf id andcnf3
 
-andcnf3 :: (IsPropositional pf atom, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
+andcnf3 :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 andcnf3 trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> maincnf trip) (\ _ -> maincnf trip) fm
     where

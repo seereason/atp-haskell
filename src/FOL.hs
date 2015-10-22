@@ -86,7 +86,7 @@ import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), Is
                  (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
-import Prop (IsPropositional(foldPropositional))
+import Prop (IsPropositional(foldPropositional'))
 
 #ifndef NOTESTS
 import Test.HUnit
@@ -494,7 +494,7 @@ instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate ter
     quant (:?:) = Exists
     foldQuantified qu _co _tf _at (Forall v fm) = qu (:!:) v fm
     foldQuantified qu _co _tf _at (Exists v fm) = qu (:?:) v fm
-    foldQuantified _qu co tf at fm = foldPropositional co tf at fm
+    foldQuantified _qu co tf at fm = foldPropositional' (\_ -> error "IsQuantified Formula") co tf at fm
 
 -- Build a Haskell expression for this formula
 instance (Show atom, Show v) => Show (Formula v atom) where
@@ -550,7 +550,7 @@ instance (HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm 
     prettyFormula = prettyQuantified rootFixity Unary
 
 instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
-    foldPropositional co tf at fm =
+    foldPropositional' ho co tf at fm =
         case fm of
           T -> tf True
           F -> tf False
@@ -564,8 +564,8 @@ instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate ter
           -- instance of IsPropositional, we see here that it is
           -- an error to use foldPropositional (IsPropositional's
           -- only method) on a Formula that has quantifiers.
-          Forall _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow fm
-          Exists _ _ -> error $ "foldPropositional used on Formula with a quantifier: " ++ prettyShow fm
+          Forall _ _ -> ho fm
+          Exists _ _ -> ho fm
 
 instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
     foldLiteral ne tf at fm =

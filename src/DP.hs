@@ -96,11 +96,11 @@ resolution_rule clauses =
       Nothing -> Failure ["resolution_rule"]
 
 -- | Davis-Putnam satisfiability tester.
-dpsat :: forall pf atom. (IsPropositional pf atom, NumAtom atom) => pf -> Failing Bool
+dpsat :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> Failing Bool
 dpsat fm = (dp . defcnfs) fm
 
 -- | Davis-Putnam tautology checker.
-dptaut :: forall pf atom. (IsPropositional pf atom, NumAtom atom) => pf -> Failing Bool
+dptaut :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> Failing Bool
 dptaut fm = not <$> dpsat (negate fm)
 
 #ifndef NOTESTS
@@ -138,11 +138,11 @@ posneg_count cls l =
       n = Set.size(Set.filter (Set.member (negate l)) cls) in
   m + n
 
-dpllsat :: forall pf. (IsPropositional pf (Knows Integer)) =>
+dpllsat :: forall pf. (IsPropositional pf (Knows Integer), JustPropositional pf) =>
            pf -> Failing Bool
 dpllsat fm = (dpll . defcnfs) fm
 
-dplltaut :: forall pf. (IsPropositional pf (Knows Integer)) =>
+dplltaut :: forall pf. (IsPropositional pf (Knows Integer), JustPropositional pf) =>
             pf -> Failing Bool
 dplltaut fm = not <$> (dpllsat . negate) fm
 
@@ -205,11 +205,11 @@ backtrack trail =
     Just ((_p,Deduced), tt) -> backtrack tt
     _ -> trail
 
-dplisat :: forall pf atom. (IsPropositional pf atom, NumAtom atom) =>
+dplisat :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) =>
            pf -> Failing Bool
 dplisat fm = (dpli Set.empty . defcnfs) fm
 
-dplitaut :: forall pf atom. (IsPropositional pf atom, NumAtom atom) =>
+dplitaut :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) =>
             pf -> Failing Bool
 dplitaut fm = not <$> (dplisat . negate) fm
 
@@ -241,11 +241,11 @@ backjump cls p trail =
         if Set.member Set.empty cls' then backjump cls p tt else trail
     _ -> trail
 
-dplbsat :: forall pf atom. (IsPropositional pf atom, NumAtom atom) =>
+dplbsat :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) =>
            pf -> Failing Bool
 dplbsat fm = (dplb Set.empty . defcnfs) fm
 
-dplbtaut :: forall pf atom. (IsPropositional pf atom, NumAtom atom) =>
+dplbtaut :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) =>
             pf -> Failing Bool
 dplbtaut fm = not <$> (dplbsat . negate) fm
 
