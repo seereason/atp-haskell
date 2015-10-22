@@ -100,13 +100,13 @@ class IsNegatable formula => IsCombinable formula where
     --
     -- | Conjunction/AND
     (.&.) :: formula -> formula -> formula
-    x .&. y = (.~.) ((.~.) x .|. (.~.) y)
+    -- x .&. y = (.~.) ((.~.) x .|. (.~.) y)
     -- | Formula combinators: Equivalence
     (.<=>.) :: formula -> formula -> formula
-    x .<=>. y = (x .=>. y) .&. (y .=>. x)
+    -- x .<=>. y = (x .=>. y) .&. (y .=>. x)
     -- | Implication
     (.=>.) :: formula -> formula -> formula
-    x .=>. y = ((.~.) x .|. y)
+    -- x .=>. y = ((.~.) x .|. y)
 
     foldCombination :: (formula -> formula -> r) -- disjunction
                     -> (formula -> formula -> r) -- conjunction

@@ -215,6 +215,9 @@ instance (IsFormula (Marked mk formula) atom, IsLiteral formula atom, HasBoolean
 
 instance IsCombinable formula => IsCombinable (Marked mk formula) where
     (Mark a) .|. (Mark b) = Mark (a .|. b)
+    (Mark a) .&. (Mark b) = Mark (a .&. b)
+    (Mark a) .=>. (Mark b) = Mark (a .=>. b)
+    (Mark a) .<=>. (Mark b) = Mark (a .<=>. b)
     foldCombination dj cj imp iff other fm =
         foldCombination (\a b -> dj a b)
                         (\a b -> cj a b)
