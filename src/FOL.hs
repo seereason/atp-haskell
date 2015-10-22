@@ -86,7 +86,7 @@ import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), Is
                  (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
-import Prop (IsPropositional(foldPropositional'), Marked(unMark'))
+import Prop (foldPropositional, IsPropositional(foldPropositional'), JustPropositional, Marked(unMark'), PFormula)
 
 #ifndef NOTESTS
 import Test.HUnit
@@ -424,6 +424,16 @@ quantifiedFuncs = foldQuantified qu co tf at
           tf _ = Set.empty
           at = funcs
 
+propositionalFuncs :: forall formula atom function.
+                   (IsPropositional formula atom,
+                    JustPropositional formula,
+                    HasFunctions atom function) => formula -> Set (function, Arity)
+propositionalFuncs = foldPropositional co tf at
+    where co ((:~:) fm) = propositionalFuncs fm
+          co (BinOp lhs _ rhs) = union (propositionalFuncs lhs) (propositionalFuncs rhs)
+          tf _ = Set.empty
+          at = funcs
+
 prettyQuantified :: (IsQuantified formula atom v, HasFixity formula, Pretty atom) => Fixity -> Side -> formula -> Doc
 prettyQuantified pfix side fm =
     parenthesize pfix fix side $ foldQuantified qu co tf at fm
@@ -462,6 +472,16 @@ instance (HasPredicate atom predicate term,
           IsTerm term v function
          ) => HasFunctions (Formula v atom) function where
     funcs = quantifiedFuncs
+
+instance (HasPredicate atom predicate term,
+          IsFunction function,
+          HasFunctions atom function,
+          Ord atom,
+          Pretty atom,
+          HasFixity atom,
+          IsTerm term v function
+         ) => HasFunctions (PFormula atom) function where
+    funcs = propositionalFuncs
 
 instance (Ord atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function,
           IsVariable v, HasFixity atom, Pretty v) => Pretty (Formula v atom) where
