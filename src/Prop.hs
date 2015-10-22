@@ -952,7 +952,7 @@ test31 = TestCase $ assertEqual "rawdnf (p. 58)" expected input
           (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
 #endif
 
-purednf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2) => (atom -> atom2) -> pf -> Set (Set lit)
+purednf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
 purednf ca fm =
     foldPropositional co (\_ -> l2f fm) (\_ -> l2f fm) fm
     where
@@ -967,13 +967,14 @@ purednf ca fm =
 test32 :: Test
 test32 = TestCase $ assertEqual "purednf (p. 58)" expected input
     where input = purednf id $ (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
-          expected = Set.fromList [Set.fromList [p,Not p],
-                                   Set.fromList [p,Not r],
-                                   Set.fromList [q,r,Not p],
-                                   Set.fromList [q,r,Not r]]
-          p = Atom (P "p")
-          q = Atom (P "q")
-          r = Atom (P "r")
+          expected :: Set (Set (Marked Literal (PFormula Prop)))
+          expected = Set.fromList [Set.fromList [p, (.~.) p],
+                                   Set.fromList [p, (.~.) r],
+                                   Set.fromList [q, r, (.~.) p],
+                                   Set.fromList [q, r, (.~.) r]]
+          p = atomic (P "p")
+          q = atomic (P "q")
+          r = atomic (P "r")
 #endif
 
 -- | Filtering out trivial disjuncts (in this guise, contradictory).
@@ -987,16 +988,17 @@ trivial lits =
 test33 :: Test
 test33 = TestCase $ assertEqual "trivial" expected input
     where input = Set.filter (not . trivial) (purednf id fm)
-          expected = Set.fromList [Set.fromList [p,Not r],
-                                   Set.fromList [q,r,Not p]]
+          expected :: Set (Set (Marked Literal (PFormula Prop)))
+          expected = Set.fromList [Set.fromList [p,(.~.) r],
+                                   Set.fromList [q,r,(.~.) p]]
           fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
-          p = Atom (P "p")
-          q = Atom (P "q")
-          r = Atom (P "r")
+          p = atomic (P "p")
+          q = atomic (P "q")
+          r = atomic (P "r")
 #endif
 
 -- | With subsumption checking, done very naively (quadratic).
-simpdnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2) => (atom -> atom2) -> pf -> Set (Set lit)
+simpdnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
 simpdnf ca fm =
     foldPropositional (\_ -> go) tf (\_ -> go) fm
     where
@@ -1007,7 +1009,7 @@ simpdnf ca fm =
 
 -- | Mapping back to a formula.
 dnf :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
-dnf fm = list_disj (Set.toAscList (Set.map list_conj (simpdnf id fm)))
+dnf fm = (list_disj . Set.toAscList . Set.map list_conj . Set.map (Set.map unmarkLiteral) . simpdnf id) fm
 
 #ifndef NOTESTS
 -- Example. (p. 56)
@@ -1020,10 +1022,10 @@ test34 = TestCase $ assertEqual "dnf (p. 56)" expected input
 #endif
 
 -- | Conjunctive normal form (CNF) by essentially the same code. (p. 60)
-purecnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2) => (atom -> atom2) -> pf -> Set (Set lit)
+purecnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
 purecnf ca fm = Set.map (Set.map negate) (purednf ca (nnf ((.~.) fm)))
 
-simpcnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2) => (atom -> atom2) -> pf -> Set (Set lit)
+simpcnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
 simpcnf ca fm =
     foldPropositional (\_ -> go) tf (\_ -> go) fm
     where
@@ -1032,11 +1034,11 @@ simpcnf ca fm =
       go = let cjs = Set.filter (not . trivial) (purecnf ca fm) in
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
-cnf_ :: forall pf atom lit atom2. (IsPropositional pf atom, IsLiteral lit atom2) => (atom2 -> atom) -> Set (Set lit) -> pf
+cnf_ :: forall pf atom lit atom2. (IsPropositional pf atom, IsLiteral lit atom2, JustLiteral lit) => (atom2 -> atom) -> Set (Set lit) -> pf
 cnf_ ca = list_conj . Set.map (list_disj . Set.map (propositionalFromLiteral ca))
 
 cnf' :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
-cnf' fm = list_conj (Set.map list_disj (simpcnf id fm))
+cnf' fm = (list_conj . Set.map list_disj . Set.map (Set.map unmarkLiteral) . simpcnf id) fm
 
 #ifndef NOTESTS
 -- Example. (p. 61)

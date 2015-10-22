@@ -16,22 +16,26 @@ import Data.String (fromString)
 import Test.HUnit
 #endif
 
-import Prop (list_conj)
-import FOL (IsFirstOrder, fv, vt, subst)
+import Prop (JustLiteral)
+import FOL (fvl, HasPredicate, IsTerm, lsubst, vt)
+import Lit (IsLiteral)
 import Tableaux (deepen)
 
 -- -------------------------------------------------------------------------
 -- Rename a rule.
 -- -------------------------------------------------------------------------
 
-renamerule :: IsFirstOrder fof atom predicate term v f =>
-              Int -> (Set fof, fof) -> ((Set fof, fof), Int)
+renamerule :: forall lit atom predicate v term function.
+              (IsLiteral lit atom, JustLiteral lit,
+               HasPredicate atom predicate term,
+               IsTerm term v function) =>
+              Int -> (Set lit, lit) -> ((Set lit, lit), Int)
 renamerule k (asm,c) =
     ((Set.map inst asm, inst c), k + Set.size fvs)
     where
-      fvs = fv (list_conj (Set.insert c asm))
+      fvs = Set.fold (Set.union . fvl) (Set.empty :: Set v) (Set.insert c asm)
       vvs = Map.fromList (List.map (\(v, i) -> (v, vt (fromString ("_" ++ show i)))) (zip (Set.toList fvs) [k..]))
-      inst = subst vvs
+      inst = lsubst vvs
 
 {-
 

@@ -53,9 +53,7 @@ module FOL
     , mod_interp
     -- * Free Variables
     , var
-    , fv
-    , fva
-    , fvt
+    , fv, fvp, fvl, fva, fvt
     , generalize
     -- * Substitution
     , subst, substq, asubst, tsubst, lsubst
@@ -86,7 +84,7 @@ import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), Is
                  (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral))
-import Prop (foldPropositional, IsPropositional(foldPropositional'), JustPropositional, Marked(unMark'), PFormula)
+import Prop (foldPropositional, IsPropositional(foldPropositional'), JustLiteral, JustPropositional, Marked(unMark'), PFormula)
 
 #ifndef NOTESTS
 import Test.HUnit
@@ -975,10 +973,6 @@ test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
 -- Free variables in terms and formulas.
 
 -- | Find the free variables in a formula.
-#if 0
-fv :: (IsFormula formula atom, HasPredicate atom predicate term,  IsTerm term v function) => formula -> Set v
-fv fm = overatoms (\a s -> foldPredicate (\_ args -> unions (s : map fvt args)) a) fm Set.empty
-#else
 fv :: IsFirstOrder formula atom predicate term v function => formula -> Set v
 fv fm =
     foldQuantified qu co tf at fm
@@ -988,7 +982,31 @@ fv fm =
       co (BinOp p _ q) = union (fv p) (fv q)
       tf _ = Set.empty
       at = foldPredicate (\_ args -> unions (map fvt args))
-#endif
+
+fvp :: (IsPropositional formula atom,
+        JustPropositional formula,
+        IsTerm term v f,
+        HasPredicate atom predicate term,
+        IsVariable v) => formula -> Set v
+fvp fm =
+    foldPropositional co tf at fm
+    where
+      co ((:~:) p) = fvp p
+      co (BinOp p _ q) = union (fvp p) (fvp q)
+      tf _ = Set.empty
+      at = foldPredicate (\_ args -> unions (map fvt args))
+
+fvl :: (IsLiteral formula atom,
+        JustLiteral formula,
+        IsTerm term v f,
+        HasPredicate atom predicate term,
+        IsVariable v) => formula -> Set v
+fvl fm =
+    foldLiteral ne tf at fm
+    where
+      ne p = fvl p
+      tf _ = Set.empty
+      at = foldPredicate (\_ args -> unions (map fvt args))
 
 fva :: (HasEquate atom predicate term, IsTerm term v function) => atom -> Set v
 fva = foldEquate (\_ args -> unions (map fvt args)) (\lhs rhs -> union (fvt lhs) (fvt rhs))

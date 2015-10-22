@@ -32,7 +32,7 @@ import Data.Set as Set
 import Formulas as P
 import Lit (IsLiteral)
 import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
-import Prop as P (cnf', foldPropositional, IsPropositional(foldPropositional'), JustPropositional, list_conj, list_disj, nenf, simpcnf)
+import Prop as P (cnf', foldPropositional, IsPropositional(foldPropositional'), JustLiteral, JustPropositional, list_conj, list_disj, Literal, Marked, nenf, simpcnf, unmarkLiteral)
 
 #ifndef NOTESTS
 import Test.HUnit
@@ -98,9 +98,14 @@ max_varindex atom n = max n (ai atom)
 
 -- | Overall definitional CNF.
 defcnf1 :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> pf
-defcnf1 fm = list_conj (Set.map list_disj (mk_defcnf id maincnf fm))
+defcnf1 fm = list_conj (Set.map (list_disj . Set.map unmarkLiteral) (mk_defcnf id maincnf fm))
 
-mk_defcnf :: forall pf atom lit atom2. (IsPropositional pf atom, JustPropositional pf, NumAtom atom, IsLiteral lit atom2) =>
+mk_defcnf :: forall pf atom lit atom2.
+             (IsPropositional pf atom,
+              JustPropositional pf,
+              IsLiteral lit atom2,
+              JustLiteral lit,
+              NumAtom atom) =>
              (atom -> atom2)
           -> ((pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer))
           -> pf -> Set (Set lit)
@@ -125,7 +130,7 @@ END_INTERACTIVE;;
 
 test02 :: Test
 test02 =
-    let input = strings (mk_defcnf id maincnf testfm :: Set (Set (PFormula Atom)))
+    let input = strings (mk_defcnf id maincnf testfm :: Set (Set (Marked Literal (PFormula Atom))))
         expected = [["p_3"],
                     ["p_2","¬p"],
                     ["p_2","¬p_1"],
@@ -144,9 +149,9 @@ strings ss = sortBy (compare `on` length) . sort . Set.toList $ Set.map (sort . 
 
 -- | Version tweaked to exploit initial structure.
 defcnf2 :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> pf
-defcnf2 fm = list_conj (Set.map list_disj (defcnfs fm))
+defcnf2 fm = list_conj (Set.map (list_disj . Set.map unmarkLiteral) (defcnfs fm))
 
-defcnfs :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> Set (Set pf)
+defcnfs :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> Set (Set (Marked Literal pf))
 defcnfs fm = mk_defcnf id andcnf fm
 
 andcnf :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
@@ -177,7 +182,7 @@ subcnf sfn op p q (_fm,defs,n) =
 
 -- | Version that guarantees 3-CNF.
 defcnf3 :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> pf
-defcnf3 = list_conj . Set.map list_disj . mk_defcnf id andcnf3
+defcnf3 = list_conj . Set.map (list_disj . Set.map unmarkLiteral) . mk_defcnf id andcnf3
 
 andcnf3 :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 andcnf3 trip@(fm,_defs,_n) =
@@ -189,7 +194,7 @@ andcnf3 trip@(fm,_defs,_n) =
 #ifndef NOTESTS
 test03 :: Test
 test03 =
-    let input = strings (mk_defcnf id andcnf3 testfm :: Set (Set (PFormula Atom)))
+    let input = strings (mk_defcnf id andcnf3 testfm :: Set (Set (Marked Literal (PFormula Atom))))
         expected = [["p_2"],
                     ["s"],
                     ["p_2","¬p"],

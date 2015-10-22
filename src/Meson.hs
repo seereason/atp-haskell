@@ -22,12 +22,12 @@ import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
 import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (exists, fApp, for_all, generalize, IsFirstOrder, IsQuantified, pApp, V, vt)
+import FOL (exists, fApp, for_all, generalize, HasPredicate, IsFirstOrder, IsQuantified, IsTerm, pApp, V, vt)
 import Formulas ((.~.), (.&.), (.|.), (.=>.), false, negative)
 import Lit (IsLiteral)
 import Pretty (prettyShow)
 import Prolog (renamerule)
-import Prop (IsPropositional, list_conj, Marked, Propositional, simpcnf)
+import Prop (IsPropositional, JustLiteral, list_conj, Literal, Marked, Propositional, simpcnf)
 import Skolem (askolemize, HasSkolem, pnf, runSkolem, SkolemT, simpdnf', specialize, toSkolem)
 import Tableaux (Depth(Depth), K(K), deepen, tab, unify_literals)
 
@@ -182,7 +182,7 @@ END_INTERACTIVE;;
 -- Generation of contrapositives.
 -- -------------------------------------------------------------------------
 
-contrapositives :: IsQuantified fof atom v => Set fof -> Set (Set fof, fof)
+contrapositives :: IsLiteral lit atom => Set lit -> Set (Set lit, lit)
 contrapositives cls =
     if setAll negative cls then Set.insert (Set.map (.~.) cls,false) base else base
     where base = Set.map (\ c -> (Set.map (.~.) (Set.delete c cls), c)) cls
@@ -191,10 +191,12 @@ contrapositives cls =
 -- The core of MESON: ancestor unification or Prolog-style extension.
 -- -------------------------------------------------------------------------
 
-mexpand :: (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom) =>
-           Set (Set fof, fof)
-        -> Set fof
-        -> fof
+mexpand :: (IsLiteral lit atom, JustLiteral lit,
+            HasPredicate atom predicate term,
+            IsTerm term v function) =>
+           Set (Set lit, lit)
+        -> Set lit
+        -> lit
         -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
         -> (Map v term, Int, Int) -> Failing (Map v term, Int, Int)
 mexpand rules ancestors g cont (env,n,k) =
@@ -225,9 +227,9 @@ puremeson maxdl fm =
     deepen f (Depth 0) maxdl
     where
       f :: Depth -> Failing (Map v term, Int, Int)
-      f n = mexpand rules (Set.empty :: Set fof) false return (Map.empty, fromEnum n, 0)
+      f n = mexpand rules (Set.empty :: Set (Marked Literal fof)) false return (Map.empty, fromEnum n, 0)
       rules = Set.fold (Set.union . contrapositives) Set.empty cls
-      cls = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
+      (cls :: Set (Set (Marked Literal fof))) = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
 
 meson :: forall m fof atom predicate term f v.
          (IsFirstOrder fof atom predicate term v f, IsPropositional fof atom, IsLiteral fof atom,
