@@ -17,7 +17,7 @@ module Formulas
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
     , Combination(..), BinOp(..), combine, binop
     -- * Formulas
-    , IsFormula(atomic, overatoms, onatoms, prettyFormula)
+    , IsFormula(atomic, overatoms, onatoms)
     , atom_union
     ) where
 
@@ -193,8 +193,6 @@ class (Eq formula, Ord formula, Eq atom, Ord atom, Pretty atom) => IsFormula for
     -- ^ Formula analog of list iterator "itlist".
     onatoms :: (atom -> formula) -> formula -> formula
     -- ^ Apply a function to the atoms, otherwise keeping structure.
-    prettyFormula :: formula -> Doc
-    -- ^ Pretty print a formula, with proper parenthesization
 
 -- | Special case of a union of the results of a function over the atoms.
 atom_union :: (IsFormula formula atom, Ord r) => (atom -> Set r) -> formula -> Set r

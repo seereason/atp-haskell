@@ -6,6 +6,7 @@
 
 module Lit
     ( IsLiteral(foldLiteral)
+    , JustLiteral
     , zipLiterals
     , convertLiteral
     , prettyLiteral
@@ -15,7 +16,7 @@ module Lit
 import Data.Monoid ((<>))
 import Prelude hiding (negate, null)
 
-import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms, prettyFormula), (.~.))
+import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms), (.~.))
 import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
 
 -- | Literals are the building blocks of the clause and implicative normal
@@ -27,6 +28,10 @@ class (IsFormula lit atom,
        Ord atom -- atoms almost always end up in sets, so this is indispensable
       ) => IsLiteral lit atom where
     foldLiteral :: (lit -> r) -> (Bool -> r) -> (atom -> r) -> lit -> r
+
+-- | Class that indicates that a formula type *only* supports Literal
+-- features - no combinations or quantifiers.
+class JustLiteral formula
 
 -- | Unify two literals
 zipLiterals :: IsLiteral lit atom =>
@@ -44,11 +49,11 @@ zipLiterals neg tf at fm1 fm2 =
 convertLiteral :: (IsLiteral lit1 atom1, IsLiteral lit2 atom2) => (atom1 -> atom2) -> lit1 -> lit2
 convertLiteral ca fm = foldLiteral (\fm' -> (.~.) (convertLiteral ca fm')) fromBool (atomic . ca) fm
 
-prettyLiteral :: IsLiteral formula atom => formula -> Doc
+prettyLiteral :: (IsLiteral formula atom, JustLiteral formula) => formula -> Doc
 prettyLiteral lit =
     foldLiteral ne tf at lit
     where
-      ne p = text "¬" <> prettyFormula p
+      ne p = text "¬" <> prettyLiteral p
       tf = pPrint
       at a = pPrint a
 
@@ -59,6 +64,8 @@ data LFormula atom
     | Atom atom
     | Not (LFormula atom)
     deriving (Eq, Ord, Read)
+
+instance JustLiteral (LFormula atom)
 
 instance HasBoolean (LFormula atom) where
     asBool T = Just True
@@ -90,7 +97,6 @@ instance (Ord atom, Pretty atom) => IsFormula (LFormula atom) atom where
           Atom a -> f a
           Not p -> Not (onatoms f p)
           _ -> fm
-    prettyFormula = prettyLiteral
 
 instance (Ord atom, Pretty atom) => Pretty (LFormula atom) where
     pPrint = prettyLiteral

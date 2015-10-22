@@ -22,7 +22,7 @@ import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
 import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (exists, fApp, for_all, generalize, HasPredicate, IsFirstOrder, IsQuantified, IsTerm, pApp, V, vt)
+import FOL (exists, fApp, for_all, generalize, HasPredicate, IsFirstOrder, IsTerm, pApp, V, vt)
 import Formulas ((.~.), (.&.), (.|.), (.=>.), false, negative)
 import Lit (IsLiteral)
 import Pretty (prettyShow)

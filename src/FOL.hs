@@ -432,20 +432,23 @@ propositionalFuncs = foldPropositional co tf at
           tf _ = Set.empty
           at = funcs
 
-prettyQuantified :: (IsQuantified formula atom v, HasFixity formula, Pretty atom) => Fixity -> Side -> formula -> Doc
-prettyQuantified pfix side fm =
-    parenthesize pfix fix side $ foldQuantified qu co tf at fm
+prettyQuantified :: (IsQuantified formula atom v, HasFixity formula) => formula -> Doc
+prettyQuantified fm0 =
+    go rootFixity Unary fm0
     where
-      fix = fixity fm
-      qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> prettyQuantified fix RHS p
-      qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> prettyQuantified fix RHS p
-      co ((:~:) f) = text "¬" <> prettyQuantified fix Unary f
-      co (BinOp f (:&:) g) = prettyQuantified fix LHS f <> text "∧" <> prettyQuantified fix RHS g
-      co (BinOp f (:|:) g) = prettyQuantified fix LHS f <> text "∨" <> prettyQuantified fix RHS g
-      co (BinOp f (:=>:) g) = prettyQuantified fix LHS f <> text "⇒" <> prettyQuantified fix RHS g
-      co (BinOp f (:<=>:) g) = prettyQuantified fix LHS f <> text "⇔" <> prettyQuantified fix RHS g
-      tf = pPrint
-      at = pPrint
+      go parentFixity side fm =
+          parenthesize parentFixity fix side $ foldQuantified qu co tf at fm
+          where
+            fix = fixity fm
+            qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> go fix RHS p
+            qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> go fix RHS p
+            co ((:~:) f) = text "¬" <> go fix Unary f
+            co (BinOp f (:&:) g) = go fix LHS f <> text "∧" <> go fix RHS g
+            co (BinOp f (:|:) g) = go fix LHS f <> text "∨" <> go fix RHS g
+            co (BinOp f (:=>:) g) = go fix LHS f <> text "⇒" <> go fix RHS g
+            co (BinOp f (:<=>:) g) = go fix LHS f <> text "⇔" <> go fix RHS g
+            tf = pPrint
+            at = pPrint
 
 #ifndef NOTESTS
 data Formula v atom
@@ -483,7 +486,7 @@ instance (HasPredicate atom predicate term,
 
 instance (Ord atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function,
           IsVariable v, HasFixity atom, Pretty v) => Pretty (Formula v atom) where
-    pPrint = prettyFormula
+    pPrint = prettyQuantified
 
 instance HasBoolean (Formula v atom) where
     asBool T = Just True
@@ -568,7 +571,6 @@ instance (HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm 
         Forall x p -> Forall x (onatoms f p)
         Exists x p -> Exists x (onatoms f p)
         _ -> fm
-    prettyFormula = prettyQuantified rootFixity Unary
 
 instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional' ho co tf at fm =

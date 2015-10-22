@@ -88,9 +88,9 @@ import Formulas (atom_union,
                  IsNegatable(naiveNegate, foldNegation'), (.~.), negate, positive,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination), (¬), (∧), (∨),
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
-                 IsFormula(atomic, overatoms, onatoms, prettyFormula), onatoms)
+                 IsFormula(atomic, overatoms, onatoms))
 import Lib (distrib, fpf, (|=>), setAny)
-import Lit (IsLiteral(foldLiteral), convertLiteral, LFormula)
+import Lit (convertLiteral, IsLiteral(foldLiteral), JustLiteral, LFormula)
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 import Text.PrettyPrint.HughesPJClass (vcat)
@@ -179,18 +179,21 @@ literalFromPropositional ca =
       co ((:~:) p) = (.~.) (literalFromPropositional ca p)
       co _ = error "literalFromPropositional found binary operator"
 
-prettyPropositional :: (IsPropositional pf atom, JustPropositional pf, HasFixity pf, Pretty atom) => Fixity -> Side -> pf -> Doc
-prettyPropositional pfix side fm =
-    parenthesize pfix fix side $ foldPropositional co tf at fm
+prettyPropositional :: (IsPropositional pf atom, JustPropositional pf, HasFixity pf, Pretty atom) => pf -> Doc
+prettyPropositional fm0 =
+    go rootFixity Unary fm0
     where
-      fix = fixity fm
-      co ((:~:) f) = text "¬" <> prettyPropositional fix Unary f
-      co (BinOp f (:&:) g) = prettyPropositional fix LHS f <> text "∧" <> prettyPropositional fix RHS g
-      co (BinOp f (:|:) g) = prettyPropositional fix LHS f <> text "∨" <> prettyPropositional fix RHS g
-      co (BinOp f (:=>:) g) = prettyPropositional fix LHS f <> text "⇒" <> prettyPropositional fix RHS g
-      co (BinOp f (:<=>:) g) = prettyPropositional fix LHS f <> text "⇔" <> prettyPropositional fix RHS g
-      tf = pPrint
-      at a = pPrint a
+      go parentFixity side fm =
+          parenthesize parentFixity fix side $ foldPropositional co tf at fm
+          where
+            fix = fixity fm
+            co ((:~:) f) = text "¬" <> go fix Unary f
+            co (BinOp f (:&:) g) = go fix LHS f <> text "∧" <> go fix RHS g
+            co (BinOp f (:|:) g) = go fix LHS f <> text "∨" <> go fix RHS g
+            co (BinOp f (:=>:) g) = go fix LHS f <> text "⇒" <> go fix RHS g
+            co (BinOp f (:<=>:) g) = go fix LHS f <> text "⇔" <> go fix RHS g
+            tf = pPrint
+            at a = pPrint a
 
 ---------------------------------------------------------
 -- Formula marker types and restricted formula classes --
@@ -202,7 +205,6 @@ instance IsFormula formula atom => IsFormula (Marked mk formula) atom where
     atomic = Mark . atomic
     overatoms at (Mark fm) = overatoms at fm
     onatoms at (Mark fm) = Mark (onatoms (unMark' . at) fm)
-    prettyFormula = undefined
 
 instance HasBoolean formula => HasBoolean (Marked mk formula) where
     asBool (Mark x) = asBool x
@@ -244,12 +246,10 @@ data Propositional
 deriving instance Data Literal
 deriving instance Data Propositional
 
--- | Classes that indicate a formula only contains Literal or
--- Propositional features
-class JustLiteral formula
+-- | Class that indicates a formula type *only* supports Propositional
+-- features - no quantifiers.
 class JustPropositional formula
 
-instance JustLiteral (LFormula atom)
 instance JustPropositional (PFormula atom)
 instance JustLiteral (Marked Literal formula)
 instance JustPropositional (Marked Propositional formula)
@@ -365,7 +365,6 @@ instance (Ord atom, HasFixity atom, Pretty atom) => IsFormula (PFormula atom) at
         Imp p q -> Imp (onatoms f p) (onatoms f q)
         Iff p q -> Iff (onatoms f p) (onatoms f q)
         _ -> fm
-    prettyFormula = prettyPropositional rootFixity Unary
 
 instance (Ord atom, HasFixity atom, Pretty atom) => IsPropositional (PFormula atom) atom where
     foldPropositional' _ co tf at fm =
@@ -392,7 +391,7 @@ instance (Ord atom, HasFixity atom, Pretty atom) => IsLiteral (PFormula atom) at
           Iff _ _ -> error "IFF in Literal"
 
 instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (PFormula atom) where
-    pPrint = prettyPropositional rootFixity Unary
+    pPrint = prettyPropositional
 #endif
 
 data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
