@@ -90,7 +90,7 @@ import Formulas (atom_union,
                  Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  IsFormula(atomic, overatoms, onatoms))
 import Lib (distrib, fpf, (|=>), setAny)
-import Lit (convertLiteral, IsLiteral(foldLiteral), JustLiteral, LFormula)
+import Lit (IsLiteral(foldLiteral'), foldLiteral, JustLiteral, LFormula)
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 import Text.PrettyPrint.HughesPJClass (vcat)
@@ -128,11 +128,12 @@ foldPropositional :: (IsPropositional pf atom, JustPropositional pf) =>
 foldPropositional = foldPropositional' (error "JustPropositional failure")
 
 -- | Combine two formulas if they are similar.
-zipPropositional :: (IsPropositional pf atom, JustPropositional pf) =>
-                    (Combination pf -> Combination pf -> Maybe r)
+zipPropositional :: (IsPropositional pf1 atom1, JustPropositional pf1,
+                     IsPropositional pf2 atom2, JustPropositional pf2) =>
+                    (Combination pf1 -> Combination pf2 -> Maybe r)
                  -> (Bool -> Bool -> Maybe r)
-                 -> (atom -> atom -> Maybe r)
-                 -> pf -> pf -> Maybe r
+                 -> (atom1 -> atom2 -> Maybe r)
+                 -> pf1 -> pf2 -> Maybe r
 zipPropositional co tf at fm1 fm2 =
     foldPropositional co' tf' at' fm1
     where
@@ -214,9 +215,11 @@ instance IsNegatable formula => IsNegatable (Marked mk formula) where
     naiveNegate (Mark x) = Mark (naiveNegate x)
     foldNegation' ne ot (Mark x) = foldNegation' (ne . Mark) (ot . Mark) x
 
-instance (IsFormula (Marked mk formula) atom, IsLiteral formula atom, HasBoolean (Marked mk formula)
+instance (IsFormula (Marked mk formula) atom,
+          IsLiteral formula atom,
+          HasBoolean (Marked mk formula)
          ) => IsLiteral (Marked mk formula) atom where
-    foldLiteral ne tf at (Mark x) = foldLiteral (ne . Mark) tf at x
+    foldLiteral' ho ne tf at (Mark x) = foldLiteral' (ho . Mark) (ne . Mark) tf at x
 
 instance IsCombinable formula => IsCombinable (Marked mk formula) where
     (Mark a) .|. (Mark b) = Mark (a .|. b)
@@ -257,10 +260,10 @@ instance JustPropositional (LFormula atom)
 instance JustPropositional (Marked Literal formula)
 
 markLiteral :: IsLiteral lit atom => lit -> Marked Literal lit
-markLiteral fm = convertLiteral id fm
+markLiteral = Mark
 
 unmarkLiteral :: IsLiteral pf atom => Marked Literal pf -> pf
-unmarkLiteral fm = convertLiteral id fm
+unmarkLiteral = unMark'
 
 markPropositional :: IsPropositional lit atom => lit -> Marked Propositional lit
 markPropositional fm = convertPropositional' (error "markPropositional") id fm
@@ -379,16 +382,13 @@ instance (Ord atom, HasFixity atom, Pretty atom) => IsPropositional (PFormula at
           Iff p q -> co (BinOp p (:<=>:) q)
 
 instance (Ord atom, HasFixity atom, Pretty atom) => IsLiteral (PFormula atom) atom where
-    foldLiteral ne tf at fm =
+    foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
           F -> tf False
           Atom a -> at a
           Not l -> ne l
-          And _ _ -> error "And in Literal"
-          Or _ _ -> error "Or in Literal"
-          Imp _ _ -> error "Imp in Literal"
-          Iff _ _ -> error "IFF in Literal"
+          _ -> ho fm
 
 instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (PFormula atom) where
     pPrint = prettyPropositional

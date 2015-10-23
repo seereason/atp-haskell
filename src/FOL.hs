@@ -21,7 +21,7 @@ module FOL
     , Arity
     , HasFunctions(funcs)
     -- * Terms
-    , IsTerm(vt, fApp, foldTerm, zipTerms), convertTerm, showTerm, prettyTerm
+    , IsTerm(vt, fApp, foldTerm), zipTerms, convertTerm, showTerm, prettyTerm
     -- * Predicates
     , IsPredicate
     -- * Atoms
@@ -37,7 +37,7 @@ module FOL
     , quantifiedFuncs
     , prettyQuantified
     , IsFirstOrder
-    , zipFirstOrder
+    , zipQuantified
     , fixityFirstOrder
     , convertFirstOrder
     , propositionalFromFirstOrder
@@ -83,7 +83,7 @@ import Prelude hiding (pred)
 import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), IsCombinable(..), IsFormula(..),
                  (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
-import Lit (IsLiteral(foldLiteral))
+import Lit (IsLiteral(foldLiteral'), foldLiteral)
 import Prop (foldPropositional, IsPropositional(foldPropositional'), JustLiteral, JustPropositional, Marked(unMark'), PFormula)
 
 #ifndef NOTESTS
@@ -185,9 +185,16 @@ class (Eq term, Ord term, Pretty term, IsVariable v, IsFunction function) => IsT
     -- ^ A fold for the term data type, which understands terms built
     -- from a variable and a term built from the application of a
     -- primitive function to other terms.
-    zipTerms :: (v -> v -> r) -> (function -> [term] -> function -> [term] -> r) -> term -> term -> Maybe r
-    -- ^ Combine two terms if they are similar (i.e. two variables or
-    -- two function applications.)
+
+-- | Combine two terms if they are similar (i.e. two variables or
+-- two function applications.)
+zipTerms :: (IsTerm term1 v1 function1, IsTerm term2 v2 function2
+            ) => (v1 -> v2 -> Maybe r) -> (function1 -> [term1] -> function2 -> [term2] -> Maybe r) -> term1 -> term2 -> Maybe r
+zipTerms v ap t1 t2 =
+    foldTerm v' ap' t1
+    where
+      v' v1 =      foldTerm     (v v1)   (\_ _ -> Nothing) t2
+      ap' p1 ts1 = foldTerm (\_ -> Nothing) (\p2 ts2 -> if length ts1 == length ts2 then ap p1 ts1 p2 ts2 else Nothing)   t2
 
 termFuncs :: IsTerm term v function => term -> Set (function, Arity)
 termFuncs = foldTerm (\_ -> Set.empty) (\f ts -> Set.singleton (f, length ts))
@@ -224,11 +231,6 @@ instance (IsFunction function, IsVariable v) => IsTerm (Term function v) v funct
         case t of
           Var v -> vf v
           FApply f ts -> fn f ts
-    zipTerms v f t1 t2 =
-        case (t1, t2) of
-          (Var v1, Var v2) -> Just (v v1 v2)
-          (FApply f1 ts1, FApply f2 ts2) | length ts1 == length ts2 -> Just (f f1 ts1 f2 ts2)
-          _ -> Nothing
 
 instance (IsTerm (Term function v) v function) => Pretty (Term function v) where
     pPrint = prettyTerm
@@ -591,28 +593,23 @@ instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate ter
           Exists _ _ -> ho fm
 
 instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
-    foldLiteral ne tf at fm =
+    foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
           F -> tf False
           Atom a -> at a
           Not p -> ne p
-          And _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
-          Or _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
-          Imp _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
-          Iff _ _ -> error $ "foldLiteral used on Formula with a binop: " ++ prettyShow fm
-          Forall _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
-          Exists _ _ -> error $ "foldLiteral used on Formula with a quantifier: " ++ prettyShow fm
+          _ -> ho fm
 #endif
 
 -- | Combine two formulas if they are similar.
-zipFirstOrder :: IsQuantified formula atom v =>
+zipQuantified :: IsQuantified formula atom v =>
                  (Quant -> v -> formula -> Quant -> v -> formula -> Maybe r)
               -> (Combination formula -> Combination formula -> Maybe r)
               -> (Bool -> Bool -> Maybe r)
               -> (atom -> atom -> Maybe r)
               -> formula -> formula -> Maybe r
-zipFirstOrder qu co tf at fm1 fm2 =
+zipQuantified qu co tf at fm1 fm2 =
     foldQuantified qu' co' tf' at' fm1
     where
       qu' op1 v1 p1 = foldQuantified (qu op1 v1 p1) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2

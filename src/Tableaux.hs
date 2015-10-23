@@ -52,8 +52,9 @@ unify_literals :: forall lit atom term predicate v function.
                    IsTerm term v function) =>
                   Map v term -> lit -> lit -> Failing (Map v term)
 unify_literals env f1 f2 =
-    maybe err id (zipLiterals ne tf at f1 f2)
+    maybe err id (zipLiterals' ho ne tf at f1 f2)
     where
+      ho _ _ = Nothing
       ne p q = Just $ unify_literals env p q
       tf p q = if p == q then Just (unify env []) else Nothing
       at :: atom -> atom -> Maybe (Failing (Map v term))

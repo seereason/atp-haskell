@@ -203,8 +203,9 @@ match_literals :: forall lit term function v atom predicate.
                    IsTerm term v function) =>
                   Map v term -> lit -> lit -> Failing (Map v term)
 match_literals env t1 t2 =
-    fromMaybe (fail "match_literals") (zipLiterals ne tf at t1 t2)
+    fromMaybe (fail "match_literals") (zipLiterals' ho ne tf at t1 t2)
     where
+      ho _ _ = Nothing
       ne p q = Just $ match_literals env p q
       tf a b = if a == b then Just (Success env) else Nothing
       at a1 a2 = zipPredicates (\_ pairs -> Just (term_match env pairs)) a1 a2

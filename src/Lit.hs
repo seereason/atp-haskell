@@ -5,9 +5,9 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Lit
-    ( IsLiteral(foldLiteral)
+    ( IsLiteral(foldLiteral'), foldLiteral
     , JustLiteral
-    , zipLiterals
+    , zipLiterals', zipLiterals
     , convertLiteral
     , prettyLiteral
     , LFormula(T, F, Atom, Not)
@@ -27,18 +27,35 @@ class (IsFormula lit atom,
        Pretty atom, -- We will definitely want to render these
        Ord atom -- atoms almost always end up in sets, so this is indispensable
       ) => IsLiteral lit atom where
-    foldLiteral :: (lit -> r) -> (Bool -> r) -> (atom -> r) -> lit -> r
+    foldLiteral' :: (lit -> r) -> (lit -> r) -> (Bool -> r) -> (atom -> r) -> lit -> r
+
+foldLiteral :: IsLiteral lit atom => (lit -> r) -> (Bool -> r) -> (atom -> r) -> lit -> r
+foldLiteral = foldLiteral' (error "JustLiteral failure")
 
 -- | Class that indicates that a formula type *only* supports Literal
 -- features - no combinations or quantifiers.
 class JustLiteral formula
 
 -- | Unify two literals
-zipLiterals :: IsLiteral lit atom =>
-               (lit -> lit -> Maybe r)
+zipLiterals' :: (IsLiteral lit1 atom1, IsLiteral lit2 atom2) =>
+                (lit1 -> lit2 -> Maybe r)
+             -> (lit1 -> lit2 -> Maybe r)
+             -> (Bool -> Bool -> Maybe r)
+             -> (atom1 -> atom2 -> Maybe r)
+             -> lit1 -> lit2 -> Maybe r
+zipLiterals' ho neg tf at fm1 fm2 =
+    foldLiteral' ho' neg' tf' at' fm1
+    where
+      ho' x1 = foldLiteral' (ho x1) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      neg' p1 = foldLiteral' (\ _ -> Nothing) (neg p1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      tf' x1 = foldLiteral' (\ _ -> Nothing) (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
+      at' a1 = foldLiteral' (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
+
+zipLiterals :: (IsLiteral lit1 atom1, JustLiteral lit1, IsLiteral lit2 atom2, JustLiteral lit2) =>
+               (lit1 -> lit2 -> Maybe r)
             -> (Bool -> Bool -> Maybe r)
-            -> (atom -> atom -> Maybe r)
-            -> lit -> lit -> Maybe r
+            -> (atom1 -> atom2 -> Maybe r)
+            -> lit1 -> lit2 -> Maybe r
 zipLiterals neg tf at fm1 fm2 =
     foldLiteral neg' tf' at' fm1
     where
@@ -46,7 +63,8 @@ zipLiterals neg tf at fm1 fm2 =
       tf' x1 = foldLiteral (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
       at' a1 = foldLiteral (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
 
-convertLiteral :: (IsLiteral lit1 atom1, IsLiteral lit2 atom2) => (atom1 -> atom2) -> lit1 -> lit2
+convertLiteral :: (IsLiteral lit1 atom1, JustLiteral lit1, IsLiteral lit2 atom2, JustLiteral lit2
+                  ) => (atom1 -> atom2) -> lit1 -> lit2
 convertLiteral ca fm = foldLiteral (\fm' -> (.~.) (convertLiteral ca fm')) fromBool (atomic . ca) fm
 
 prettyLiteral :: (IsLiteral formula atom, JustLiteral formula) => formula -> Doc
@@ -102,7 +120,7 @@ instance (Ord atom, Pretty atom) => Pretty (LFormula atom) where
     pPrint = prettyLiteral
 
 instance (Ord atom, Pretty atom) => IsLiteral (LFormula atom) atom where
-    foldLiteral ne tf at lit =
+    foldLiteral' _ ne tf at lit =
         case lit of
           F -> tf False
           T -> tf True
