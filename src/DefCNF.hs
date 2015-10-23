@@ -74,10 +74,10 @@ maincnf trip@(fm, _defs, _n) =
     foldPropositional' ho co ne tf at fm
     where
       ho _ = trip
-      co (BinOp p (:&:) q) = defstep (.&.) (p,q) trip
-      co (BinOp p (:|:) q) = defstep (.|.) (p,q) trip
-      co (BinOp p (:<=>:) q) = defstep (.<=>.) (p,q) trip
-      co (BinOp _ (:=>:) _) = trip
+      co p (:&:) q = defstep (.&.) (p,q) trip
+      co p (:|:) q = defstep (.|.) (p,q) trip
+      co p (:<=>:) q = defstep (.<=>.) (p,q) trip
+      co _ (:=>:) _ = trip
       ne _ = trip
       tf _ = trip
       at _ = trip
@@ -158,15 +158,15 @@ andcnf :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf, 
 andcnf trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> orcnf trip) (\ _ -> orcnf trip) (\ _ -> orcnf trip) fm
     where
-      co (BinOp p (:&:) q) = subcnf andcnf (.&.) p q trip
-      co _ = orcnf trip
+      co p (:&:) q = subcnf andcnf (.&.) p q trip
+      co _ _ _ = orcnf trip
 
 orcnf :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 orcnf trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> maincnf trip) (\ _ -> maincnf trip) (\ _ -> maincnf trip) fm
     where
-      co (BinOp p (:|:) q) = subcnf orcnf (.|.) p q trip
-      co _ = maincnf trip
+      co p (:|:) q = subcnf orcnf (.|.) p q trip
+      co _ _ _ = maincnf trip
 
 subcnf :: (IsPropositional pf atom, NumAtom atom) =>
           ((pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer))
@@ -188,8 +188,8 @@ andcnf3 :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf,
 andcnf3 trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> maincnf trip) (\ _ -> maincnf trip) (\ _ -> maincnf trip) fm
     where
-      co (BinOp p (:&:) q) = subcnf andcnf3 (.&.) p q trip
-      co _ = maincnf trip
+      co p (:&:) q = subcnf andcnf3 (.&.) p q trip
+      co _ _ _ = maincnf trip
 
 #ifndef NOTESTS
 test03 :: Test

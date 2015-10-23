@@ -53,7 +53,7 @@ import FOL (exists, fApp, for_all, fv, IsFirstOrder, IsFunction, IsQuantified(fo
 #ifndef NOTESTS
 import FOL (Formula, Term, V, FOL, Predicate)
 #endif
-import Formulas (Combination(BinOp), BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), (.&.), (.|.), (.=>.), (.<=>.), negate, false, true, atomic)
+import Formulas (BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), (.&.), (.|.), (.=>.), (.<=>.), negate, false, true, atomic)
 import Lib (setAny, distrib)
 import Prelude hiding (negate)
 import Pretty (Pretty(pPrint), prettyShow, text)
@@ -68,10 +68,10 @@ simplify fm =
       qu (:!:) x p = simplify1 (for_all x (simplify p))
       qu (:?:) x p = simplify1 (exists x (simplify p))
       ne p = simplify1 ((.~.) (simplify p))
-      co (BinOp p (:&:) q) = simplify1 (simplify p .&. simplify q)
-      co (BinOp p (:|:) q) = simplify1 (simplify p .|. simplify q)
-      co (BinOp p (:=>:) q) = simplify1 (simplify p .=>. simplify q)
-      co (BinOp p (:<=>:) q) = simplify1 (simplify p .<=>. simplify q)
+      co p (:&:) q = simplify1 (simplify p .&. simplify q)
+      co p (:|:) q = simplify1 (simplify p .|. simplify q)
+      co p (:=>:) q = simplify1 (simplify p .=>. simplify q)
+      co p (:<=>:) q = simplify1 (simplify p .<=>. simplify q)
 
 simplify1 :: IsFirstOrder formula atom predicate term v function =>
              formula -> formula
@@ -81,8 +81,8 @@ simplify1 fm =
       qu _ x p = if member x (fv p) then fm else p
       -- If psimplify1 sees a negation it looks at its argument, so here we
       -- make sure that argument isn't a quantifier which would cause an error.
-      ne p = foldQuantified (\_ _ _ -> fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) p
-      co _ = psimplify1 fm
+      ne p = foldQuantified (\_ _ _ -> fm) (\_ _ _ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) p
+      co _ _ _ = psimplify1 fm
 
 #ifndef NOTESTS
 -- | Concrete types for use in unit tests.
@@ -115,17 +115,17 @@ nnf1 fm =
       qu (:!:) x p = quant (:!:) x (nnf1 p)
       qu (:?:) x p = quant (:?:) x (nnf1 p)
       ne p = foldQuantified quNot coNot neNot (\_ -> fm) (\_ -> fm) p
-      co (BinOp p (:&:) q) = nnf1 p .&. nnf1 q
-      co (BinOp p (:|:) q) = nnf1 p .|. nnf1 q
-      co (BinOp p (:=>:) q) = nnf1 ((.~.) p) .|. nnf1 q
-      co (BinOp p (:<=>:) q) = (nnf1 p .&. nnf1 q) .|. (nnf1 ((.~.) p) .&. nnf1 ((.~.) q))
+      co p (:&:) q = nnf1 p .&. nnf1 q
+      co p (:|:) q = nnf1 p .|. nnf1 q
+      co p (:=>:) q = nnf1 ((.~.) p) .|. nnf1 q
+      co p (:<=>:) q = (nnf1 p .&. nnf1 q) .|. (nnf1 ((.~.) p) .&. nnf1 ((.~.) q))
       quNot (:!:) x p = quant (:?:) x (nnf1 ((.~.) p))
       quNot (:?:) x p = quant (:!:) x (nnf1 ((.~.) p))
       neNot p = nnf1 p
-      coNot (BinOp p (:&:) q) = nnf1 ((.~.) p) .|. nnf1 ((.~.) q)
-      coNot (BinOp p (:|:) q) = nnf1 ((.~.) p) .&. nnf1 ((.~.) q)
-      coNot (BinOp p (:=>:) q) = nnf1 p .&. nnf1 ((.~.) q)
-      coNot (BinOp p (:<=>:) q) = (nnf1 p .&. nnf1 ((.~.) q)) .|. (nnf1 ((.~.) p) .&. nnf1 q)
+      coNot p (:&:) q = nnf1 ((.~.) p) .|. nnf1 ((.~.) q)
+      coNot p (:|:) q = nnf1 ((.~.) p) .&. nnf1 ((.~.) q)
+      coNot p (:=>:) q = nnf1 p .&. nnf1 ((.~.) q)
+      coNot p (:<=>:) q = (nnf1 p .&. nnf1 ((.~.) q)) .|. (nnf1 ((.~.) p) .&. nnf1 q)
 
 #ifndef NOTESTS
 -- Example of NNF function in action.
@@ -152,15 +152,15 @@ prenex fm =
     foldQuantified qu co (\ _ -> fm) (\ _ -> fm) (\ _ -> fm) fm
     where
       qu op x p = quant op x (prenex p)
-      co (BinOp l (:&:) r) = pullquants (prenex l .&. prenex r)
-      co (BinOp l (:|:) r) = pullquants (prenex l .|. prenex r)
-      co _ = fm
+      co l (:&:) r = pullquants (prenex l .&. prenex r)
+      co l (:|:) r = pullquants (prenex l .|. prenex r)
+      co _ _ _ = fm
 
 pullquants :: IsFirstOrder formula atom predicate term v function => formula -> formula
 pullquants fm =
     foldQuantified (\_ _ _ -> fm) pullQuantsCombine (\_ -> fm) (\_ -> fm) (\_ -> fm) fm
     where
-      pullQuantsCombine (BinOp l op r) =
+      pullQuantsCombine l op r =
           case (getQuant l, op, getQuant r) of
             (Just ((:!:), vl, l'), (:&:), Just ((:!:), vr, r')) -> pullq (True,  True)  fm for_all (.&.) vl vr l' r'
             (Just ((:?:), vl, l'), (:|:), Just ((:?:), vr, r')) -> pullq (True,  True)  fm exists  (.|.) vl vr l' r'
@@ -173,7 +173,7 @@ pullquants fm =
             (Just ((:?:), vl, l'), (:|:), _)                     -> pullq (True,  False) fm exists  (.|.) vl vl l' r
             (_,                     (:|:), Just ((:?:), vr, r')) -> pullq (False, True)  fm exists  (.|.) vr vr l  r'
             _                                                     -> fm
-      getQuant = foldQuantified (\ op v f -> Just (op, v, f)) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing)
+      getQuant = foldQuantified (\ op v f -> Just (op, v, f)) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing)
 
 pullq :: IsFirstOrder formula atom predicate term v function =>
          (Bool, Bool)
@@ -290,9 +290,9 @@ skolem fm =
              let fx = fApp (toSkolem y) (List.map vt (Set.toAscList xs))
              skolem (subst (Map.singleton y fx) p)
       qu (:!:) x p = skolem p >>= return . for_all x
-      co (BinOp l (:&:) r) = skolem2 (.&.) l r
-      co (BinOp l (:|:) r) = skolem2 (.|.) l r
-      co _ = return fm
+      co l (:&:) r = skolem2 (.&.) l r
+      co l (:|:) r = skolem2 (.|.) l r
+      co _ _ _ = return fm
       ne _ = return fm
       tf True = return true
       tf False = return false
@@ -320,7 +320,7 @@ specialize :: (IsQuantified fof atom1 v, IsPropositional pf atom2) => (atom1 -> 
 specialize ca fm =
     propositionalFromQuantified ca (specialize' fm)
     where
-      specialize' p = foldQuantified qu (\_ -> p) (\_ -> p) (\_ -> p) (\_ -> p) p
+      specialize' p = foldQuantified qu (\_ _ _ -> p) (\_ -> p) (\_ -> p) (\_ -> p) p
       qu (:!:) _ p = specialize' p
       qu _ _ _ = fm
 
@@ -387,7 +387,7 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
 simpdnf' :: IsFirstOrder formula atom predicate term v function => formula -> Set (Set formula)
 simpdnf' fm =
     {-t2 $-}
-    foldQuantified (\_ _ _ -> go) (\_ -> go) (\_ -> go) tf (\_ -> go) ({-t1-} fm)
+    foldQuantified (\_ _ _ -> go) (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) ({-t1-} fm)
     where
       tf False = Set.empty
       tf True = Set.singleton Set.empty
@@ -403,15 +403,15 @@ purednf' fm =
     where
       lf = Set.singleton . Set.singleton
       qu _ _ _ = lf fm
-      co (BinOp p (:&:) q) = distrib (purednf' p) (purednf' q)
-      co (BinOp p (:|:) q) = union (purednf' p) (purednf' q)
-      co _ = lf fm
+      co p (:&:) q = distrib (purednf' p) (purednf' q)
+      co p (:|:) q = union (purednf' p) (purednf' q)
+      co _ _ _ = lf fm
       -- t3 x = trace ("purednf' (" ++ prettyShow x) x
       -- t4 x = trace ("purednf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
 
 simpcnf' :: (IsFirstOrder formula atom predicate term v function) => formula -> Set (Set formula)
 simpcnf' fm =
-    foldQuantified (\_ _ _ -> go) (\_ -> go) (\_ -> go) tf (\_ -> go) fm
+    foldQuantified (\_ _ _ -> go) (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
       tf False = Set.empty
       tf True = Set.singleton Set.empty

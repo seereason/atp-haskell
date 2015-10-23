@@ -80,7 +80,7 @@ import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Prelude hiding (pred)
 
-import Formulas (BinOp(..), Combination(..), HasBoolean(..), IsNegatable(..), IsCombinable(..), IsFormula(..),
+import Formulas (BinOp(..), HasBoolean(..), IsNegatable(..), IsCombinable(..), IsFormula(..),
                  (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral'), foldLiteral)
@@ -397,7 +397,7 @@ data Quant
 class (IsPropositional formula atom, IsVariable v) => IsQuantified formula atom v | formula -> v where
     quant :: Quant -> v -> formula -> formula
     foldQuantified :: (Quant -> v -> formula -> r)
-                   -> (Combination formula -> r)
+                   -> (formula -> BinOp -> formula-> r)
                    -> (formula -> r)
                    -> (Bool -> r)
                    -> (atom -> r)
@@ -421,7 +421,7 @@ quantifiedFuncs :: forall formula atom predicate term v function.
 quantifiedFuncs = foldQuantified qu co ne tf at
     where qu _ _ fm = quantifiedFuncs fm
           ne fm = quantifiedFuncs fm
-          co (BinOp lhs _ rhs) = union (quantifiedFuncs lhs) (quantifiedFuncs rhs)
+          co lhs _ rhs = union (quantifiedFuncs lhs) (quantifiedFuncs rhs)
           tf _ = Set.empty
           at = funcs
 
@@ -431,7 +431,7 @@ propositionalFuncs :: forall formula atom function.
                     HasFunctions atom function) => formula -> Set (function, Arity)
 propositionalFuncs = foldPropositional co ne tf at
     where ne fm = propositionalFuncs fm
-          co (BinOp lhs _ rhs) = union (propositionalFuncs lhs) (propositionalFuncs rhs)
+          co lhs _ rhs = union (propositionalFuncs lhs) (propositionalFuncs rhs)
           tf _ = Set.empty
           at = funcs
 
@@ -446,10 +446,10 @@ prettyQuantified fm0 =
             qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> go fix RHS p
             qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> go fix RHS p
             ne f = text "¬" <> go fix Unary f
-            co (BinOp f (:&:) g) = go fix LHS f <> text "∧" <> go fix RHS g
-            co (BinOp f (:|:) g) = go fix LHS f <> text "∨" <> go fix RHS g
-            co (BinOp f (:=>:) g) = go fix LHS f <> text "⇒" <> go fix RHS g
-            co (BinOp f (:<=>:) g) = go fix LHS f <> text "⇔" <> go fix RHS g
+            co f (:&:) g = go fix LHS f <> text "∧" <> go fix RHS g
+            co f (:|:) g = go fix LHS f <> text "∨" <> go fix RHS g
+            co f (:=>:) g = go fix LHS f <> text "⇒" <> go fix RHS g
+            co f (:<=>:) g = go fix LHS f <> text "⇔" <> go fix RHS g
             tf = pPrint
             at = pPrint
 
@@ -582,10 +582,10 @@ instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate ter
           F -> tf False
           Atom a -> at a
           Not p -> ne p
-          And p q -> co (BinOp p (:&:) q)
-          Or p q -> co (BinOp p (:|:) q)
-          Imp p q -> co (BinOp p (:=>:) q)
-          Iff p q -> co (BinOp p (:<=>:) q)
+          And p q -> co p (:&:) q
+          Or p q -> co p (:|:) q
+          Imp p q -> co p (:=>:) q
+          Iff p q -> co p (:<=>:) q
           -- Although every instance of IsFirstOrder is also an
           -- instance of IsPropositional, we see here that it is
           -- an error to use foldPropositional (IsPropositional's
@@ -606,7 +606,7 @@ instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate ter
 -- | Combine two formulas if they are similar.
 zipQuantified :: IsQuantified formula atom v =>
                  (Quant -> v -> formula -> Quant -> v -> formula -> Maybe r)
-              -> (Combination formula -> Combination formula -> Maybe r)
+              -> (formula -> BinOp -> formula -> formula -> BinOp -> formula -> Maybe r)
               -> (formula -> formula -> Maybe r)
               -> (Bool -> Bool -> Maybe r)
               -> (atom -> atom -> Maybe r)
@@ -614,11 +614,11 @@ zipQuantified :: IsQuantified formula atom v =>
 zipQuantified qu co ne tf at fm1 fm2 =
     foldQuantified qu' co' ne' tf' at' fm1
     where
-      qu' op1 v1 p1 = foldQuantified (qu op1 v1 p1) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
-      co' c1 = foldQuantified (\ _ _ _ -> Nothing) (co c1) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
-      ne' x1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ -> Nothing) (ne x1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
-      tf' x1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
-      at' atom1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at atom1) fm2
+      qu' op1 v1 p1 = foldQuantified (qu op1 v1 p1) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      co' l1 op1 r1 = foldQuantified (\ _ _ _ -> Nothing) (co l1 op1 r1) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      ne' x1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (ne x1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      tf' x1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
+      at' atom1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at atom1) fm2
 
 fixityQuantified :: (HasFixity atom, IsQuantified formula atom v) => formula -> Fixity
 fixityQuantified formula =
@@ -626,10 +626,10 @@ fixityQuantified formula =
     where
       qu _ _ _ = Fixity 10 InfixN
       ne _ = Fixity 5 InfixN
-      co (BinOp _ (:&:) _) = Fixity 4 InfixL
-      co (BinOp _ (:|:) _) = Fixity 3 InfixL
-      co (BinOp _ (:=>:) _) = Fixity 2 InfixR
-      co (BinOp _ (:<=>:) _) = Fixity 1 InfixL
+      co _ (:&:) _ = Fixity 4 InfixL
+      co _ (:|:) _ = Fixity 3 InfixL
+      co _ (:=>:) _ = Fixity 2 InfixR
+      co _ (:<=>:) _ = Fixity 1 InfixL
       tf _ = Fixity 10 InfixN
       at = fixity
 
@@ -644,11 +644,10 @@ convertQuantified ca cv f1 =
       qu :: Quant -> v1 -> f1 -> f2
       qu (:!:) x p = for_all (cv x) (convertQuantified ca cv p :: f2)
       qu (:?:) x p = exists (cv x) (convertQuantified ca cv p :: f2)
-      co :: Combination f1 -> f2
-      co (BinOp p (:&:) q) = convertQuantified ca cv p .&. convertQuantified ca cv q
-      co (BinOp p (:|:) q) = convertQuantified ca cv p .|. convertQuantified ca cv q
-      co (BinOp p (:=>:) q) = convertQuantified ca cv p .=>. convertQuantified ca cv q
-      co (BinOp p (:<=>:) q) = convertQuantified ca cv p .<=>. convertQuantified ca cv q
+      co p (:&:) q = convertQuantified ca cv p .&. convertQuantified ca cv q
+      co p (:|:) q = convertQuantified ca cv p .|. convertQuantified ca cv q
+      co p (:=>:) q = convertQuantified ca cv p .=>. convertQuantified ca cv q
+      co p (:<=>:) q = convertQuantified ca cv p .<=>. convertQuantified ca cv q
       ne p = (.~.) (convertQuantified ca cv p)
       tf :: Bool -> f2
       tf = fromBool
@@ -663,10 +662,10 @@ propositionalFromQuantified ca fm =
     where
       qu _ _ _ = error "propositionalFromQuantified: found quantifier"
       ne p = (.~.) (propositionalFromQuantified ca p)
-      co (BinOp p (:&:) q) = propositionalFromQuantified ca p .&. propositionalFromQuantified ca q
-      co (BinOp p (:|:) q) = propositionalFromQuantified ca p .|. propositionalFromQuantified ca q
-      co (BinOp p (:=>:) q) = propositionalFromQuantified ca p .=>. propositionalFromQuantified ca q
-      co (BinOp p (:<=>:) q) = propositionalFromQuantified ca p .<=>. propositionalFromQuantified ca q
+      co p (:&:) q = propositionalFromQuantified ca p .&. propositionalFromQuantified ca q
+      co p (:|:) q = propositionalFromQuantified ca p .|. propositionalFromQuantified ca q
+      co p (:=>:) q = propositionalFromQuantified ca p .=>. propositionalFromQuantified ca q
+      co p (:<=>:) q = propositionalFromQuantified ca p .<=>. propositionalFromQuantified ca q
 
 literalFromQuantified :: (IsQuantified fof atom1 v, IsLiteral lit atom2) => (atom1 -> atom2) -> fof -> lit
 literalFromQuantified ca fm =
@@ -711,7 +710,7 @@ onatomsQuantified f fm =
     where
       qu op v p = quant op v (onatomsQuantified f p)
       ne p = onatomsQuantified f p
-      co (BinOp p op q) = binop (onatomsQuantified f p) op (onatomsQuantified f q)
+      co p op q = binop (onatomsQuantified f p) op (onatomsQuantified f q)
       tf flag = fromBool flag
       at x = f x
 
@@ -722,7 +721,7 @@ overatomsQuantified f fof r0 =
         where
           qu _ _ fof' = overatomsQuantified f fof' r0
           ne fof' = overatomsQuantified f fof' r0
-          co (BinOp p _ q) = overatomsQuantified f p (overatomsQuantified f q r0)
+          co p _ q = overatomsQuantified f p (overatomsQuantified f q r0)
 
 {-
 (* Trivial example of "x + y < z".                                           *)
@@ -879,10 +878,10 @@ holds m v fm =
       qu (:!:) x p = and (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- >>= return . any (== True)
       qu (:?:) x p = or (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- return . all (== True)?
       ne p = not (holds m v p)
-      co (BinOp p (:&:) q) = (holds m v p) && (holds m v q)
-      co (BinOp p (:|:) q) = (holds m v p) || (holds m v q)
-      co (BinOp p (:=>:) q) = not (holds m v p) || (holds m v q)
-      co (BinOp p (:<=>:) q) = (holds m v p) == (holds m v q)
+      co p (:&:) q = (holds m v p) && (holds m v q)
+      co p (:|:) q = (holds m v p) || (holds m v q)
+      co p (:=>:) q = not (holds m v p) || (holds m v q)
+      co p (:<=>:) q = (holds m v p) == (holds m v q)
       tf x = x
       at = foldPredicate (\r args -> predApply m r (map (termval m v) args))
 
@@ -981,7 +980,7 @@ fv fm =
     where
       qu _ x p = difference (fv p) (singleton x)
       ne p = fv p
-      co (BinOp p _ q) = union (fv p) (fv q)
+      co p _ q = union (fv p) (fv q)
       tf _ = Set.empty
       at = foldPredicate (\_ args -> unions (map fvt args))
 
@@ -994,7 +993,7 @@ fvp fm =
     foldPropositional co ne tf at fm
     where
       ne p = fvp p
-      co (BinOp p _ q) = union (fvp p) (fvp q)
+      co p _ q = union (fvp p) (fvp q)
       tf _ = Set.empty
       at = foldPredicate (\_ args -> unions (map fvt args))
 
@@ -1024,7 +1023,7 @@ var fm =
     where
       qu _ x p = Set.insert x (var p)
       ne p = var p
-      co (BinOp p _ q) = union (var p) (var q)
+      co p _ q = union (var p) (var q)
       tf _ = Set.empty
       at = foldPredicate (\_ args -> unions (map fvt args))
 #endif
@@ -1061,10 +1060,10 @@ subst subfn fm =
       qu (:!:) x p = substq subfn for_all x p
       qu (:?:) x p = substq subfn exists x p
       ne p = (.~.) (subst subfn p)
-      co (BinOp p (:&:) q) = (subst subfn p) .&. (subst subfn q)
-      co (BinOp p (:|:) q) = (subst subfn p) .|. (subst subfn q)
-      co (BinOp p (:=>:) q) = (subst subfn p) .=>. (subst subfn q)
-      co (BinOp p (:<=>:) q) = (subst subfn p) .<=>. (subst subfn q)
+      co p (:&:) q = (subst subfn p) .&. (subst subfn q)
+      co p (:|:) q = (subst subfn p) .|. (subst subfn q)
+      co p (:=>:) q = (subst subfn p) .=>. (subst subfn q)
+      co p (:<=>:) q = (subst subfn p) .<=>. (subst subfn q)
       tf False = false
       tf True = true
       at = atomic . asubst subfn

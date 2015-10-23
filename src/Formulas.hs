@@ -15,7 +15,7 @@ module Formulas
     -- * IsCombinable
     , IsCombinable((.|.), (.&.), (.<=>.), (.=>.), foldCombination), (.<=.), (.<~>.), (.~|.), (.~&.)
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
-    , Combination(..), BinOp(..), combine, binop
+    , BinOp(..), binop, Combination
     -- * Formulas
     , IsFormula(atomic, overatoms, onatoms)
     , atom_union
@@ -150,38 +150,20 @@ infixl 4  .&., ∧
 (⇔) :: IsCombinable formula => formula -> formula -> formula
 (⇔) = (.<=>.)
 
--- |The 'Combination' and 'BinOp' types can either be used as helper
--- types for writing folds, or they can be embedded in a concrete type
--- intended to be a IsCombinable instance.
-data Combination formula
-    = BinOp formula BinOp formula
-    deriving (Eq, Ord, Data, Typeable, Show)
-
--- | Represents the boolean logic binary operations, used in the
--- Combination type above.
 data BinOp
-    = (:<=>:)  -- ^ Equivalence
-    |  (:=>:)  -- ^ Implication
-    |  (:&:)  -- ^ AND
-    |  (:|:)  -- ^ OR
+    = (:<=>:)
+    | (:=>:)
+    | (:&:)
+    | (:|:)
     deriving (Eq, Ord, Data, Typeable, Show, Enum, Bounded)
 
--- | A helper function for building folds:
--- @
---   foldPropositional combine atomic
--- @
--- is a no-op.
-combine :: IsCombinable formula => Combination formula -> formula
-combine (BinOp f1 (:<=>:) f2) = f1 .<=>. f2
-combine (BinOp f1 (:=>:) f2) = f1 .=>. f2
-combine (BinOp f1 (:&:) f2) = f1 .&. f2
-combine (BinOp f1 (:|:) f2) = f1 .|. f2
-
 binop :: IsCombinable formula => formula -> BinOp -> formula -> formula
-binop a (:&:) b = a .&. b
-binop a (:|:) b = a .|. b
-binop a (:=>:) b = a .=>. b
-binop a (:<=>:) b = a .<=>. b
+binop f1 (:<=>:) f2 = f1 .<=>. f2
+binop f1 (:=>:) f2 = f1 .=>. f2
+binop f1 (:&:) f2 = f1 .&. f2
+binop f1 (:|:) f2 = f1 .|. f2
+
+type Combination formula = formula -> BinOp -> formula
 
 -- | Class associating a formula type with its atom type.
 class (Eq formula, Ord formula, Eq atom, Ord atom, Pretty atom) => IsFormula formula atom | formula -> atom where

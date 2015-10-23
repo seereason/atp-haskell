@@ -256,11 +256,11 @@ tableau (fms, lits, n) cont (k, env) =
                     p' = subst (x |=> y) p in
                 tableau ([p'] ++ unexp ++ [for_all x p],lits,pred n) cont (succ k, env)
             qu _ _ _ = go fm unexp
-            co (BinOp p (:&:) q) =
+            co p (:&:) q =
                 tableau (p : q : unexp,lits,n) cont (k, env)
-            co (BinOp p (:|:) q) =
+            co p (:|:) q =
                 tableau (p : unexp,lits,n) (tableau (q : unexp,lits,n) cont) (k, env)
-            co _ = go fm unexp
+            co _ _ _ = go fm unexp
     where
       go :: formula -> [formula] -> RWS () () () (Failing (K, Map v term))
       go fm unexp =
