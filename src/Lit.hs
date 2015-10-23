@@ -7,6 +7,8 @@
 module Lit
     ( IsLiteral(foldLiteral'), foldLiteral
     , JustLiteral
+    , onatomsLiteral
+    , overatomsLiteral
     , zipLiterals', zipLiterals
     , convertLiteral
     , prettyLiteral
@@ -103,18 +105,27 @@ instance Ord atom => IsNegatable (LFormula atom) where
     foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
     foldNegation' _ normal x = normal x
 
+-- | Apply a function to the atoms, otherwise keeping structure.  This
+-- can generally be used as the onatoms method of IsFormula.
+onatomsLiteral :: forall lit atom. IsLiteral lit atom => (atom -> lit) -> lit -> lit
+onatomsLiteral f fm =
+    foldLiteral ne tf at fm
+    where
+      ne p = onatomsLiteral f p
+      tf flag = fromBool flag
+      at x = f x
+
+-- | Formula analog of list iterator "itlist".
+overatomsLiteral :: forall lit atom r. (IsLiteral lit atom, JustLiteral lit) => (atom -> r -> r) -> lit -> r -> r
+overatomsLiteral f fm r0 =
+        foldLiteral ne (const r0) (flip f r0) fm
+        where
+          ne fm' = overatomsLiteral f fm' r0
+
 instance (Ord atom, Pretty atom) => IsFormula (LFormula atom) atom where
     atomic = Atom
-    overatoms f fm b =
-        case fm of
-          Atom a -> f a b
-          Not p -> overatoms f p b
-          _ -> b
-    onatoms f fm =
-        case fm of
-          Atom a -> f a
-          Not p -> Not (onatoms f p)
-          _ -> fm
+    overatoms = overatomsLiteral
+    onatoms = onatomsLiteral
 
 instance (Ord atom, Pretty atom) => Pretty (LFormula atom) where
     pPrint = prettyLiteral

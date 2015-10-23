@@ -87,7 +87,7 @@ import Formulas (atom_union,
                  HasBoolean(fromBool, asBool), true, false,
                  IsNegatable(naiveNegate, foldNegation'), (.~.), negate, positive,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination), (¬), (∧), (∨),
-                 Combination((:~:), BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
+                 Combination(BinOp), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  IsFormula(atomic, overatoms, onatoms))
 import Lib (distrib, fpf, (|=>), setAny)
 import Lit (IsLiteral(foldLiteral'), foldLiteral, JustLiteral, LFormula)
@@ -116,12 +116,14 @@ class (IsFormula formula atom,
     -- use to implement the polymorphic functions below.
     foldPropositional' :: (formula -> r)
                        -> (Combination formula -> r)
+                       -> (formula -> r)
                        -> (Bool -> r)
                        -> (atom -> r)
                        -> formula -> r
 
 foldPropositional :: (IsPropositional pf atom, JustPropositional pf) =>
                      (Combination pf -> r)
+                  -> (pf -> r)
                   -> (Bool -> r)
                   -> (atom -> r)
                   -> pf -> r
@@ -131,41 +133,43 @@ foldPropositional = foldPropositional' (error "JustPropositional failure")
 zipPropositional :: (IsPropositional pf1 atom1, JustPropositional pf1,
                      IsPropositional pf2 atom2, JustPropositional pf2) =>
                     (Combination pf1 -> Combination pf2 -> Maybe r)
+                 -> (pf1 -> pf2 -> Maybe r)
                  -> (Bool -> Bool -> Maybe r)
                  -> (atom1 -> atom2 -> Maybe r)
                  -> pf1 -> pf2 -> Maybe r
-zipPropositional co tf at fm1 fm2 =
-    foldPropositional co' tf' at' fm1
+zipPropositional co ne tf at fm1 fm2 =
+    foldPropositional co' ne' tf' at' fm1
     where
-      co' c1 = foldPropositional     (co c1)     (\_ -> Nothing) (\_ -> Nothing) fm2
-      tf' x1 = foldPropositional (\_ -> Nothing)     (tf x1)     (\_ -> Nothing) fm2
-      at' a1 = foldPropositional (\_ -> Nothing) (\_ -> Nothing)     (at a1)     fm2
+      co' c1 = foldPropositional     (co c1)     (\_ -> Nothing) (\_ -> Nothing) (\_ -> Nothing) fm2
+      ne' x1 = foldPropositional (\_ -> Nothing)     (ne x1)     (\_ -> Nothing) (\_ -> Nothing) fm2
+      tf' x1 = foldPropositional (\_ -> Nothing) (\_ -> Nothing)     (tf x1)     (\_ -> Nothing) fm2
+      at' a1 = foldPropositional (\_ -> Nothing) (\_ -> Nothing) (\_ -> Nothing)     (at a1)     fm2
 
 convertPropositional' :: (IsPropositional pf1 a1, IsPropositional pf2 a2) => (pf1 -> pf2) -> (a1 -> a2) -> pf1 -> pf2
 convertPropositional' ho ca pf =
-    foldPropositional' ho co tf (atomic . ca) pf
+    foldPropositional' ho co ne tf (atomic . ca) pf
     where
-      co ((:~:) p) = (.~.) (convertPropositional' ho ca p)
       co (BinOp p (:&:) q) = (convertPropositional' ho ca p) .&. (convertPropositional' ho ca q)
       co (BinOp p (:|:) q) = (convertPropositional' ho ca p) .|. (convertPropositional' ho ca q)
       co (BinOp p (:=>:) q) = (convertPropositional' ho ca p) .=>. (convertPropositional' ho ca q)
       co (BinOp p (:<=>:) q) = (convertPropositional' ho ca p) .<=>. (convertPropositional' ho ca q)
+      ne p = (.~.) (convertPropositional' ho ca p)
       tf = fromBool
 
 -- | Use foldPropositional to convert any instance of
 -- IsPropositional to any other by specifying the result type.
 convertPropositional :: (IsPropositional pf1 a1, JustPropositional pf1, IsPropositional pf2 a2) => (a1 -> a2) -> pf1 -> pf2
 convertPropositional ca pf =
-    foldPropositional co tf (atomic . ca) pf
+    foldPropositional co ne tf (atomic . ca) pf
     where
-      co ((:~:) p) = (.~.) (convertPropositional ca p)
       co (BinOp p (:&:) q) = (convertPropositional ca p) .&. (convertPropositional ca q)
       co (BinOp p (:|:) q) = (convertPropositional ca p) .|. (convertPropositional ca q)
       co (BinOp p (:=>:) q) = (convertPropositional ca p) .=>. (convertPropositional ca q)
       co (BinOp p (:<=>:) q) = (convertPropositional ca p) .<=>. (convertPropositional ca q)
+      ne p = (.~.) (convertPropositional ca p)
       tf = fromBool
 
-propositionalFromLiteral :: (IsLiteral lit atom1, IsPropositional pf atom2) =>
+propositionalFromLiteral :: (IsLiteral lit atom1, JustLiteral lit, IsPropositional pf atom2) =>
                             (atom1 -> atom2) -> lit -> pf
 propositionalFromLiteral ca lit =
     foldLiteral ne fromBool (atomic . ca) lit
@@ -175,24 +179,24 @@ propositionalFromLiteral ca lit =
 literalFromPropositional :: (IsPropositional pf atom1, JustPropositional pf, IsLiteral lit atom2) =>
                             (atom1 -> atom2) -> pf -> lit
 literalFromPropositional ca =
-    foldPropositional co fromBool (atomic . ca)
+    foldLiteral' ho ne fromBool (atomic . ca)
     where
-      co ((:~:) p) = (.~.) (literalFromPropositional ca p)
-      co _ = error "literalFromPropositional found binary operator"
+      ho _ = error "literalFromPropositional found binary operator"
+      ne p = (.~.) (literalFromPropositional ca p)
 
 prettyPropositional :: (IsPropositional pf atom, JustPropositional pf, HasFixity pf, Pretty atom) => pf -> Doc
 prettyPropositional fm0 =
     go rootFixity Unary fm0
     where
       go parentFixity side fm =
-          parenthesize parentFixity fix side $ foldPropositional co tf at fm
+          parenthesize parentFixity fix side $ foldPropositional co ne tf at fm
           where
             fix = fixity fm
-            co ((:~:) f) = text "¬" <> go fix Unary f
             co (BinOp f (:&:) g) = go fix LHS f <> text "∧" <> go fix RHS g
             co (BinOp f (:|:) g) = go fix LHS f <> text "∨" <> go fix RHS g
             co (BinOp f (:=>:) g) = go fix LHS f <> text "⇒" <> go fix RHS g
             co (BinOp f (:<=>:) g) = go fix LHS f <> text "⇔" <> go fix RHS g
+            ne f = text "¬" <> go fix Unary f
             tf = pPrint
             at a = pPrint a
 
@@ -238,9 +242,8 @@ instance (IsPropositional formula atom, Pretty formula) => Pretty (Marked mk for
     pPrint = pPrint . unMark'
 
 instance IsPropositional formula atom => IsPropositional (Marked mk formula) atom where
-    foldPropositional' ho co tf at (Mark x) = foldPropositional' (ho . Mark) co' tf at x
+    foldPropositional' ho co ne tf at (Mark x) = foldPropositional' (ho . Mark) co' (ne . Mark) tf at x
         where
-          co' ((:~:) fm) = co ((:~:) (Mark fm))
           co' (BinOp lhs op rhs) = co (BinOp (Mark lhs) op (Mark rhs))
 
 -- | The formula marker types
@@ -370,12 +373,12 @@ instance (Ord atom, HasFixity atom, Pretty atom) => IsFormula (PFormula atom) at
         _ -> fm
 
 instance (Ord atom, HasFixity atom, Pretty atom) => IsPropositional (PFormula atom) atom where
-    foldPropositional' _ co tf at fm =
+    foldPropositional' _ co ne tf at fm =
         case fm of
           T -> tf True
           F -> tf False
           Atom a -> at a
-          Not p -> co ((:~:) p)
+          Not p -> ne p
           And p q -> co (BinOp p (:&:) q)
           Or p q -> co (BinOp p (:|:) q)
           Imp p q -> co (BinOp p (:=>:) q)
@@ -536,10 +539,10 @@ tautology fm = onallvaluations (&&) (eval fm) (\_s -> False) (atoms fm)
 -- | Interpretation of formulas.
 eval :: (IsPropositional pf atom, JustPropositional pf) => pf -> (atom -> Bool) -> Bool
 eval fm v =
-    foldPropositional co tf at fm
+    foldPropositional co ne tf at fm
     where
       tf = id
-      co ((:~:) p) = not (eval p v)
+      ne p = not (eval p v)
       co (BinOp p (:&:) q) = (eval p v) && (eval q v)
       co (BinOp p (:|:) q) = (eval p v) || (eval q v)
       co (BinOp p (:=>:) q) = not (eval p v) || (eval q v)
@@ -641,11 +644,11 @@ test21 = TestCase $ assertEqual "Equivalences (p. 47)" expected input
 -- | Dualization.
 dual :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
 dual fm =
-    foldPropositional co tf (\_ -> fm) fm
+    foldPropositional co ne tf (\_ -> fm) fm
     where
       tf True = false
       tf False = true
-      co ((:~:) p) = (.~.) (dual p)
+      ne p = (.~.) (dual p)
       co (BinOp p (:&:) q) = dual p .|. dual q
       co (BinOp p (:|:) q) = dual p .&. dual q
       co _ = error "Formula involves connectives .=>. or .<=>."
@@ -661,10 +664,10 @@ test22 = TestCase $ assertEqual "Dual (p. 49)" expected input
 -- | Routine simplification.
 psimplify :: IsPropositional formula atom => formula -> formula
 psimplify fm =
-    foldPropositional' ho co tf at fm
+    foldPropositional' ho co ne tf at fm
     where
       ho _ = fm
-      co ((:~:) p) = psimplify1 ((.~.) (psimplify p))
+      ne p = psimplify1 ((.~.) (psimplify p))
       co (BinOp p (:&:) q) = psimplify1 ((psimplify p) .&. (psimplify q))
       co (BinOp p (:|:) q) = psimplify1 ((psimplify p) .|. (psimplify q))
       co (BinOp p (:=>:) q) = psimplify1 ((psimplify p) .=>. (psimplify q))
@@ -674,9 +677,9 @@ psimplify fm =
 
 psimplify1 :: IsPropositional formula atom => formula -> formula
 psimplify1 fm =
-    foldPropositional' (\_ -> fm) simplifyCombine (\_ -> fm) (\_ -> fm) fm
+    foldPropositional' (\_ -> fm) simplifyCombine simplifyNegate (\_ -> fm) (\_ -> fm) fm
     where
-      simplifyCombine ((:~:) p) = foldPropositional' (\_ -> fm) simplifyNotCombine (fromBool . not) simplifyNotAtom p
+      simplifyNegate p = foldPropositional' (\_ -> fm) simplifyNotCombine simplifyNotNegate (fromBool . not) simplifyNotAtom p
       simplifyCombine (BinOp l op r) =
           case (asBool l, op , asBool r) of
             (Just True,  (:&:), _)            -> r
@@ -697,7 +700,7 @@ psimplify1 fm =
             (_,          (:<=>:), Just True)  -> l
             (_,          (:<=>:), Just False) -> (.~.) l
             _                                 -> fm
-      simplifyNotCombine ((:~:) f) = f
+      simplifyNotNegate f = f
       simplifyNotCombine _ = fm
       simplifyNotAtom x = (.~.) (atomic x)
 
@@ -725,17 +728,17 @@ nnf :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
 nnf = nnf1 . psimplify
 
 nnf1 :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
-nnf1 fm = foldPropositional nnfCombine fromBool (\_ -> fm) fm
+nnf1 fm = foldPropositional nnfCombine nnfNegate fromBool (\_ -> fm) fm
     where
       -- nnfCombine :: (IsPropositional formula atom) => formula -> Combination formula -> formula
-      nnfCombine ((:~:) p) = foldPropositional nnfNotCombine (fromBool . not) (\_ -> fm) p
+      nnfNegate p = foldPropositional nnfNotCombine nnfNotNegate (fromBool . not) (\_ -> fm) p
       nnfCombine (BinOp p (:=>:) q) = nnf1 ((.~.) p) .|. (nnf1 q)
       nnfCombine (BinOp p (:<=>:) q) =  (nnf1 p .&. nnf1 q) .|. (nnf1 ((.~.) p) .&. nnf1 ((.~.) q))
       nnfCombine (BinOp p (:&:) q) = nnf1 p .&. nnf1 q
       nnfCombine (BinOp p (:|:) q) = nnf1 p .|. nnf1 q
 
       -- nnfNotCombine :: (IsPropositional formula atom) => Combination formula -> formula
-      nnfNotCombine ((:~:) p) = nnf1 p
+      nnfNotNegate p = nnf1 p
       nnfNotCombine (BinOp p (:&:) q) = nnf1 ((.~.) p) .|. nnf1 ((.~.) q)
       nnfNotCombine (BinOp p (:|:) q) = nnf1 ((.~.) p) .&. nnf1 ((.~.) q)
       nnfNotCombine (BinOp p (:=>:) q) = nnf1 p .&. nnf1 ((.~.) q)
@@ -774,14 +777,14 @@ nenf = nenf' . psimplify
 -- | Simple negation-pushing when we don't care to distinguish occurrences.
 nenf' :: IsPropositional formula atom => formula -> formula
 nenf' fm =
-    foldPropositional' (\_ -> fm) co (\_ -> fm) (\_ -> fm) fm
+    foldPropositional' (\_ -> fm) co ne (\_ -> fm) (\_ -> fm) fm
     where
-      co ((:~:) p) = foldPropositional' (\_ -> fm) co' (\_ -> fm) (\_ -> fm) p
+      ne p = foldPropositional' (\_ -> fm) co' ne' (\_ -> fm) (\_ -> fm) p
       co (BinOp p (:&:) q) = nenf' p .&. nenf' q
       co (BinOp p (:|:) q) = nenf' p .|. nenf' q
       co (BinOp p (:=>:) q) = nenf' ((.~.) p) .|. nenf' q
       co (BinOp p (:<=>:) q) = nenf' p .<=>. nenf' q
-      co' ((:~:) p) = p
+      ne' p = p
       co' (BinOp p (:&:) q) = nenf' ((.~.) p) .|. nenf' ((.~.) q)
       co' (BinOp p (:|:) q) = nenf' ((.~.) p) .&. nenf' ((.~.) q)
       co' (BinOp p (:=>:) q) = nenf' p .&. nenf' ((.~.) q)
@@ -906,12 +909,12 @@ test30 = TestCase $ assertEqual "dnf 2 (p. 56)" expected input
 -- | DNF via distribution.
 distrib1 :: IsPropositional formula atom => formula -> formula
 distrib1 fm =
-    foldPropositional' (\_ -> fm) co (\_ -> fm) (\_ -> fm) fm
+    foldPropositional' (\_ -> fm) co (\_ -> fm) (\_ -> fm) (\_ -> fm) fm
     where
-      co (BinOp p (:&:) r) = foldPropositional' (\_ -> fm) (co' p r) (\_ -> fm) (\_ -> fm) r
+      co (BinOp p (:&:) r) = foldPropositional' (\_ -> fm) (co' p r) (\_ -> fm) (\_ -> fm) (\_ -> fm) r
       co _ = fm
       co' p _ (BinOp q (:|:) r) = distrib1 (p .&. q) .|. distrib1 (p .&. r) -- And p (Or q r)
-      co' pq r _ = foldPropositional' (\_ -> fm) (co'' r) (\_ -> fm) (\_ -> fm) pq
+      co' pq r _ = foldPropositional' (\_ -> fm) (co'' r) (\_ -> fm) (\_ -> fm) (\_ -> fm) pq
       co'' r (BinOp p (:|:) q) = distrib1 (p .&. r) .|. distrib1 (q .&. r) -- And (Or p q) r
       co'' _ _ = fm
 {-
@@ -925,7 +928,7 @@ distrib1 fm =
 
 rawdnf :: IsPropositional formula atom => formula -> formula
 rawdnf fm =
-    foldPropositional' (\_ -> fm) co (\_ -> fm) (\_ -> fm) fm
+    foldPropositional' (\_ -> fm) co (\_ -> fm) (\_ -> fm) (\_ -> fm) fm
     where
       co (BinOp p (:&:) q) = distrib1 (rawdnf p .&. rawdnf q)
       co (BinOp p (:|:) q) = (rawdnf p .|. rawdnf q)
@@ -953,7 +956,7 @@ test31 = TestCase $ assertEqual "rawdnf (p. 58)" expected input
 
 purednf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
 purednf ca fm =
-    foldPropositional co (\_ -> l2f fm) (\_ -> l2f fm) fm
+    foldPropositional co (\_ -> l2f fm) (\_ -> l2f fm) (\_ -> l2f fm) fm
     where
       l2f = singleton . singleton . literalFromPropositional ca
       co (BinOp p (:&:) q) = distrib (purednf ca p) (purednf ca q)
@@ -999,7 +1002,7 @@ test33 = TestCase $ assertEqual "trivial" expected input
 -- | With subsumption checking, done very naively (quadratic).
 simpdnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
 simpdnf ca fm =
-    foldPropositional (\_ -> go) tf (\_ -> go) fm
+    foldPropositional (\_ -> go) (\_ -> go) tf (\_ -> go) fm
     where
       tf False = Set.empty
       tf True = singleton Set.empty
@@ -1026,12 +1029,21 @@ purecnf ca fm = Set.map (Set.map negate) (purednf ca (nnf ((.~.) fm)))
 
 simpcnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
 simpcnf ca fm =
-    foldPropositional (\_ -> go) tf (\_ -> go) fm
+    foldPropositional (\_ -> go) (\_ -> go) tf (\_ -> go) fm
     where
       tf False = Set.empty
       tf True = singleton Set.empty
       go = let cjs = Set.filter (not . trivial) (purecnf ca fm) in
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
+
+{-
+instance (IsLiteral lit atom, JustLiteral lit) => IsPropositional (Set (Set lit)) where
+    foldPropositional' ho co tf at fm =
+        case Set.minView fm of
+          Nothing -> tf False
+          Just (s, ss) | Set.null s && Set.null ss -> tf True
+          Just (s, ss) -> co
+-}
 
 cnf_ :: forall pf atom lit atom2. (IsPropositional pf atom, IsLiteral lit atom2, JustLiteral lit) => (atom2 -> atom) -> Set (Set lit) -> pf
 cnf_ ca = list_conj . Set.map (list_disj . Set.map (propositionalFromLiteral ca))

@@ -155,7 +155,6 @@ infixl 4  .&., ∧
 -- intended to be a IsCombinable instance.
 data Combination formula
     = BinOp formula BinOp formula
-    | (:~:) formula
     deriving (Eq, Ord, Data, Typeable, Show)
 
 -- | Represents the boolean logic binary operations, used in the
@@ -177,7 +176,6 @@ combine (BinOp f1 (:<=>:) f2) = f1 .<=>. f2
 combine (BinOp f1 (:=>:) f2) = f1 .=>. f2
 combine (BinOp f1 (:&:) f2) = f1 .&. f2
 combine (BinOp f1 (:|:) f2) = f1 .|. f2
-combine ((:~:) f) = (.~.) f
 
 binop :: IsCombinable formula => formula -> BinOp -> formula -> formula
 binop a (:&:) b = a .&. b

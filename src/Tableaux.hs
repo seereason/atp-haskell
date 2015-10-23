@@ -248,7 +248,7 @@ tableau (fms, lits, n) cont (k, env) =
       _ | n < Depth 0 -> return $ Failure ["no proof at this level"]
       [] -> return $ Failure ["tableau: no proof"]
       (fm : unexp) ->
-          foldQuantified qu co (\_ -> go fm unexp) (\_ -> go fm unexp) fm
+          foldQuantified qu co (\_ -> go fm unexp) (\_ -> go fm unexp) (\_ -> go fm unexp) fm
           where
             qu :: Quant -> v -> formula -> RWS () () () (Failing (K, Map v term))
             qu (:!:) x p =
