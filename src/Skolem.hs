@@ -257,18 +257,23 @@ runSkolemT action = (runStateT action) newSkolemState >>= return . fst
 
 -- | Class of functions that include embedded Skolem functions
 --
--- Skolem functions are created to replace an an existentially
+-- A Skolem function is created to eliminate an an existentially
 -- quantified variable.  The idea is that if we have a predicate
--- @P[x,y,z]@, and @z@ is existentially quantified, then @P@ is
--- satisfiable if there is at least one @z@ that causes @P@ to be
--- true.  We postulate a skolem function @sKz[x,y]@ whose value is one
--- of the z's that cause @P@ to be satisfied.  The value of @sKz@ will
--- depend on @x@ and @y@, so we make these parameters.  Thus we have
--- eliminated existential quantifiers and obtained the formula
--- @P[x,y,sKz[x,y]]@.
-class HasSkolem function var | function -> var where
-    toSkolem :: var -> function
-    fromSkolem :: function -> Maybe var
+-- @P[x,y,z]@, and @z@ is existentially quantified, then @P@ is only
+-- satisfiable if there *exists* at least one @z@ that causes @P@ to
+-- be true.  Therefore, we envision a function @sKz[x,y]@ whose value
+-- is one of the z's that cause @P@ to be satisfied (if there are any;
+-- if the formula is satisfiable there must be.)  Because we are
+-- trying to determine if there is a satisfying triple @x, y, z@, the
+-- Skolem function @sKz@ will have to be a function of @x@ and @y@, so
+-- we make these parameters.  Now, if @P[x,y,z]@ is satisfiable, there
+-- will be a function sKz which can be substituted in such that
+-- @P[x,y,sKz[x,y]]@ is also satisfiable.  Thus, using this mechanism
+-- we can eliminate all the formula's existential quantifiers and some
+-- of its variables.
+class HasSkolem function v | function -> v where
+    toSkolem :: v -> function
+    fromSkolem :: function -> Maybe v
 
 -- | Core Skolemization function.
 --
