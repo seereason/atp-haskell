@@ -27,7 +27,7 @@ module FOL
     -- * Predicates
     , IsPredicate
     -- * Atoms
-    , HasPredicate(applyPredicate, foldPredicate), convertPredicate, zipPredicates, pApp, atomFuncs
+    , HasPredicate(applyPredicate, foldPredicate), convertPredicate, zipPredicates, showPredicate, pApp, atomFuncs
     , prettyPredicateApplication
     , HasEquate(equate, foldEquate'), isEquate, (.=.), foldEquate, equalsFuncs, zipEquals
     , HasEquals(equals, isEquals) -- deprecated
@@ -90,6 +90,7 @@ import Prop (foldPropositional, IsPropositional(foldPropositional'), JustLiteral
 import Test.HUnit
 import Pretty (Doc, Associativity(InfixN, InfixR, InfixL, InfixA), HasFixity(fixity), Fixity(Fixity), parenthesize, Pretty(pPrint), prettyShow, text, rootFixity, Side(LHS, RHS, Unary), (<>))
 #endif
+import Text.PrettyPrint (parens, braces)
 
 ---------------
 -- VARIABLES --
@@ -255,24 +256,8 @@ class (IsString predicate, Eq predicate, Ord predicate, Pretty predicate, Show p
 prettyPredicateApplication :: (Pretty predicate, Pretty term) => predicate -> [term] -> Doc
 prettyPredicateApplication p ts = pPrint p <> text "[" <> mconcat (intersperse (text ", ") (map pPrint ts)) <> text "]"
 
-#ifndef NOTESTS
--- | This Predicate type includes an distinct Equals constructor, so
--- that we can build an HasEquals instance for it.
-data Predicate
-    = NamedPredicate String
-    | Equals
-    deriving (Eq, Ord, Data, Typeable, Show)
-
-instance IsString Predicate where
-    fromString = NamedPredicate
-
-instance Pretty Predicate where
-    pPrint Equals = text "="
-    pPrint (NamedPredicate "=") = error "Use of = as a predicate name is prohibited"
-    pPrint (NamedPredicate s) = text s
-
-instance IsPredicate Predicate
-#endif
+showPredicate :: (HasPredicate atom predicate term, Show term) => atom -> String
+showPredicate = foldPredicate (\ p ts -> "pApp (" ++ show p ++ ") [" ++ intercalate ", " (map show ts) ++ "]")
 
 ---------------------------
 -- ATOM (Atomic Formula) --
@@ -325,6 +310,9 @@ zipEquals ap eq atom1 atom2 =
       ap'' p1 ts1 p2 ts2 = ap p1 p2 (zip ts1 ts2)
       eq' lhs1 rhs1 = foldEquate (\_ _ -> Nothing) (eq lhs1 rhs1) atom2
 
+showEquate :: (HasEquate atom predicate term, Show term) => atom -> String
+showEquate = foldEquate (\ p ts -> "pApp (" ++ show p ++ ") [" ++ intercalate ", " (map show ts) ++ "]") (\t1 t2 -> show t1 ++ " .=. " ++ show t2)
+
 -- | Convert between two instances of HasPredicate
 convertPredicate :: (HasPredicate atom1 p1 t1, HasPredicate atom2 p2 t2) => (p1 -> p2) -> (t1 -> t2) -> atom1 -> atom2
 convertPredicate cp ct = foldPredicate (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
@@ -342,6 +330,28 @@ prettyPredicateApplicationEq p _ts | isEquals p = error "Arity mismatch for equa
 prettyPredicateApplicationEq p ts = prettyPredicateApplication p ts
 
 #ifndef NOTESTS
+
+-- | This Predicate type includes an distinct Equals constructor, so
+-- that we can build an HasEquals instance for it.
+data Predicate
+    = NamedPredicate String
+    | Equals
+    deriving (Eq, Ord, Data, Typeable)
+
+instance IsString Predicate where
+    fromString = NamedPredicate
+
+instance Pretty Predicate where
+    pPrint Equals = text "="
+    pPrint (NamedPredicate "=") = error "Use of = as a predicate name is prohibited"
+    pPrint (NamedPredicate s) = text s
+
+instance IsPredicate Predicate
+
+instance Show Predicate where
+    show Equals = " .=. "
+    show (NamedPredicate s) = s
+
 instance HasEquals Predicate where
     equals = Equals
     isEquals Equals = True
@@ -353,12 +363,12 @@ data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable)
 instance (IsPredicate predicate, Ord term, Pretty term) => Pretty (FOL predicate term) where
     pPrint = foldPredicate prettyPredicateApplication
 
-instance (IsPredicate predicate, Show predicate, Show term) => Show (FOL predicate term) where
-    show (R p ts) = "applyPredicate " ++ show p ++ " [" ++ intercalate ", " (map show ts) ++ "]"
-
 instance (IsPredicate predicate, Pretty term, Ord term) => HasPredicate (FOL predicate term) predicate term where
     applyPredicate = R
     foldPredicate f (R p ts) = f p ts
+
+instance (Pretty term, Show term, Ord term) => Show (FOL Predicate term) where
+    show = showEquate
 
 instance (IsPredicate Predicate, Ord term, Pretty term) => HasEquate (FOL Predicate term) Predicate term where
     equate lhs rhs = applyPredicate Equals [lhs, rhs]
@@ -451,7 +461,7 @@ prettyQuantified fm0 =
     go rootFixity Unary fm0
     where
       go parentFixity side fm =
-          parenthesize parentFixity fix side $ foldQuantified qu co ne tf at fm
+          parenthesize parens braces parentFixity fix side $ foldQuantified qu co ne tf at fm
           where
             fix = fixity fm
             qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> go fix RHS p
@@ -463,6 +473,24 @@ prettyQuantified fm0 =
             co f (:<=>:) g = go fix LHS f <> text "⇔" <> go fix RHS g
             tf = pPrint
             at = pPrint
+
+showQuantified :: (IsQuantified formula atom v, HasFixity formula, Show atom, Ord atom) => formula -> String
+showQuantified fm0 =
+    go rootFixity Unary fm0
+    where
+      go parentFixity side fm =
+          parenthesize undefined undefined parentFixity fix side $ foldQuantified qu co ne tf at fm
+          where
+            fix = fixity fm
+            qu (:!:) x p = "for_all " ++ show x <> " " <> go fix RHS p
+            qu (:?:) x p = "exists " ++ show x <> " " <> go fix RHS p
+            ne f = "(.~.) " <> go fix Unary f
+            co f (:&:) g = go fix LHS f <> " .&. " <> go fix RHS g
+            co f (:|:) g = go fix LHS f <> " .|. " <> go fix RHS g
+            co f (:=>:) g = go fix LHS f <> " .=>. " <> go fix RHS g
+            co f (:<=>:) g = go fix LHS f <> " .<=>. " <> go fix RHS g
+            tf = show
+            at = show
 
 #ifndef NOTESTS
 data Formula v atom
@@ -536,17 +564,8 @@ instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate ter
     foldQuantified _qu co ne tf at fm = foldPropositional' (\_ -> error "IsQuantified Formula") co ne tf at fm
 
 -- Build a Haskell expression for this formula
-instance (Show atom, Show v) => Show (Formula v atom) where
-    show F = "false"
-    show T = "true"
-    show (Atom atom) = show atom
-    show (Not f) = "(.~.) (" ++ show f ++ ")"
-    show (And f g) = "(" ++ show f ++ ") .&. (" ++ show g ++ ")"
-    show (Or f g) = "(" ++ show f ++ ") .|. (" ++ show g ++ ")"
-    show (Imp f g) = "(" ++ show f ++ ") .=>. (" ++ show g ++ ")"
-    show (Iff f g) = "(" ++ show f ++ ") .<=>. (" ++ show g ++ ")"
-    show (Forall v f) = "(for_all " ++ show v ++ " " ++ show f ++ ")"
-    show (Exists v f) = "(exists " ++ show v ++ " " ++ show f ++ ")"
+instance (IsQuantified (Formula v atom) atom v, Show atom, HasFixity atom) => Show (Formula v atom) where
+    show = showQuantified
 
 -- Precedence information for Formula
 instance HasFixity atom => HasFixity (Formula v atom) where

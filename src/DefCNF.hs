@@ -36,16 +36,21 @@ import Prop as P (cnf', foldPropositional, IsPropositional(foldPropositional'), 
 
 #ifndef NOTESTS
 import Test.HUnit
+import Lib (assertEqual')
 import Prop (Prop(P), PFormula)
 #endif
 
 #ifndef NOTESTS
 -- | Example (p. 74)
 test01 :: Test
-test01 = TestCase $ assertEqual "cnf test (p. 74)"
-                                "(p∨q∨r)∧(p∨¬q∨¬r)∧(q∨¬p∨¬r)∧(r∨¬p∨¬q)"
-                                (let [p, q, r] = (List.map (atomic . P) ["p", "q", "r"]) in
-                                 prettyShow (cnf' (p .<=>. (q .<=>. r)) :: PFormula Prop))
+test01 =
+    let p :: PFormula Prop
+        q :: PFormula Prop
+        r :: PFormula Prop
+        [p, q, r] = (List.map (atomic . P) ["p", "q", "r"]) in
+    TestCase $ assertEqual' "cnf test (p. 74)"
+                 ((p∨q∨r)∧(p∨(¬)q∨(¬)r)∧(q∨(¬)p∨(¬)r)∧(r∨(¬)p∨(¬)q))
+                 (cnf' (p .<=>. (q .<=>. r)) :: PFormula Prop)
 #endif
 
 class NumAtom atom where

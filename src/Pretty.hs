@@ -20,7 +20,7 @@ module Pretty
 import Data.Monoid ((<>))
 import Language.Haskell.TH.Syntax (maxPrecedence)
 import Language.Haskell.TH.Ppr (noPrec, Precedence)
-import Text.PrettyPrint.HughesPJClass (braces, brackets, Doc, Pretty(pPrint), nest, parens, prettyShow, text)
+import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), nest, {-braces, brackets, parens,-} prettyShow, text)
 import Data.List as List (intercalate, map, sort)
 import Data.Map as Map (Map, toList)
 import Data.Set as Set (Set, toAscList)
@@ -70,8 +70,8 @@ data Side = LHS | RHS | Unary
 
 -- | Combine the parent and child fixities to determine whether the
 -- child formula should be parenthesized.
-parenthesize :: Fixity -> Fixity -> Side -> Doc -> Doc
-parenthesize (Fixity pprec pdir) (Fixity prec _dir) side pp =
+parenthesize :: Monoid r => (r -> r) -> (r -> r) -> Fixity -> Fixity -> Side -> r -> r
+parenthesize parens braces (Fixity pprec pdir) (Fixity prec _dir) side pp =
     -- If fixity goes in the "wrong direction" we need to add parens.
     -- leafFixity is the highest, so if the parent fixity is greater
     -- we need parens: fixity(~)=5, fixity(|)=3, so ~(a|b) needs

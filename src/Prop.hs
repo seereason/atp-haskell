@@ -95,7 +95,7 @@ import Lib (distrib, fpf, (|=>), setAny)
 import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral, LFormula)
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
-import Text.PrettyPrint.HughesPJClass (vcat)
+import Text.PrettyPrint.HughesPJClass (braces, parens, vcat)
 
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
@@ -174,7 +174,7 @@ prettyPropositional fm0 =
     go rootFixity Unary fm0
     where
       go parentFixity side fm =
-          parenthesize parentFixity fix side $ foldPropositional co ne tf at fm
+          parenthesize parens braces parentFixity fix side $ foldPropositional co ne tf at fm
           where
             fix = fixity fm
             co f (:&:) g = go fix LHS f <> text "∧" <> go fix RHS g
@@ -189,7 +189,7 @@ prettyPropositional fm0 =
 -- Formula marker types and restricted formula classes --
 ---------------------------------------------------------
 
-data Marked mark formula = Mark {unMark' :: formula} deriving (Read, Show, Data, Typeable)
+data Marked mark formula = Mark {unMark' :: formula} deriving (Read, Data, Typeable)
 
 instance IsFormula formula atom => IsFormula (Marked mk formula) atom where
     atomic = Mark . atomic
@@ -250,6 +250,12 @@ instance Ord formula => Ord (Marked Literal formula)where
 
 instance Ord formula => Ord (Marked Propositional formula)where
     compare (Mark a) (Mark b) = compare a b
+
+instance Show formula => Show (Marked Literal formula) where
+    show (Mark fm) = "markLiteral (" ++ show fm ++ ")"
+
+instance Show formula => Show (Marked Propositional formula) where
+    show (Mark fm) = "markPropositional (" ++ show fm ++ ")"
 
 -- | Class that indicates a formula type *only* supports Propositional
 -- features - no quantifiers.

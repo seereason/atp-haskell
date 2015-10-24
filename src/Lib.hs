@@ -44,9 +44,11 @@ module Lib
 #ifndef NOTESTS
     , testLib
 #endif
+    , assertEqual'
     ) where
 
 import Control.Applicative.Error (Failing (Success, Failure))
+import Control.Monad (unless)
 import Control.Monad.RWS (evalRWS, runRWS, RWS)
 import Data.Foldable as Foldable
 import Data.Function (on)
@@ -56,6 +58,7 @@ import Data.Map as Map (delete, findMin, fromList, insert, lookup, Map, member)
 import Data.Maybe
 import Data.Set as Set
 import Test.HUnit
+import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow)
 
 failing :: ([String] -> b) -> (a -> b) -> Failing a -> b
 failing f _ (Failure errs) = f errs
@@ -886,3 +889,13 @@ testLib :: Test
 testLib = TestLabel "Lib" (TestList [test01])
 #endif
 
+-- | Version of assertEqual that uses the pretty printer instead of show.
+assertEqual' :: (Eq a, Pretty a) =>
+                String -- ^ The message prefix
+             -> a      -- ^ The expected value
+             -> a      -- ^ The actual value
+             -> Assertion
+assertEqual' preface expected actual =
+  unless (actual == expected) (assertFailure msg)
+ where msg = (if Foldable.null preface then "" else preface ++ "\n") ++
+             "expected: " ++ prettyShow expected ++ "\n but got: " ++ prettyShow actual
