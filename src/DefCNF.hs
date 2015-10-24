@@ -36,7 +36,7 @@ import Prop as P (cnf', foldPropositional, IsPropositional(foldPropositional'), 
 
 #ifndef NOTESTS
 import Test.HUnit
-import Lib (assertEqual')
+import Pretty (assertEqual')
 import Prop (Prop(P), PFormula)
 #endif
 

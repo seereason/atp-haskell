@@ -21,6 +21,7 @@ module Prop
     , convertPropositional
     , convertToPropositional
     , zipPropositional
+    , fixityPropositional
     , prettyPropositional
     -- * Formula marker types and restricted formula classes
     , Marked(Mark, unMark')
@@ -168,6 +169,18 @@ convertToPropositional ho ca fm =
       co p (:<=>:) q = (convertToPropositional ho ca p) .<=>. (convertToPropositional ho ca q)
       ne p = (.~.) (convertToPropositional ho ca p)
       tf = fromBool
+
+fixityPropositional :: (IsPropositional pf atom, JustPropositional pf, HasFixity atom) => pf -> Fixity
+fixityPropositional fm =
+    foldPropositional co ne tf at fm
+    where
+      ne _ = Fixity 5 InfixN
+      co _ (:&:) _ = Fixity 4 InfixA
+      co _ (:|:) _ = Fixity 3 InfixA
+      co _ (:=>:) _ = Fixity 2 InfixR
+      co _ (:<=>:) _ = Fixity 1 InfixA
+      tf _ = Fixity 10 InfixN
+      at = fixity
 
 prettyPropositional :: (IsPropositional pf atom, JustPropositional pf, HasFixity pf, Pretty atom) => pf -> Doc
 prettyPropositional fm0 =
@@ -346,15 +359,8 @@ instance Show atom => Show (PFormula atom) where
     show (Imp f g) = "(" ++ show f ++ ") .=>. (" ++ show g ++ ")"
     show (Iff f g) = "(" ++ show f ++ ") .<=>. (" ++ show g ++ ")"
 
-instance HasFixity atom => HasFixity (PFormula atom) where
-    fixity T = Fixity 0 InfixN
-    fixity F = Fixity 0 InfixN
-    fixity (Atom a) = fixity a
-    fixity (Not _) = Fixity 5 InfixN
-    fixity (And _ _) = Fixity 4 InfixA
-    fixity (Or _ _) = Fixity 3 InfixA
-    fixity (Imp _ _) = Fixity 2 InfixR
-    fixity (Iff _ _) = Fixity 1 InfixA
+instance (HasFixity atom, Ord atom, Pretty atom) => HasFixity (PFormula atom) where
+    fixity = fixityPropositional
 
 instance (Ord atom, HasFixity atom, Pretty atom) => IsFormula (PFormula atom) atom where
     atomic = Atom

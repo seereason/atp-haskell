@@ -88,7 +88,7 @@ import Prop (foldPropositional, IsPropositional(foldPropositional'), JustLiteral
 
 #ifndef NOTESTS
 import Test.HUnit
-import Pretty (Doc, Associativity(InfixN, InfixR, InfixL, InfixA), HasFixity(fixity), Fixity(Fixity), parenthesize, Pretty(pPrint), prettyShow, text, rootFixity, Side(LHS, RHS, Unary), (<>))
+import Pretty (Doc, Associativity(InfixN, InfixR, InfixA), HasFixity(fixity), Fixity(Fixity), parenthesize, Pretty(pPrint), prettyShow, text, rootFixity, Side(LHS, RHS, Unary), (<>))
 #endif
 import Text.PrettyPrint (parens, braces)
 
@@ -456,6 +456,19 @@ propositionalFuncs = foldPropositional co ne tf at
           tf _ = Set.empty
           at = funcs
 
+fixityQuantified :: (IsQuantified formula atom v, HasFixity atom) => formula -> Fixity
+fixityQuantified fm =
+    foldQuantified qu co ne tf at fm
+    where
+      qu _ _ _ = Fixity 9 InfixR
+      ne _ = Fixity 5 InfixN
+      co _ (:&:) _ = Fixity 4 InfixA
+      co _ (:|:) _ = Fixity 3 InfixA
+      co _ (:=>:) _ = Fixity 2 InfixR
+      co _ (:<=>:) _ = Fixity 1 InfixA
+      tf _ = Fixity 10 InfixN
+      at = fixity
+
 prettyQuantified :: (IsQuantified formula atom v, HasFixity formula) => formula -> Doc
 prettyQuantified fm0 =
     go rootFixity Unary fm0
@@ -484,7 +497,7 @@ showQuantified fm0 =
             fix = fixity fm
             qu (:!:) x p = "for_all " ++ show x <> " " <> go fix RHS p
             qu (:?:) x p = "exists " ++ show x <> " " <> go fix RHS p
-            ne f = "(.~.) " <> go fix Unary f
+            ne f = "(.~.) (" <> go fix Unary f ++ ")" -- parenthesization of prefix operators is sketchy
             co f (:&:) g = go fix LHS f <> " .&. " <> go fix RHS g
             co f (:|:) g = go fix LHS f <> " .|. " <> go fix RHS g
             co f (:=>:) g = go fix LHS f <> " .=>. " <> go fix RHS g
@@ -568,17 +581,8 @@ instance (IsQuantified (Formula v atom) atom v, Show atom, HasFixity atom) => Sh
     show = showQuantified
 
 -- Precedence information for Formula
-instance HasFixity atom => HasFixity (Formula v atom) where
-    fixity T = Fixity 10 InfixN
-    fixity F = Fixity 10 InfixN
-    fixity (Atom a) = fixity a
-    fixity (Not _) = Fixity 5 InfixN
-    fixity (And _ _) = Fixity 4 InfixA
-    fixity (Or _ _) = Fixity 3 InfixA
-    fixity (Imp _ _) = Fixity 2 InfixR
-    fixity (Iff _ _) = Fixity 1 InfixA
-    fixity (Forall _ _) = Fixity 9 InfixR
-    fixity (Exists _ _) = Fixity 9 InfixR
+instance (IsQuantified (Formula v atom) atom v, HasFixity atom) => HasFixity (Formula v atom) where
+    fixity = fixityQuantified
 
 -- The IsFormula instance for Formula
 instance (HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function, Ord v, Ord atom) => IsFormula (Formula v atom) atom where
@@ -650,19 +654,6 @@ zipQuantified qu co ne tf at fm1 fm2 =
       ne' x1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (ne x1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
       tf' x1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
       at' atom1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at atom1) fm2
-
-fixityQuantified :: (HasFixity atom, IsQuantified formula atom v) => formula -> Fixity
-fixityQuantified formula =
-    foldQuantified qu co ne tf at formula
-    where
-      qu _ _ _ = Fixity 10 InfixN
-      ne _ = Fixity 5 InfixN
-      co _ (:&:) _ = Fixity 4 InfixL
-      co _ (:|:) _ = Fixity 3 InfixL
-      co _ (:=>:) _ = Fixity 2 InfixR
-      co _ (:<=>:) _ = Fixity 1 InfixL
-      tf _ = Fixity 10 InfixN
-      at = fixity
 
 -- | Use foldPropositional to convert any instance of
 -- IsPropositional to any other by specifying the result type.

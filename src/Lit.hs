@@ -79,6 +79,14 @@ convertToLiteral :: (IsLiteral formula atom1, IsLiteral lit atom2, JustLiteral l
                     ) => (formula -> lit) -> (atom1 -> atom2) -> formula -> lit
 convertToLiteral ho ca fm = foldLiteral' ho (\fm' -> (.~.) (convertToLiteral ho ca fm')) fromBool (atomic . ca) fm
 
+fixityLiteral :: (IsLiteral lit atom, JustLiteral lit, HasFixity atom) => lit -> Fixity
+fixityLiteral fm =
+    foldLiteral ne tf at fm
+    where
+      ne _ = Fixity 5 InfixN
+      tf _ = Fixity 10 InfixN
+      at = fixity
+
 -- | Function typically used to implement Pretty instances for
 -- JustLiteral formulas.
 prettyLiteral :: (IsLiteral formula atom, JustLiteral formula) => formula -> Doc
@@ -106,11 +114,8 @@ instance HasBoolean (LFormula atom) where
     fromBool True = T
     fromBool False = F
 
-instance HasFixity (LFormula atom) where
-    fixity T = Fixity 10 InfixN
-    fixity F = Fixity 10 InfixN
-    fixity a@(Atom _) = fixity a
-    fixity (Not _) = Fixity 5 InfixN
+instance (Ord atom, Pretty atom, HasFixity atom) => HasFixity (LFormula atom) where
+    fixity = fixityLiteral
 
 instance Ord atom => IsNegatable (LFormula atom) where
     naiveNegate = Not
