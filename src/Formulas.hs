@@ -51,7 +51,7 @@ prettyBool False = text "⊭"
 -- |The class of formulas that can be negated.  There are some types
 -- that can be negated but do not support the other Boolean Logic
 -- operators, such as the 'IsLiteral' class.
-class Ord formula => IsNegatable formula where
+class IsNegatable formula where
     -- | Negate a formula in a naive fashion, the operators below
     -- prevent double negation.
     naiveNegate :: formula -> formula
@@ -166,7 +166,7 @@ binop f1 (:|:) f2 = f1 .|. f2
 type Combination formula = formula -> BinOp -> formula
 
 -- | Class associating a formula type with its atom type.
-class (Eq formula, Ord formula, Eq atom, Ord atom, Pretty atom) => IsFormula formula atom | formula -> atom where
+class (Eq atom, Ord atom, Pretty atom) => IsFormula formula atom | formula -> atom where
     atomic :: atom -> formula
     -- ^ Build a formula from an atom.
     overatoms :: (atom -> r -> r) -> formula -> r -> r

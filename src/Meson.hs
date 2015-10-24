@@ -27,7 +27,7 @@ import Formulas ((.~.), (.&.), (.|.), (.=>.), false, negative)
 import Lit (IsLiteral)
 import Pretty (prettyShow)
 import Prolog (renamerule)
-import Prop (IsPropositional, JustLiteral, list_conj, Literal, Marked, Propositional, simpcnf)
+import Prop (JustLiteral, list_conj, Literal, Marked, Propositional, simpcnf)
 import Skolem (askolemize, HasSkolem, pnf, runSkolem, SkolemT, simpdnf', specialize, toSkolem)
 import Tableaux (Depth(Depth), K(K), deepen, tab, unify_literals)
 
@@ -182,7 +182,7 @@ END_INTERACTIVE;;
 -- Generation of contrapositives.
 -- -------------------------------------------------------------------------
 
-contrapositives :: IsLiteral lit atom => Set lit -> Set (Set lit, lit)
+contrapositives :: (IsLiteral lit atom, Ord lit) => Set lit -> Set (Set lit, lit)
 contrapositives cls =
     if setAll negative cls then Set.insert (Set.map (.~.) cls,false) base else base
     where base = Set.map (\ c -> (Set.map (.~.) (Set.delete c cls), c)) cls
@@ -191,7 +191,7 @@ contrapositives cls =
 -- The core of MESON: ancestor unification or Prolog-style extension.
 -- -------------------------------------------------------------------------
 
-mexpand :: (IsLiteral lit atom, JustLiteral lit,
+mexpand :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
             HasPredicate atom predicate term,
             IsTerm term v function) =>
            Set (Set lit, lit)
@@ -221,7 +221,7 @@ mexpand rules ancestors g cont (env,n,k) =
 -- -------------------------------------------------------------------------
 
 puremeson :: forall fof atom predicate term v f.
-             (IsFirstOrder fof atom predicate term v f, IsLiteral fof atom) =>
+             (IsFirstOrder fof atom predicate term v f, Ord fof) =>
              Maybe Depth -> fof -> Failing ((Map v term, Int, Int), Depth)
 puremeson maxdl fm =
     deepen f (Depth 0) maxdl
@@ -232,7 +232,7 @@ puremeson maxdl fm =
       (cls :: Set (Set (Marked Literal fof))) = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
 
 meson :: forall m fof atom predicate term f v.
-         (IsFirstOrder fof atom predicate term v f, IsPropositional fof atom, IsLiteral fof atom,
+         (IsFirstOrder fof atom predicate term v f, Ord fof,
           HasSkolem f v, Monad m) =>
          Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
 meson maxdl fm =

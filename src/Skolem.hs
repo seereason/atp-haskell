@@ -223,7 +223,7 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" (prettyShow expected) (prettyShow
 -- universally quantified variables.
 
 -- | The Skolem monad
-type SkolemM v term = StateT SkolemState Identity
+type SkolemM = StateT SkolemState Identity
 
 data SkolemState
     = SkolemState
@@ -384,7 +384,7 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
 #endif
 
 -- Versions of the normal form functions that leave quantifiers in place.
-simpdnf' :: IsFirstOrder formula atom predicate term v function => formula -> Set (Set formula)
+simpdnf' :: (IsFirstOrder fof atom predicate term v function, Ord fof) => fof -> Set (Set fof)
 simpdnf' fm =
     {-t2 $-}
     foldQuantified (\_ _ _ -> go) (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) ({-t1-} fm)
@@ -396,7 +396,7 @@ simpdnf' fm =
       -- t1 x = trace ("simpdnf' (" ++ prettyShow x) x
       -- t2 x = trace ("simpdnf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
 
-purednf' :: IsQuantified formula atom v => formula -> Set (Set formula)
+purednf' :: (IsQuantified fof atom v, Ord fof) => fof -> Set (Set fof)
 purednf' fm =
     {-t4 $-}
     foldQuantified qu co (\_ -> lf fm) (\_ -> lf fm) (\_ -> lf fm) ({-t3-} fm)
@@ -409,7 +409,7 @@ purednf' fm =
       -- t3 x = trace ("purednf' (" ++ prettyShow x) x
       -- t4 x = trace ("purednf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
 
-simpcnf' :: (IsFirstOrder formula atom predicate term v function) => formula -> Set (Set formula)
+simpcnf' :: (IsFirstOrder fof atom predicate term v function, Ord fof) => fof -> Set (Set fof)
 simpcnf' fm =
     foldQuantified (\_ _ _ -> go) (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
@@ -418,7 +418,7 @@ simpcnf' fm =
       go = let cjs = Set.filter (not . trivial) (purecnf' fm) in
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
-purecnf' :: (IsFirstOrder formula atom predicate term v function) => formula -> Set (Set formula)
+purecnf' :: (IsFirstOrder fof atom predicate term v f, Ord fof) => fof -> Set (Set fof)
 purecnf' fm = Set.map (Set.map negate) (purednf' (nnf ((.~.) fm)))
 
 #ifndef NOTESTS

@@ -85,15 +85,14 @@ unifyAtomsEq env a1 a2 =
 -}
 
 -- | Unify complementary literals.
-unify_complements :: forall lit atom term predicate v function.
-                     (IsLiteral lit atom,
+unify_complements :: (IsLiteral lit atom,
                       HasPredicate atom predicate term,
                       IsTerm term v function) =>
                      Map v term -> lit -> lit -> Failing (Map v term)
 unify_complements env p q = unify_literals env p ((.~.) q)
 
 -- | Unify and refute a set of disjuncts.
-unify_refute :: (IsLiteral lit atom,
+unify_refute :: (IsLiteral lit atom, Ord lit,
                  HasPredicate atom predicate term,
                  IsTerm term v function) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
@@ -107,8 +106,7 @@ unify_refute djs env =
             (pos,neg) = Set.partition positive d
 
 -- | Hence a Prawitz-like procedure (using unification on DNF).
-prawitz_loop :: forall atom v term predicate function lit.
-                (IsLiteral lit atom,
+prawitz_loop :: (IsLiteral lit atom, Ord lit,
                  HasPredicate atom predicate term,
                  IsTerm term v function) =>
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
@@ -122,9 +120,7 @@ prawitz_loop djs0 fvs djs n =
       newvar k = vt (fromString ("_" ++ show (n * length fvs + k)))
 
 prawitz :: forall formula atom term predicate function v.
-           (IsFirstOrder formula atom predicate term v function,
-            HasSkolem function v) =>
-           formula -> Int
+           (IsFirstOrder formula atom predicate term v function, Ord formula, HasSkolem function v) => formula -> Int
 prawitz fm =
     snd (prawitz_loop dnf (Set.toList fvs) dnf0 0)
     where
@@ -152,7 +148,7 @@ p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
 -- Comparison of number of ground instances.
 -- -------------------------------------------------------------------------
 
-compare :: (IsFirstOrder formula atom predicate term v function, HasSkolem function v) => formula -> (Int, Failing Int)
+compare :: (IsFirstOrder formula atom predicate term v function, Ord formula, HasSkolem function v) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
 #ifndef NOTESTS
@@ -289,7 +285,7 @@ tab :: (IsFirstOrder formula atom predicate term v function, HasSkolem function 
        Maybe Depth -> formula -> Failing ((K, Map v term), Depth)
 tab limit fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
-  if sfm == false then (error "Tableaux.tab") else tabrefute limit [sfm]
+  if asBool sfm == Just False then (error "Tableaux.tab") else tabrefute limit [sfm]
 
 #ifndef NOTESTS
 p38 :: Test
@@ -333,7 +329,8 @@ END_INTERACTIVE;;
 -- Try to split up the initial formula first; often a big improvement.
 -- -------------------------------------------------------------------------
 splittab :: forall formula atom predicate term v function.
-            (IsFirstOrder formula atom predicate term v function, HasSkolem function v) => formula -> [Failing ((K, Map v term), Depth)]
+            (IsFirstOrder formula atom predicate term v function, Ord formula, HasSkolem function v
+            ) => formula -> [Failing ((K, Map v term), Depth)]
 splittab fm =
     (List.map (tabrefute Nothing) . ssll . simpdnf' . runSkolem . skolemize id . (.~.) . generalize) fm
     where ssll :: Set (Set (Marked Literal (Marked Propositional formula))) -> [[formula]]

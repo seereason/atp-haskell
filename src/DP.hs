@@ -19,17 +19,16 @@ module DP
 #endif
     ) where
 
-import Data.Map as Map
-import Data.Set as Set
+import Data.Map as Map (empty, Map)
+import Data.Set as Set (delete, difference, empty, filter, findMin, fold, insert, intersection, map, member,
+                        minView, null, partition, Set, singleton, size, union)
+import DefCNF (NumAtom(ai, ma), defcnfs)
+import Formulas (IsNegatable, (.~.), negative, positive, negate, negated)
+import Lib (Failing(Success, Failure), allpairs, minimize, maximize, defined, (|->), setmapfilter)
 import Prelude hiding (negate, pure)
-import Test.HUnit
-
-import DefCNF
-import Formulas
-import Lib
-import Lit
-import Prop
+import Prop (trivial, IsPropositional, JustPropositional, PFormula)
 import PropExamples (prime, Knows(K))
+import Test.HUnit
 
 instance NumAtom (Knows Integer) where
     ma n = K "p" n Nothing
@@ -39,7 +38,7 @@ flatten :: Ord a => Set (Set a) -> Set a
 flatten ss' = Set.fold Set.union Set.empty ss'
 
 -- | The DP procedure.
-dp :: forall lit atom. IsLiteral lit atom => Set (Set lit) -> Failing Bool
+dp :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Failing Bool
 dp clauses
   | Set.null clauses = Success True
   | Set.member Set.empty clauses = Success False
@@ -51,7 +50,7 @@ dp clauses
               Success x -> Success x
               Failure _ -> resolution_rule clauses >>= dp
 
-one_literal_rule :: IsLiteral lit atom => Set (Set lit) -> Failing (Set (Set lit))
+one_literal_rule :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
 one_literal_rule clauses =
     case Set.minView (Set.filter (\ cl -> Set.size cl == 1) clauses) of
       Nothing -> Failure ["one_literal_rule"]
@@ -61,7 +60,7 @@ one_literal_rule clauses =
           let clauses1 = Set.filter (\ cl -> not (Set.member u cl)) clauses in
           Success (Set.map (\ cl -> Set.delete u' cl) clauses1)
 
-affirmative_negative_rule :: IsLiteral lit atom => Set (Set lit) -> Failing (Set (Set lit))
+affirmative_negative_rule :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
 affirmative_negative_rule clauses =
   let (neg',pos) = Set.partition negative (flatten clauses) in
   let neg = Set.map (.~.) neg' in
@@ -72,7 +71,7 @@ affirmative_negative_rule clauses =
   then Failure ["affirmative_negative_rule"]
   else Success (Set.filter (\ cl -> Set.null (Set.intersection cl pure)) clauses)
 
-resolve_on :: IsLiteral lit atom => lit -> Set (Set lit) -> Set (Set lit)
+resolve_on :: (IsNegatable lit, Ord lit) => lit -> Set (Set lit) -> Set (Set lit)
 resolve_on p clauses =
   let p' = (.~.) p
       (pos,notpos) = Set.partition (Set.member p) clauses in
@@ -82,13 +81,13 @@ resolve_on p clauses =
   let res0 = allpairs Set.union pos' neg' in
   Set.union other (Set.filter (not . trivial) res0)
 
-resolution_blowup :: IsNegatable formula => Set (Set formula) -> formula -> Int
+resolution_blowup :: (IsNegatable lit, Ord lit) => Set (Set lit) -> lit -> Int
 resolution_blowup cls l =
   let m = Set.size (Set.filter (Set.member l) cls)
       n = Set.size (Set.filter (Set.member ((.~.) l)) cls) in
   m * n - m - n
 
-resolution_rule :: IsLiteral lit atom => Set (Set lit) -> Failing (Set (Set lit))
+resolution_rule :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
 resolution_rule clauses =
     let pvs = Set.filter positive (flatten clauses) in
     case minimize (resolution_blowup clauses) pvs of
@@ -96,11 +95,11 @@ resolution_rule clauses =
       Nothing -> Failure ["resolution_rule"]
 
 -- | Davis-Putnam satisfiability tester.
-dpsat :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> Failing Bool
+dpsat :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) => pf -> Failing Bool
 dpsat fm = (dp . defcnfs) fm
 
 -- | Davis-Putnam tautology checker.
-dptaut :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> Failing Bool
+dptaut :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) => pf -> Failing Bool
 dptaut fm = not <$> dpsat (negate fm)
 
 #ifndef NOTESTS
@@ -111,9 +110,9 @@ test01 = TestCase (assertEqual "dptaut(prime 11) p. 84" (Success True) (dptaut (
 #endif
 
 -- | The same thing but with the DPLL procedure. (p. 84)
-dpll :: IsLiteral lit atom => Set (Set lit) -> Failing Bool
+dpll :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Failing Bool
 dpll clauses
-  | clauses == Set.empty = Success True
+  | Set.null clauses = Success True
   | Set.member Set.empty clauses = Success False
   | otherwise =
       case one_literal_rule clauses >>= dpll of
@@ -132,17 +131,17 @@ dpll clauses
                           (Failure a, _) -> Failure a
                           (_, Failure b) -> Failure b
 
-posneg_count :: IsNegatable formula => Set (Set formula) -> formula -> Int
+posneg_count :: (IsNegatable formula, Ord formula) => Set (Set formula) -> formula -> Int
 posneg_count cls l =
   let m = Set.size(Set.filter (Set.member l) cls)
       n = Set.size(Set.filter (Set.member (negate l)) cls) in
   m + n
 
-dpllsat :: forall pf. (IsPropositional pf (Knows Integer), JustPropositional pf) =>
+dpllsat :: (IsPropositional pf (Knows Integer), JustPropositional pf, Ord pf) =>
            pf -> Failing Bool
 dpllsat fm = (dpll . defcnfs) fm
 
-dplltaut :: forall pf. (IsPropositional pf (Knows Integer), JustPropositional pf) =>
+dplltaut :: (IsPropositional pf (Knows Integer), JustPropositional pf, Ord pf) =>
             pf -> Failing Bool
 dplltaut fm = not <$> (dpllsat . negate) fm
 
@@ -153,7 +152,7 @@ test02 = TestCase (assertEqual "dplltaut(prime 11)" (Success True) (dplltaut (pr
 #endif
 
 -- | Iterative implementation with explicit trail instead of recursion.
-dpli :: forall atomic pf. (IsPropositional pf atomic) =>
+dpli :: forall atom pf. (IsPropositional pf atom, Ord pf) =>
         Set (pf, TrailMix) -> Set (Set pf) -> Failing Bool
 dpli trail cls =
   let (cls', trail') = unit_propagate (cls, trail) in
@@ -170,12 +169,12 @@ dpli trail cls =
 
 data TrailMix = Guessed | Deduced deriving (Eq, Ord)
 
-unassigned :: IsNegatable formula => Set (Set formula) -> Set (formula, TrailMix) -> Set formula
+unassigned :: (IsNegatable formula, Ord formula, Eq formula) => Set (Set formula) -> Set (formula, TrailMix) -> Set formula
 unassigned cls trail =
     Set.difference (flatten (Set.map (Set.map litabs) cls)) (Set.map (litabs . fst) trail)
     where litabs p = if negated p then negate p else p
 
-unit_subpropagate :: IsNegatable formula =>
+unit_subpropagate :: (IsNegatable formula, Ord formula) =>
                      (Set (Set formula), Map formula (), Set (formula, TrailMix))
                   -> (Set (Set formula), Map formula (), Set (formula, TrailMix))
 unit_subpropagate (cls,fn,trail) =
@@ -205,11 +204,11 @@ backtrack trail =
     Just ((_p,Deduced), tt) -> backtrack tt
     _ -> trail
 
-dplisat :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) =>
+dplisat :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) =>
            pf -> Failing Bool
 dplisat fm = (dpli Set.empty . defcnfs) fm
 
-dplitaut :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) =>
+dplitaut :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) =>
             pf -> Failing Bool
 dplitaut fm = not <$> (dplisat . negate) fm
 
@@ -241,11 +240,11 @@ backjump cls p trail =
         if Set.member Set.empty cls' then backjump cls p tt else trail
     _ -> trail
 
-dplbsat :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) =>
+dplbsat :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) =>
            pf -> Failing Bool
 dplbsat fm = (dplb Set.empty . defcnfs) fm
 
-dplbtaut :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) =>
+dplbtaut :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) =>
             pf -> Failing Bool
 dplbtaut fm = not <$> (dplbsat . negate) fm
 

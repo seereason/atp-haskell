@@ -204,7 +204,7 @@ prettyPropositional fm0 =
 -- Formula marker types and restricted formula classes --
 ---------------------------------------------------------
 
-data Marked mark formula = Mark {unMark' :: formula} deriving (Eq, Ord, Read, Show, Data, Typeable)
+data Marked mark formula = Mark {unMark' :: formula} deriving (Read, Show, Data, Typeable)
 
 instance IsFormula formula atom => IsFormula (Marked mk formula) atom where
     atomic = Mark . atomic
@@ -251,6 +251,20 @@ data Literal
 data Propositional
 deriving instance Data Literal
 deriving instance Data Propositional
+
+-- We only want these simple instances for specific markings, not the
+-- general Marked mk case.
+instance Eq formula => Eq (Marked Literal formula) where
+    Mark a == Mark b = a == b
+
+instance Eq formula => Eq (Marked Propositional formula) where
+    Mark a == Mark b = a == b
+
+instance Ord formula => Ord (Marked Literal formula)where
+    compare (Mark a) (Mark b) = compare a b
+
+instance Ord formula => Ord (Marked Propositional formula)where
+    compare (Mark a) (Mark b) = compare a b
 
 -- | Class that indicates a formula type *only* supports Propositional
 -- features - no quantifiers.
@@ -821,14 +835,14 @@ dnfList fm =
        mk_lits' :: (IsPropositional pf atom, JustPropositional pf) => [pf] -> (atom -> Bool) -> pf
        mk_lits' pvs' v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs')
 
-dnfSet :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
+dnfSet :: (IsPropositional pf atom, JustPropositional pf, Ord pf) => pf -> pf
 dnfSet fm =
     list_disj (List.map (mk_lits (Set.map atomic pvs)) satvals)
     where
       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
       pvs = atoms fm
 
-mk_lits :: (IsPropositional pf atom, JustPropositional pf) => Set pf -> (atom -> Bool) -> pf
+mk_lits :: (IsPropositional pf atom, JustPropositional pf, Ord pf) => Set pf -> (atom -> Bool) -> pf
 mk_lits pvs v = list_conj (Set.map (\ p -> if eval p v then p else (.~.) p) pvs)
 
 allsatvaluations :: Ord atom => ((atom -> Bool) -> Bool) -> (atom -> Bool) -> Set atom -> [atom -> Bool]
@@ -964,7 +978,8 @@ test31 = TestCase $ assertEqual "rawdnf (p. 58)" (prettyShow expected) (prettySh
           (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
 #endif
 
-purednf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
+purednf :: (IsPropositional pf atom, JustPropositional pf,
+            IsLiteral lit atom2, JustLiteral lit, Ord lit) => (atom -> atom2) -> pf -> Set (Set lit)
 purednf ca fm =
     foldPropositional co (\_ -> l2f fm) (\_ -> l2f fm) (\_ -> l2f fm) fm
     where
@@ -1010,7 +1025,9 @@ test33 = TestCase $ assertEqual "trivial" expected input
 #endif
 
 -- | With subsumption checking, done very naively (quadratic).
-simpdnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
+simpdnf :: (IsPropositional pf atom, JustPropositional pf,
+            IsLiteral lit atom2, JustLiteral lit, Ord lit
+           ) => (atom -> atom2) -> pf -> Set (Set lit)
 simpdnf ca fm =
     foldPropositional (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
@@ -1020,7 +1037,7 @@ simpdnf ca fm =
            Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
 
 -- | Mapping back to a formula.
-dnf :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
+dnf :: (IsPropositional pf atom, JustPropositional pf, Eq pf, Ord pf) => pf -> pf
 dnf fm = (list_disj . Set.toAscList . Set.map list_conj . Set.map (Set.map unmarkLiteral) . simpdnf id) fm
 
 #ifndef NOTESTS
@@ -1034,10 +1051,12 @@ test34 = TestCase $ assertEqual "dnf (p. 56)" expected input
 #endif
 
 -- | Conjunctive normal form (CNF) by essentially the same code. (p. 60)
-purecnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
+purecnf :: (IsPropositional pf atom, JustPropositional pf,
+            IsLiteral lit atom2, JustLiteral lit, Ord lit) => (atom -> atom2) -> pf -> Set (Set lit)
 purecnf ca fm = Set.map (Set.map negate) (purednf ca (nnf ((.~.) fm)))
 
-simpcnf :: (IsPropositional pf atom, JustPropositional pf, IsLiteral lit atom2, JustLiteral lit) => (atom -> atom2) -> pf -> Set (Set lit)
+simpcnf :: (IsPropositional pf atom, JustPropositional pf,
+            IsLiteral lit atom2, JustLiteral lit, Ord lit) => (atom -> atom2) -> pf -> Set (Set lit)
 simpcnf ca fm =
     foldPropositional (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
@@ -1055,10 +1074,10 @@ instance (IsLiteral lit atom, JustLiteral lit) => IsPropositional (Set (Set lit)
           Just (s, ss) -> co
 -}
 
-cnf_ :: forall pf atom lit atom2. (IsPropositional pf atom, IsLiteral lit atom2, JustLiteral lit) => (atom2 -> atom) -> Set (Set lit) -> pf
+cnf_ :: (IsPropositional pf atom, Ord pf, IsLiteral lit atom2, JustLiteral lit) => (atom2 -> atom) -> Set (Set lit) -> pf
 cnf_ ca = list_conj . Set.map (list_disj . Set.map (propositionalFromLiteral ca))
 
-cnf' :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
+cnf' :: (IsPropositional pf atom, JustPropositional pf, Ord pf) => pf -> pf
 cnf' fm = (list_conj . Set.map list_disj . Set.map (Set.map unmarkLiteral) . simpcnf id) fm
 
 #ifndef NOTESTS

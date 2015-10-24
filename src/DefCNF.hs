@@ -69,7 +69,7 @@ mkprop :: forall pf atom. (IsPropositional pf atom, NumAtom atom) => Integer -> 
 mkprop n = (atomic (ma n :: atom), n + 1)
 
 -- |  Core definitional CNF procedure.
-maincnf :: (IsPropositional pf atom, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
+maincnf :: (IsPropositional pf atom, Ord pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 maincnf trip@(fm, _defs, _n) =
     foldPropositional' ho co ne tf at fm
     where
@@ -82,7 +82,7 @@ maincnf trip@(fm, _defs, _n) =
       tf _ = trip
       at _ = trip
 
-defstep :: (IsPropositional pf atom, NumAtom atom) =>
+defstep :: (IsPropositional pf atom, NumAtom atom, Ord pf) =>
            (pf -> pf -> pf) -> (pf, pf) -> (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 defstep op (p,q) (_fm, defs, n) =
   let (fm1,defs1,n1) = maincnf (p,defs,n) in
@@ -97,14 +97,12 @@ max_varindex :: NumAtom atom =>  atom -> Integer -> Integer
 max_varindex atom n = max n (ai atom)
 
 -- | Overall definitional CNF.
-defcnf1 :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> pf
+defcnf1 :: forall pf atom. (IsPropositional pf atom, JustPropositional pf, NumAtom atom, Ord pf) => pf -> pf
 defcnf1 fm = list_conj (Set.map (list_disj . Set.map unmarkLiteral) (mk_defcnf id maincnf fm))
 
 mk_defcnf :: forall pf atom lit atom2.
-             (IsPropositional pf atom,
-              JustPropositional pf,
-              IsLiteral lit atom2,
-              JustLiteral lit,
+             (IsPropositional pf atom, JustPropositional pf,
+              IsLiteral lit atom2, JustLiteral lit, Ord lit,
               NumAtom atom) =>
              (atom -> atom2)
           -> ((pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer))
@@ -148,20 +146,20 @@ strings ss = sortBy (compare `on` length) . sort . Set.toList $ Set.map (sort . 
 #endif
 
 -- | Version tweaked to exploit initial structure.
-defcnf2 :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> pf
+defcnf2 :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) => pf -> pf
 defcnf2 fm = list_conj (Set.map (list_disj . Set.map unmarkLiteral) (defcnfs fm))
 
-defcnfs :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> Set (Set (Marked Literal pf))
+defcnfs :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) => pf -> Set (Set (Marked Literal pf))
 defcnfs fm = mk_defcnf id andcnf fm
 
-andcnf :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
+andcnf :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 andcnf trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> orcnf trip) (\ _ -> orcnf trip) (\ _ -> orcnf trip) fm
     where
       co p (:&:) q = subcnf andcnf (.&.) p q trip
       co _ _ _ = orcnf trip
 
-orcnf :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
+orcnf :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 orcnf trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> maincnf trip) (\ _ -> maincnf trip) (\ _ -> maincnf trip) fm
     where
@@ -181,10 +179,10 @@ subcnf sfn op p q (_fm,defs,n) =
   (op fm1 fm2, defs2, n2)
 
 -- | Version that guarantees 3-CNF.
-defcnf3 :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => pf -> pf
+defcnf3 :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) => pf -> pf
 defcnf3 = list_conj . Set.map (list_disj . Set.map unmarkLiteral) . mk_defcnf id andcnf3
 
-andcnf3 :: (IsPropositional pf atom, JustPropositional pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
+andcnf3 :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 andcnf3 trip@(fm,_defs,_n) =
     foldPropositional co (\ _ -> maincnf trip) (\ _ -> maincnf trip) (\ _ -> maincnf trip) fm
     where

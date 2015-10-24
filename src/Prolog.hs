@@ -26,7 +26,7 @@ import Tableaux (deepen)
 -- -------------------------------------------------------------------------
 
 renamerule :: forall lit atom predicate v term function.
-              (IsLiteral lit atom, JustLiteral lit,
+              (IsLiteral lit atom, JustLiteral lit, Ord lit,
                HasPredicate atom predicate term,
                IsTerm term v function) =>
               Int -> (Set lit, lit) -> ((Set lit, lit), Int)

@@ -84,7 +84,7 @@ import Formulas (BinOp(..), HasBoolean(..), IsNegatable(..), IsCombinable(..), I
                  (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (IsLiteral(foldLiteral'), foldLiteral)
-import Prop (foldPropositional, IsPropositional(foldPropositional'), JustLiteral, JustPropositional, Marked(unMark'), PFormula)
+import Prop (foldPropositional, IsPropositional(foldPropositional'), JustLiteral, JustPropositional, Marked(Mark, unMark'), PFormula)
 
 #ifndef NOTESTS
 import Test.HUnit
@@ -411,13 +411,24 @@ class (IsQuantified formula atom v,
        Show v
       ) => IsFirstOrder formula atom predicate term v function
 
+instance (IsQuantified formula atom v,
+          IsPropositional (Marked mk formula) atom
+         ) => IsQuantified (Marked mk formula) atom v where
+    quant q v x = Mark $ quant q v (unMark' x)
+    foldQuantified qu co ne tf at f = foldQuantified qu' co' ne' tf at (unMark' f)
+        where qu' op v f' = qu op v (Mark f')
+              ne' x = ne (Mark x)
+              co' x op y = co (Mark x) op (Mark y)
+
+instance IsFirstOrder formula atom predicate term v function => IsFirstOrder (Marked mk formula) atom predicate term v function
+
 -- | Implementation of funcs for quantified formulas.
 quantifiedFuncs :: forall formula atom predicate term v function.
-                   (IsQuantified formula atom v,
+                   (IsQuantified formula atom v, Ord function,
                     HasPredicate atom predicate term,
-                    Ord function,
                     HasFunctions atom function,
-                    IsTerm term v function) => formula -> Set (function, Arity)
+                    IsTerm term v function
+                   ) => formula -> Set (function, Arity)
 quantifiedFuncs = foldQuantified qu co ne tf at
     where qu _ _ fm = quantifiedFuncs fm
           ne fm = quantifiedFuncs fm
@@ -516,7 +527,8 @@ instance (Ord v, Ord atom) => IsCombinable (Formula v atom) where
           Iff a b -> a `iff` b
           _ -> other fm
 
-instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function) => IsQuantified (Formula v atom) atom v where
+instance (Ord atom, HasFixity atom, Pretty atom, HasPredicate atom predicate term, IsTerm term v function
+         ) => IsQuantified (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldQuantified qu _co _ne _tf _at (Forall v fm) = qu (:!:) v fm
