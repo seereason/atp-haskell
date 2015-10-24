@@ -1,4 +1,7 @@
--- | Basic stuff for propositional logic: datatype, parsing and printing.
+-- | Basic stuff for propositional logic: datatype, parsing and
+-- printing.  'IsPropositional' is a subclass of 'IsLiteral' of
+-- formula types that support binary combinations.
+
 {-# OPTIONS_GHC -Wall #-}
 
 {-# LANGUAGE CPP #-}
@@ -16,9 +19,8 @@ module Prop
     ( IsPropositional( foldPropositional')
     , foldPropositional
     , convertPropositional
+    , convertToPropositional
     , zipPropositional
-    , propositionalFromLiteral
-    , literalFromPropositional
     , prettyPropositional
     -- * Formula marker types and restricted formula classes
     , Marked(Mark, unMark')
@@ -90,7 +92,7 @@ import Formulas (atom_union,
                  BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  IsFormula(atomic, overatoms, onatoms))
 import Lib (distrib, fpf, (|=>), setAny)
-import Lit (IsLiteral(foldLiteral'), foldLiteral, JustLiteral, LFormula)
+import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral, LFormula)
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 import Text.PrettyPrint.HughesPJClass (vcat)
@@ -103,11 +105,8 @@ import Text.PrettyPrint.HughesPJClass (vcat)
 -- raise errors in the implementation if a non-atomic formula somehow
 -- appears where an atomic formula is expected (i.e. as an argument to
 -- atomic or to the third argument of foldPropositional.)
-class (IsFormula formula atom,
-       IsLiteral formula atom,
-       IsNegatable formula,
-       IsCombinable formula,
-       HasBoolean formula
+class (IsLiteral formula atom,
+       IsCombinable formula
       ) => IsPropositional formula atom where
     -- | Build an atomic formula from the atom type.
     -- | A fold function that distributes different sorts of formula
@@ -145,19 +144,7 @@ zipPropositional co ne tf at fm1 fm2 =
       tf' x1 = foldPropositional (\_ _ _ -> Nothing) (\_ -> Nothing)     (tf x1)     (\_ -> Nothing) fm2
       at' a1 = foldPropositional (\_ _ _ -> Nothing) (\_ -> Nothing) (\_ -> Nothing)     (at a1)     fm2
 
-convertPropositional' :: (IsPropositional pf1 a1, IsPropositional pf2 a2) => (pf1 -> pf2) -> (a1 -> a2) -> pf1 -> pf2
-convertPropositional' ho ca pf =
-    foldPropositional' ho co ne tf (atomic . ca) pf
-    where
-      co p (:&:) q = (convertPropositional' ho ca p) .&. (convertPropositional' ho ca q)
-      co p (:|:) q = (convertPropositional' ho ca p) .|. (convertPropositional' ho ca q)
-      co p (:=>:) q = (convertPropositional' ho ca p) .=>. (convertPropositional' ho ca q)
-      co p (:<=>:) q = (convertPropositional' ho ca p) .<=>. (convertPropositional' ho ca q)
-      ne p = (.~.) (convertPropositional' ho ca p)
-      tf = fromBool
-
--- | Use foldPropositional to convert any instance of
--- IsPropositional to any other by specifying the result type.
+-- | Convert any instance of JustPropositional to any IsPropositional formula.
 convertPropositional :: (IsPropositional pf1 a1, JustPropositional pf1, IsPropositional pf2 a2) => (a1 -> a2) -> pf1 -> pf2
 convertPropositional ca pf =
     foldPropositional co ne tf (atomic . ca) pf
@@ -169,20 +156,18 @@ convertPropositional ca pf =
       ne p = (.~.) (convertPropositional ca p)
       tf = fromBool
 
-propositionalFromLiteral :: (IsLiteral lit atom1, JustLiteral lit, IsPropositional pf atom2) =>
-                            (atom1 -> atom2) -> lit -> pf
-propositionalFromLiteral ca lit =
-    foldLiteral ne fromBool (atomic . ca) lit
+-- | Convert any instance of IsPropositional to a JustPropositional formula.
+convertToPropositional :: (IsPropositional formula atom1, IsPropositional pf atom2, JustPropositional pf) =>
+                          (formula -> pf) -> (atom1 -> atom2) -> formula -> pf
+convertToPropositional ho ca fm =
+    foldPropositional' ho co ne tf (atomic . ca) fm
     where
-      ne p = (.~.) (propositionalFromLiteral ca p)
-
-literalFromPropositional :: (IsPropositional pf atom1, JustPropositional pf, IsLiteral lit atom2) =>
-                            (atom1 -> atom2) -> pf -> lit
-literalFromPropositional ca =
-    foldLiteral' ho ne fromBool (atomic . ca)
-    where
-      ho _ = error "literalFromPropositional found binary operator"
-      ne p = (.~.) (literalFromPropositional ca p)
+      co p (:&:) q = (convertToPropositional ho ca p) .&. (convertToPropositional ho ca q)
+      co p (:|:) q = (convertToPropositional ho ca p) .|. (convertToPropositional ho ca q)
+      co p (:=>:) q = (convertToPropositional ho ca p) .=>. (convertToPropositional ho ca q)
+      co p (:<=>:) q = (convertToPropositional ho ca p) .<=>. (convertToPropositional ho ca q)
+      ne p = (.~.) (convertToPropositional ho ca p)
+      tf = fromBool
 
 prettyPropositional :: (IsPropositional pf atom, JustPropositional pf, HasFixity pf, Pretty atom) => pf -> Doc
 prettyPropositional fm0 =
@@ -283,7 +268,7 @@ unmarkLiteral :: IsLiteral pf atom => Marked Literal pf -> pf
 unmarkLiteral = unMark'
 
 markPropositional :: IsPropositional lit atom => lit -> Marked Propositional lit
-markPropositional fm = convertPropositional' (error "markPropositional") id fm
+markPropositional fm = convertToPropositional (error "markPropositional") id fm
 
 unmarkPropositional :: IsPropositional pf atom => Marked Propositional pf -> pf
 unmarkPropositional fm = convertPropositional id fm
@@ -983,7 +968,7 @@ purednf :: (IsPropositional pf atom, JustPropositional pf,
 purednf ca fm =
     foldPropositional co (\_ -> l2f fm) (\_ -> l2f fm) (\_ -> l2f fm) fm
     where
-      l2f = singleton . singleton . literalFromPropositional ca
+      l2f = singleton . singleton . convertToLiteral (error "purednf failure") ca
       co p (:&:) q = distrib (purednf ca p) (purednf ca q)
       co p (:|:) q = union (purednf ca p) (purednf ca q)
       co _ _ _ = l2f fm
@@ -1075,7 +1060,7 @@ instance (IsLiteral lit atom, JustLiteral lit) => IsPropositional (Set (Set lit)
 -}
 
 cnf_ :: (IsPropositional pf atom, Ord pf, IsLiteral lit atom2, JustLiteral lit) => (atom2 -> atom) -> Set (Set lit) -> pf
-cnf_ ca = list_conj . Set.map (list_disj . Set.map (propositionalFromLiteral ca))
+cnf_ ca = list_conj . Set.map (list_disj . Set.map (convertLiteral ca))
 
 cnf' :: (IsPropositional pf atom, JustPropositional pf, Ord pf) => pf -> pf
 cnf' fm = (list_conj . Set.map list_disj . Set.map (Set.map unmarkLiteral) . simpcnf id) fm

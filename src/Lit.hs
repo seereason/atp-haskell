@@ -1,3 +1,6 @@
+-- | 'IsLiteral' is a subclass of formulas that support negation and
+-- have true and false elements.
+
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -11,6 +14,7 @@ module Lit
     , overatomsLiteral
     , zipLiterals', zipLiterals
     , convertLiteral
+    , convertToLiteral
     , prettyLiteral
     , LFormula(T, F, Atom, Not)
     ) where
@@ -22,7 +26,7 @@ import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, o
 import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
 
 -- | Literals are the building blocks of the clause and implicative normal
--- |forms.  They support negation and must include True and False elements.
+-- forms.  They support negation and must include True and False elements.
 class (IsFormula lit atom,
        IsNegatable lit,
        HasBoolean lit,
@@ -65,10 +69,18 @@ zipLiterals neg tf at fm1 fm2 =
       tf' x1 = foldLiteral (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
       at' a1 = foldLiteral (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
 
-convertLiteral :: (IsLiteral lit1 atom1, JustLiteral lit1, IsLiteral lit2 atom2, JustLiteral lit2
-                  ) => (atom1 -> atom2) -> lit1 -> lit2
+-- | Convert a 'JustLiteral' instance to any 'IsLiteral' instance.
+convertLiteral :: (IsLiteral lit1 atom1, JustLiteral lit1, IsLiteral lit2 atom2) => (atom1 -> atom2) -> lit1 -> lit2
 convertLiteral ca fm = foldLiteral (\fm' -> (.~.) (convertLiteral ca fm')) fromBool (atomic . ca) fm
 
+-- | Convert any formula to a literal, passing non-IsLiteral
+-- structures to the first argument (typically a call to error.)
+convertToLiteral :: (IsLiteral formula atom1, IsLiteral lit atom2, JustLiteral lit
+                    ) => (formula -> lit) -> (atom1 -> atom2) -> formula -> lit
+convertToLiteral ho ca fm = foldLiteral' ho (\fm' -> (.~.) (convertToLiteral ho ca fm')) fromBool (atomic . ca) fm
+
+-- | Function typically used to implement Pretty instances for
+-- JustLiteral formulas.
 prettyLiteral :: (IsLiteral formula atom, JustLiteral formula) => formula -> Doc
 prettyLiteral lit =
     foldLiteral ne tf at lit

@@ -49,7 +49,7 @@ import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
 import FOL (exists, fApp, for_all, fv, IsFirstOrder, IsFunction, IsQuantified(foldQuantified),
-            pApp, propositionalFromQuantified, quant, Quant((:?:), (:!:)), subst, variant, vt)
+            pApp, quant, Quant((:?:), (:!:)), subst, variant, vt)
 #ifndef NOTESTS
 import FOL (Formula, Term, V, FOL, Predicate)
 #endif
@@ -57,7 +57,7 @@ import Formulas (BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), (.&.), (.|.), (.=
 import Lib (setAny, distrib)
 import Prelude hiding (negate)
 import Pretty (Pretty(pPrint), prettyShow, text)
-import Prop (IsPropositional, JustPropositional, Marked, Propositional, psimplify1, trivial)
+import Prop (convertToPropositional, IsPropositional, JustPropositional, Marked, Propositional, psimplify1, trivial)
 import Test.HUnit
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
@@ -316,9 +316,9 @@ askolemize = skolem . nnf . simplify
 -- will have already turned all the existential quantifiers into
 -- skolem functions.  For this reason we can safely convert to any
 -- instance of IsPropositional.
-specialize :: (IsQuantified fof atom1 v, IsPropositional pf atom2) => (atom1 -> atom2) -> fof -> pf
+specialize :: (IsQuantified fof atom1 v, IsPropositional pf atom2, JustPropositional pf) => (atom1 -> atom2) -> fof -> pf
 specialize ca fm =
-    propositionalFromQuantified ca (specialize' fm)
+    convertToPropositional (error "specialize failure") ca (specialize' fm)
     where
       specialize' p = foldQuantified qu (\_ _ _ -> p) (\_ -> p) (\_ -> p) (\_ -> p) p
       qu (:!:) _ p = specialize' p

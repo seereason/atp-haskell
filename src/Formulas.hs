@@ -1,10 +1,12 @@
--- | Polymorphic type of formulas
+-- | Classes describing constant formulas ('HasBoolean'), formula
+-- negation ('IsNegatable') and combination ('IsCombinable'), and the
+-- relationship between formulas and the atom type representing the
+-- formula's propositional variables ('IsFormula'.)
 
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# OPTIONS_GHC -Wall #-}
 
 module Formulas
     ( -- * True and False
@@ -95,18 +97,12 @@ class IsNegatable formula => IsCombinable formula where
     -- | Disjunction/OR
     (.|.) :: formula -> formula -> formula
 
-    -- | Derived formula combinators.  These could (and should!) be
-    -- overridden with expressions native to the instance.
-    --
-    -- | Conjunction/AND
+    -- | Conjunction/AND.  @x .&. y = (.~.) ((.~.) x .|. (.~.) y)@
     (.&.) :: formula -> formula -> formula
-    -- x .&. y = (.~.) ((.~.) x .|. (.~.) y)
-    -- | Formula combinators: Equivalence
+    -- | Equivalence.  @x .<=>. y = (x .=>. y) .&. (y .=>. x)@
     (.<=>.) :: formula -> formula -> formula
-    -- x .<=>. y = (x .=>. y) .&. (y .=>. x)
-    -- | Implication
+    -- | Implication.  @x .=>. y = ((.~.) x .|. y)@
     (.=>.) :: formula -> formula -> formula
-    -- x .=>. y = ((.~.) x .|. y)
 
     foldCombination :: (formula -> formula -> r) -- disjunction
                     -> (formula -> formula -> r) -- conjunction

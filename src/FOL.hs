@@ -1,4 +1,6 @@
--- | Basic stuff for first order logic.
+-- | Basic stuff for first order logic.  'IsQuantified' is a subclass
+-- of 'IsPropositional' of formula types that support existential and
+-- universal quantification.
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
@@ -40,8 +42,6 @@ module FOL
     , zipQuantified
     , fixityQuantified
     , convertQuantified
-    , propositionalFromQuantified
-    , literalFromQuantified
     , onatomsQuantified
     , overatomsQuantified
     , onformula
@@ -665,27 +665,6 @@ convertQuantified ca cv f1 =
       tf = fromBool
       at :: a1 -> f2
       at = atomic . ca
-
--- | Convert any first order formula to a propositional formula.  If
--- we encounter a quantifier an error is raised.
-propositionalFromQuantified :: (IsQuantified fof atom1 v, IsPropositional pf atom2) => (atom1 -> atom2) -> fof -> pf
-propositionalFromQuantified ca fm =
-    foldQuantified qu co ne fromBool (atomic . ca) fm
-    where
-      qu _ _ _ = error "propositionalFromQuantified: found quantifier"
-      ne p = (.~.) (propositionalFromQuantified ca p)
-      co p (:&:) q = propositionalFromQuantified ca p .&. propositionalFromQuantified ca q
-      co p (:|:) q = propositionalFromQuantified ca p .|. propositionalFromQuantified ca q
-      co p (:=>:) q = propositionalFromQuantified ca p .=>. propositionalFromQuantified ca q
-      co p (:<=>:) q = propositionalFromQuantified ca p .<=>. propositionalFromQuantified ca q
-
-literalFromQuantified :: (IsQuantified fof atom1 v, IsLiteral lit atom2) => (atom1 -> atom2) -> fof -> lit
-literalFromQuantified ca fm =
-    foldQuantified qu co ne fromBool (atomic . ca) fm
-    where
-      qu _ _ _ = error "literalFromQuantified: found quantifier"
-      ne p = (.~.) (literalFromQuantified ca p)
-      co _ = error "literalFromQuantified: found binary operator"
 
 for_all :: IsQuantified formula atom v => v -> formula -> formula
 for_all = quant (:!:)
