@@ -498,7 +498,7 @@ showQuantified fm0 =
     go rootFixity Unary fm0
     where
       go parentFixity side fm =
-          parenthesize undefined undefined parentFixity fix side $ foldQuantified qu co ne tf at fm
+          parenthesize (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") parentFixity fix side $ foldQuantified qu co ne tf at fm
           where
             fix = fixity fm
             qu (:!:) x p = "for_all " ++ show x <> " " <> go fix RHS p
