@@ -31,6 +31,7 @@ import Formulas
 import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
             Failing(..), failing, (|->), setAll, setAny, settryfind)
 import Lit
+import Pretty (Pretty)
 import Prop
 import Skolem
 import Tableaux (unify_literals)
@@ -142,14 +143,15 @@ resloop1 used unused =
             news = Set.fold Set.insert Set.empty ({-setmapfilter-} Set.map (resolve_clauses cl) used')
 
 pure_resolution1 :: forall fof atom predicate v term function.
-                    (IsFirstOrder fof atom predicate term v function, Ord fof) => fof -> Failing Bool
+                    (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof
+                    ) => fof -> Failing Bool
 pure_resolution1 fm = resloop1 Set.empty (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set (Marked Literal fof)))
 
 resolution1 :: forall m fof term function atom predicate v.
-               (IsFirstOrder fof atom predicate term v function, Ord fof,
+               (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof,
                 HasSkolem function v,
-                Monad m) =>
-               fof -> SkolemT m (Set (Failing Bool))
+                Monad m
+               ) => fof -> SkolemT m (Set (Failing Bool))
 resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution1 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 #ifndef NOTESTS
@@ -264,14 +266,14 @@ resloop2 used unused =
           if Set.member Set.empty news then return True else resloop2 used' (Set.fold (incorporate cl) ros news)
 
 pure_resolution2 :: forall fof atom predicate v term function.
-                    (IsFirstOrder fof atom predicate term v function, Ord fof,
+                    (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof,
                      HasPredicate atom predicate term,
                      IsTerm term v function
                     ) => fof -> Failing Bool
 pure_resolution2 fm = resloop2 Set.empty (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set (Marked Literal fof)))
 
 resolution2 :: forall fof atom predicate term v function m.
-               (IsFirstOrder fof atom predicate term v function, Ord fof,
+               (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof,
                 HasSkolem function v, Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
 resolution2 fm = askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_resolution2 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
@@ -306,13 +308,14 @@ presloop used unused =
           else presloop used' (Set.fold (incorporate cl) ros news)
 
 pure_presolution :: forall fof atom predicate v term function.
-                    (IsFirstOrder fof atom predicate term v function, Ord fof) => fof -> Failing Bool
+                    (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof
+                    ) => fof -> Failing Bool
 pure_presolution fm = presloop Set.empty (simpcnf id (specialize id (pnf fm :: fof) ::  Marked Propositional fof) :: Set (Set (Marked Literal fof)))
 
 presolution :: forall fof atom predicate term v function m.
-               (IsFirstOrder fof atom predicate term v function, Ord fof,
-                HasSkolem function v, Monad m) =>
-               fof -> SkolemT m (Set (Failing Bool))
+               (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof,
+                HasSkolem function v, Monad m
+               ) => fof -> SkolemT m (Set (Failing Bool))
 presolution fm =
     askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_presolution . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
@@ -321,13 +324,14 @@ presolution fm =
 -- -------------------------------------------------------------------------
 
 pure_resolution3 :: forall fof atom v function predicate term.
-                    (IsFirstOrder fof atom predicate term v function, Ord fof) => fof -> Failing Bool
+                    (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof) => fof -> Failing Bool
 pure_resolution3 fm =
     uncurry resloop2 (Set.partition (setAny positive) (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set (Marked Literal fof))))
 
 resolution3 :: forall fof atom predicate term v function m.
-               (IsFirstOrder fof atom predicate term v function, Ord fof, HasSkolem function v, Monad m) =>
-               fof -> SkolemT m (Set (Failing Bool))
+               (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof,
+                HasSkolem function v, Monad m
+               ) => fof -> SkolemT m (Set (Failing Bool))
 resolution3 fm =
     askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution3 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 

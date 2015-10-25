@@ -62,7 +62,7 @@ import Test.HUnit
 #endif
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
-simplify :: IsFirstOrder formula atom predicate term v function => formula -> formula
+simplify :: (IsFirstOrder formula atom predicate term v function, Pretty formula) => formula -> formula
 simplify fm =
     foldQuantified qu co ne (\_ -> fm) (\_ -> fm) fm
     where
@@ -74,7 +74,7 @@ simplify fm =
       co p (:=>:) q = simplify1 (simplify p .=>. simplify q)
       co p (:<=>:) q = simplify1 (simplify p .<=>. simplify q)
 
-simplify1 :: IsFirstOrder formula atom predicate term v function =>
+simplify1 :: (IsFirstOrder formula atom predicate term v function, Pretty formula) =>
              formula -> formula
 simplify1 fm =
     foldQuantified qu co ne (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) fm
@@ -106,7 +106,7 @@ test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ prettyShow fm) expected
 #endif
 
 -- | Negation normal form for first order formulas
-nnf :: IsFirstOrder formula atom predicate term v function => formula -> formula
+nnf :: (IsFirstOrder formula atom predicate term v function, Pretty formula) => formula -> formula
 nnf = nnf1 . simplify
 
 nnf1 :: (IsQuantified formula atom v) => formula -> formula
@@ -144,7 +144,7 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
 #endif
 
 -- | Prenex normal form.
-pnf :: IsFirstOrder formula atom predicate term v function =>
+pnf :: (IsFirstOrder formula atom predicate term v function, Pretty formula) =>
        formula -> formula
 pnf = prenex . nnf . simplify
 
@@ -313,7 +313,7 @@ skolem2 cons p q =
 
 -- | Overall Skolemization function.
 askolemize :: (IsFirstOrder formula atom predicate term v function,
-               HasSkolem function v, Monad m) =>
+               HasSkolem function v, Monad m, Pretty formula) =>
               formula -> SkolemT m formula
 askolemize = skolem . nnf . simplify
 
@@ -334,7 +334,8 @@ specialize ca fm =
 -- are gone we can convert to any instance of IsPropositional.
 skolemize :: (IsFirstOrder formula atom predicate term v function,
               HasSkolem function v,
-              IsPropositional pf atom2, JustPropositional pf, Monad m) =>
+              IsPropositional pf atom2, JustPropositional pf,
+              Monad m, Pretty formula) =>
              (atom -> atom2) -> formula -> StateT SkolemState m pf
 skolemize ca fm = (specialize ca . pnf) <$> askolemize fm
 
@@ -390,7 +391,7 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
 #endif
 
 -- Versions of the normal form functions that leave quantifiers in place.
-simpdnf' :: (IsFirstOrder fof atom predicate term v function, Ord fof) => fof -> Set (Set fof)
+simpdnf' :: (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof) => fof -> Set (Set fof)
 simpdnf' fm =
     {-t2 $-}
     foldQuantified (\_ _ _ -> go) (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) ({-t1-} fm)
@@ -415,7 +416,7 @@ purednf' fm =
       -- t3 x = trace ("purednf' (" ++ prettyShow x) x
       -- t4 x = trace ("purednf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
 
-simpcnf' :: (IsFirstOrder fof atom predicate term v function, Ord fof) => fof -> Set (Set fof)
+simpcnf' :: (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof) => fof -> Set (Set fof)
 simpcnf' fm =
     foldQuantified (\_ _ _ -> go) (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
@@ -424,7 +425,7 @@ simpcnf' fm =
       go = let cjs = Set.filter (not . trivial) (purecnf' fm) in
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
-purecnf' :: (IsFirstOrder fof atom predicate term v f, Ord fof) => fof -> Set (Set fof)
+purecnf' :: (IsFirstOrder fof atom predicate term v f, Ord fof, Pretty fof) => fof -> Set (Set fof)
 purecnf' fm = Set.map (Set.map negate) (purednf' (nnf ((.~.) fm)))
 
 #ifndef NOTESTS

@@ -119,7 +119,9 @@ prawitz_loop djs0 fvs djs n =
       newvar k = vt (fromString ("_" ++ show (n * length fvs + k)))
 
 prawitz :: forall formula atom term predicate function v.
-           (IsFirstOrder formula atom predicate term v function, Ord formula, HasSkolem function v) => formula -> Int
+           (IsFirstOrder formula atom predicate term v function,
+            Ord formula, Pretty formula, HasSkolem function v
+           ) => formula -> Int
 prawitz fm =
     snd (prawitz_loop dnf (Set.toList fvs) dnf0 0)
     where
@@ -148,7 +150,7 @@ p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
 -- -------------------------------------------------------------------------
 
 #ifndef NOTESTS
-compare :: (IsFirstOrder formula atom predicate term v function, Ord formula, HasSkolem function v) => formula -> (Int, Failing Int)
+compare :: (IsFirstOrder formula atom predicate term v function, Ord formula, Pretty formula, HasSkolem function v) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
 p19 :: Test
@@ -280,7 +282,7 @@ tabrefute limit fms =
     let r = deepen (\n -> (,n) <$> evalRS (tableau (fms,[],n) (return . Success) (K 0, Map.empty)) () ()) (Depth 0) limit in
     failing Failure (Success . fst) r
 
-tab :: (IsFirstOrder formula atom predicate term v function, HasSkolem function v) =>
+tab :: (IsFirstOrder formula atom predicate term v function, Pretty formula, HasSkolem function v) =>
        Maybe Depth -> formula -> Failing ((K, Map v term), Depth)
 tab limit fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
@@ -328,7 +330,7 @@ END_INTERACTIVE;;
 -- Try to split up the initial formula first; often a big improvement.
 -- -------------------------------------------------------------------------
 splittab :: forall formula atom predicate term v function.
-            (IsFirstOrder formula atom predicate term v function, Ord formula, HasSkolem function v
+            (IsFirstOrder formula atom predicate term v function, Ord formula, Pretty formula, HasSkolem function v
             ) => formula -> [Failing ((K, Map v term), Depth)]
 splittab fm =
     (List.map (tabrefute Nothing) . ssll . simpdnf' . runSkolem . skolemize id . (.~.) . generalize) fm
