@@ -33,6 +33,9 @@ import Pretty (Doc, Pretty, text)
 class HasBoolean p where
     asBool :: p -> Maybe Bool
     fromBool :: Bool -> p
+    -- foldBoolean :: (p -> r) -> (Bool -> r) -> p -> r
+    -- foldBoolean ho tf fm = maybe (ho fm) tf fm
+    -- asBool = foldBoolean Nothing tf
 
 true :: HasBoolean p => p
 true = fromBool True
