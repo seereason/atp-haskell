@@ -20,7 +20,6 @@ module Pretty
     ) where
 
 import Control.Monad (unless)
-import Data.List as List (intercalate, map, sort)
 import Data.Map as Map (Map, toList)
 import Data.Monoid ((<>))
 import Data.Set as Set (Set, toAscList)
@@ -28,7 +27,7 @@ import GHC.Stack
 import Language.Haskell.TH.Syntax (maxPrecedence)
 import Language.Haskell.TH.Ppr (noPrec, Precedence)
 import Test.HUnit (Assertion, assertFailure)
-import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), nest, {-braces, brackets, parens,-} prettyShow, text)
+import Text.PrettyPrint.HughesPJClass (brackets, comma, Doc, fsep, hcat, nest, Pretty(pPrint), prettyShow, punctuate, text)
 
 data Associativity
     = InfixL  -- Left-associative - a-b-c == (a-b)-c
@@ -102,7 +101,7 @@ parenthesize parens braces (Fixity pprec pdir) (Fixity prec _dir) side pp =
             (_, InfixN) -> error "Nested non-associative operators"
 
 instance Pretty a => Pretty (Set a) where
-    pPrint s = text "{" <> text (intercalate ", " (List.sort (List.map prettyShow (Set.toAscList s)))) <> text "}"
+    pPrint s = brackets (fsep (punctuate comma (map pPrint (Set.toAscList s))))
 
 instance (Pretty v, Pretty term) => Pretty (Map v term) where
     pPrint = pPrint . Map.toList
