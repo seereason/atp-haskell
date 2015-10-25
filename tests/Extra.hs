@@ -17,7 +17,44 @@ import Skolem (HasSkolem(toSkolem), skolemize, runSkolem, MyAtom, MyFormula, MyT
 import Tableaux (Depth(Depth))
 
 testExtra :: Test
-testExtra = TestList [test06, test07]
+testExtra = TestList [test05, test06, test07, test00]
+
+test05 :: Test
+test05 = TestCase $ assertEqual "Socrates syllogism" expected input
+    where input = (runSkolem (resolution1 socrates),
+                   runSkolem (resolution2 socrates),
+                   runSkolem (resolution3 socrates),
+                   runSkolem (presolution socrates),
+                   runSkolem (resolution1 notSocrates),
+                   runSkolem (resolution2 notSocrates),
+                   runSkolem (resolution3 notSocrates),
+                   runSkolem (presolution notSocrates))
+          expected = (Set.singleton (Success True),
+                      Set.singleton (Success True),
+                      Set.singleton (Success True),
+                      Set.singleton (Success True),
+                      Set.singleton (Success {-False-} True),
+                      Set.singleton (Success {-False-} True),
+                      Set.singleton (Failure ["No proof found"]),
+                      Set.singleton (Success {-False-} True))
+
+socrates :: MyFormula
+socrates =
+    (for_all x (s [vt x] .=>. h [vt x]) .&. for_all x (h [vt x] .=>. m [vt x])) .=>. for_all x (s [vt x] .=>. m [vt x])
+    where
+      x = fromString "x"
+      s = pApp (fromString "S")
+      h = pApp (fromString "H")
+      m = pApp (fromString "M")
+
+notSocrates :: MyFormula
+notSocrates =
+    (for_all x (s [vt x] .=>. h [vt x]) .&. for_all x (h [vt x] .=>. m [vt x])) .=>. for_all x (s [vt x] .=>.  ((.~.)(m [vt x])))
+    where
+      x = fromString "x"
+      s = pApp (fromString "S")
+      h = pApp (fromString "H")
+      m = pApp (fromString "M")
 
 test06 :: Test
 test06 =
@@ -61,6 +98,20 @@ fms = [ -- if x every x equals itself then there is always some y that equals x
 
 test07 :: Test
 test07 = TestList (List.map (uncurry mesonTest) fms)
+
+test00 :: Test
+test00 =
+    let [a, y, z] = List.map vt ["a", "y", "z"] :: [MyTerm]
+        [p, q, r] = List.map (pApp . fromString) ["P", "Q", "R"] :: [[MyTerm] -> MyFormula]
+        fm1 = for_all "a" ((.~.)(p[a] .&. (for_all "y" (for_all "z" (q[y] .|. r[z]) .&. (.~.)(p[a])))))
+        fm2 = for_all "a" ((.~.)(p[a] .&. (.~.)(p[a]) .&. (for_all "y" (for_all "z" (q[y] .|. r[z]))))) in
+    TestList
+    [ TestCase $ assertEqual ("MESON 1")
+                   ("∀a. (¬(P[a]∧∀y. (∀z. (Q[y]∨R[z])∧¬P[a])))", Success ((K 2, Map.empty),Depth 2))
+                   (prettyShow fm1, tab Nothing fm1),
+      TestCase $ assertEqual ("MESON 2")
+                   ("∀a. (¬(P[a]∧¬P[a]∧∀y. ∀z. (Q[y]∨R[z])))", Success ((K 0, Map.empty),Depth 0))
+                   (prettyShow fm2, tab Nothing fm2) ]
 
 {-
 test12 :: Test
