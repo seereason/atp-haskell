@@ -8,12 +8,13 @@
 module Equal
     ( function_congruence
     , equalitize
+#ifndef NOTESTS
     -- * Tests
     , testEqual
+#endif
     ) where
 
 import Data.List as List (foldr, map)
-import Data.Map as Map (fromList, Map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
 import Formulas ((∧), (⇒), IsFormula(atomic), atom_union)
@@ -21,6 +22,7 @@ import FOL (HasEquate(..), foldEquate, (.=.), HasFunctions(funcs), IsQuantified(
 import Lib ((∅))
 import Prelude hiding ((*))
 #ifndef NOTESTS
+import Data.Map as Map (fromList, Map)
 import FOL ((∃), pApp, Predicate, V)
 import Formulas ((.&.), (.=>.), (.<=>.))
 import Lib (Failing (Success, Failure))

@@ -17,23 +17,26 @@ module Meson
 #endif
     ) where
 
-import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
-import Data.String (fromString)
 import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (exists, fApp, for_all, generalize, HasPredicate, IsFirstOrder, IsTerm, pApp, V, vt)
-import Formulas ((.~.), (.&.), (.|.), (.=>.), false, negative)
+import FOL (generalize, HasPredicate, IsFirstOrder, IsTerm)
+import Formulas ((.~.), false, negative)
 import Lit (IsLiteral)
-import Pretty (prettyShow)
 import Prolog (renamerule)
 import Prop (JustLiteral, list_conj, Literal, Marked, Propositional, simpcnf)
-import Skolem (askolemize, HasSkolem, pnf, runSkolem, SkolemT, simpdnf', specialize, toSkolem)
-import Tableaux (Depth(Depth), K(K), deepen, tab, unify_literals)
+import Skolem (askolemize, HasSkolem, pnf, SkolemT, simpdnf', specialize)
+import Tableaux (Depth(Depth), deepen, unify_literals)
 
 #ifndef NOTESTS
+import Data.List as List (map)
+import Data.String (fromString)
+import FOL (exists, fApp, for_all, pApp, V, vt)
+import Formulas ((.&.), (.|.), (.=>.))
+import Pretty (prettyShow)
 import Resolution (davis_putnam_example_formula)
-import Skolem (MyFormula, MyTerm)
+import Skolem (MyFormula, MyTerm, runSkolem, toSkolem)
+import Tableaux (K(K), tab)
 import Test.HUnit
 
 test00 :: Test

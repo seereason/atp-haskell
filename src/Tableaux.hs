@@ -23,26 +23,25 @@ module Tableaux
     ) where
 
 import Control.Monad.RWS (RWS)
-import Data.List as List (intercalate, map)
+import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace (trace)
-import Prelude hiding (compare)
-
-import Lib
+import FOL
 import Formulas
-import Herbrand (davisputnam)
+import Lib
 import Lit
+import Prelude hiding (compare)
 import Pretty (Pretty(pPrint), prettyShow, text)
 import Prop (Literal, Marked, Propositional, simpdnf, unmarkLiteral, unmarkPropositional)
-import FOL
 import Skolem (askolemize, HasSkolem, runSkolem, skolemize)
 import Unif (unify)
-
 #ifndef NOTESTS
-import Test.HUnit hiding (State)
+import Data.List as List (intercalate)
+import Herbrand (davisputnam)
 import Skolem (MyTerm, MyFormula)
+import Test.HUnit hiding (State)
 #endif
 
 -- | Unify literals (just pretend the toplevel relation is a function).
@@ -148,10 +147,10 @@ p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
 -- Comparison of number of ground instances.
 -- -------------------------------------------------------------------------
 
+#ifndef NOTESTS
 compare :: (IsFirstOrder formula atom predicate term v function, Ord formula, HasSkolem function v) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
-#ifndef NOTESTS
 p19 :: Test
 p19 = TestCase $ assertEqual "p19" expected input
     where

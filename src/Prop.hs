@@ -81,22 +81,29 @@ import Data.Generics (Data, Typeable)
 import Data.List as List (map, intercalate)
 import Data.Map as Map (Map)
 import Data.Monoid ((<>))
-import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map, minView, partition, Set, singleton, toAscList, union)
-import Data.String (IsString(fromString))
-import Prelude hiding (negate, null)
-import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
-
+import Data.Set as Set (empty, filter, intersection, isProperSubsetOf, map,
+                        minView, partition, Set, singleton, toAscList, union)
 import Formulas (atom_union,
                  HasBoolean(fromBool, asBool), true, false,
                  IsNegatable(naiveNegate, foldNegation'), (.~.), negate, positive,
-                 IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination), (¬), (∧), (∨),
+                 IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination),
                  BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  IsFormula(atomic, overatoms, onatoms))
-import Lib (distrib, fpf, (|=>), setAny)
-import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral, LFormula)
+import Lib (distrib, fpf, setAny)
+import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral)
+import Prelude hiding (negate, null)
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
-              leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
+              parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 import Text.PrettyPrint.HughesPJClass (braces, parens, vcat)
+#ifndef NOTESTS
+import Data.Set as Set (fromList)
+import Data.String (IsString(fromString))
+import Formulas ((¬), (∧), (∨))
+import Lib ((|=>))
+import Lit (LFormula)
+import Pretty (leafFixity)
+import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
+#endif
 
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
@@ -274,10 +281,8 @@ instance Show formula => Show (Marked Propositional formula) where
 -- features - no quantifiers.
 class JustPropositional formula
 
-instance JustPropositional (PFormula atom)
 instance JustLiteral (Marked Literal formula)
 instance JustPropositional (Marked Propositional formula)
-instance JustPropositional (LFormula atom)
 instance JustPropositional (Marked Literal formula)
 
 markLiteral :: IsLiteral lit atom => lit -> Marked Literal lit
@@ -293,6 +298,9 @@ unmarkPropositional :: IsPropositional pf atom => Marked Propositional pf -> pf
 unmarkPropositional fm = convertPropositional id fm
 
 #ifndef NOTESTS
+instance JustPropositional (PFormula atom)
+instance JustPropositional (LFormula atom)
+
 data Prop = P {pname :: String} deriving (Eq, Ord)
 
 -- Allows us to say "q" instead of P "q" or P {pname = "q"}
@@ -822,16 +830,6 @@ test28 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           q' = Atom (P "q'")
 #endif
 
--- This is only used in the test below, its easier to match lists than sets.
-dnfList :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
-dnfList fm =
-    list_disj (List.map (mk_lits' (List.map atomic (Set.toAscList pvs))) satvals)
-     where
-       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
-       pvs = atoms fm
-       mk_lits' :: (IsPropositional pf atom, JustPropositional pf) => [pf] -> (atom -> Bool) -> pf
-       mk_lits' pvs' v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs')
-
 dnfSet :: (IsPropositional pf atom, JustPropositional pf, Ord pf) => pf -> pf
 dnfSet fm =
     list_disj (List.map (mk_lits (Set.map atomic pvs)) satvals)
@@ -859,6 +857,16 @@ list_disj l | null l = false
 list_disj l = foldl1 (.|.) l
 
 #ifndef NOTESTS
+-- This is only used in the test below, its easier to match lists than sets.
+dnfList :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
+dnfList fm =
+    list_disj (List.map (mk_lits' (List.map atomic (Set.toAscList pvs))) satvals)
+     where
+       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
+       pvs = atoms fm
+       mk_lits' :: (IsPropositional pf atom, JustPropositional pf) => [pf] -> (atom -> Bool) -> pf
+       mk_lits' pvs' v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs')
+
 -- Examples.
 
 test29 :: Test

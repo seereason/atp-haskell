@@ -23,25 +23,25 @@ module Resolution
 #endif
     ) where
 
-import Data.List as List (map)
 import Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Set as Set
-import Data.String (fromString)
-import Test.HUnit
-
+import FOL
+import Formulas
 import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
             Failing(..), failing, (|->), setAll, setAny, settryfind)
-import Formulas
-import Pretty (prettyShow)
-import Prop
 import Lit
-import FOL
+import Prop
 import Skolem
 import Tableaux (unify_literals)
 import Unif (solve)
 
 #ifndef NOTESTS
+import Data.List as List (map)
+import Data.String (fromString)
+import Test.HUnit
+import Pretty (prettyShow)
+
 -- | Barber's paradox is an example of why we need factoring.
 
 test01 :: Test

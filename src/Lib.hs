@@ -44,21 +44,23 @@ module Lib
 #ifndef NOTESTS
     , testLib
 #endif
-    , assertEqual'
     ) where
 
 import Control.Applicative.Error (Failing (Success, Failure))
-import Control.Monad (unless)
 import Control.Monad.RWS (evalRWS, runRWS, RWS)
 import Data.Foldable as Foldable
 import Data.Function (on)
 import Data.Generics
-import Data.List as List (map)
+import qualified Data.List as List (map)
 import Data.Map as Map (delete, findMin, fromList, insert, lookup, Map, member)
 import Data.Maybe
-import Data.Set as Set
-import Test.HUnit
-import Text.PrettyPrint.HughesPJClass (Pretty, prettyShow)
+import Data.Set as Set (delete, empty, fold, fromList, insert, minView, Set, singleton, union)
+import qualified Data.Set as Set (map)
+import Prelude hiding (map)
+import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
+#ifndef NOTESTS
+import Test.HUnit (assertEqual, Test(TestCase, TestLabel, TestList))
+#endif
 
 failing :: ([String] -> b) -> (a -> b) -> Failing a -> b
 failing f _ (Failure errs) = f errs
@@ -80,6 +82,10 @@ deriving instance Data a => Data (Failing a)
 deriving instance Read a => Read (Failing a)
 deriving instance Eq a => Eq (Failing a)
 deriving instance Ord a => Ord (Failing a)
+
+instance Pretty a => Pretty (Failing a) where
+    pPrint (Failure ss) = text (unlines ("Failures:" : map ("  " ++) ss))
+    pPrint (Success a) = pPrint a
 
 -- | A simple class, slightly more powerful than Foldable, so we can
 -- write functions that operate on the elements of a set or a list.
@@ -405,6 +411,7 @@ evalRS action r s = fst $ evalRWS action r s
 runRS :: RWS r () s a -> r -> s -> (a, s)
 runRS action r s = (\(a, s', _w) -> (a, s')) $ runRWS action r s
 
+#ifndef NOTESTS
 test02 :: Test
 test02 =
     TestCase $
@@ -414,6 +421,7 @@ test02 =
       (tryfind (\x -> if x == 3
                       then Success 3
                       else Failure ["test02"]) ([1..] :: [Int]))
+#endif
 
 settryfind :: (t -> Failing a) -> Set t -> Failing a
 settryfind f l =
@@ -888,14 +896,3 @@ let rec first n p = if p(n) then n else first (n +/ Int 1) p;;
 testLib :: Test
 testLib = TestLabel "Lib" (TestList [test01])
 #endif
-
--- | Version of assertEqual that uses the pretty printer instead of show.
-assertEqual' :: (Eq a, Pretty a) =>
-                String -- ^ The message prefix
-             -> a      -- ^ The expected value
-             -> a      -- ^ The actual value
-             -> Assertion
-assertEqual' preface expected actual =
-  unless (actual == expected) (assertFailure msg)
- where msg = (if Foldable.null preface then "" else preface ++ "\n") ++
-             "expected: " ++ prettyShow expected ++ "\n but got: " ++ prettyShow actual

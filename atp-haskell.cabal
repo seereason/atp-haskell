@@ -21,8 +21,8 @@ flag tests-and-instances
     Term, V, Predicate, etc.)  This has been used for debugging to
     make sure none of the type variables accidentally get bound to a
     particular implementation.
-  Default: True
   Manual: True
+  Default: True
 
 Library
   Build-Depends: applicative-extras, base, containers, hashable, HUnit, mtl, pretty >= 1.1.2, syb, template-haskell

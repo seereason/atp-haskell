@@ -23,13 +23,13 @@ module FOL
     , Arity
     , HasFunctions(funcs)
     -- * Terms
-    , IsTerm(vt, fApp, foldTerm), zipTerms, convertTerm, showTerm, prettyTerm
+    , IsTerm(vt, fApp, foldTerm), zipTerms, termFuncs, convertTerm, showTerm, prettyTerm
     -- * Predicates
     , IsPredicate
     -- * Atoms
     , HasPredicate(applyPredicate, foldPredicate), convertPredicate, zipPredicates, showPredicate, pApp, atomFuncs
     , prettyPredicateApplication
-    , HasEquate(equate, foldEquate'), isEquate, (.=.), foldEquate, equalsFuncs, zipEquals
+    , HasEquate(equate, foldEquate'), isEquate, (.=.), foldEquate, equalsFuncs, zipEquals, showEquate
     , HasEquals(equals, isEquals) -- deprecated
     , prettyPredicateApplicationEq
     -- * Quantifiers
@@ -37,6 +37,8 @@ module FOL
     -- Formula
     , IsQuantified(quant, foldQuantified), for_all, exists, (∀), (∃)
     , quantifiedFuncs
+    , propositionalFuncs
+    , showQuantified
     , prettyQuantified
     , IsFirstOrder
     , zipQuantified
@@ -73,24 +75,28 @@ module FOL
 
 import Data.Data (Data)
 import Data.List (intercalate, intersperse)
-import Data.Map as Map (empty, fromList, insert, lookup, Map)
+import Data.Map as Map (insert, lookup, Map)
 import Data.Maybe (fromMaybe)
-import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
+import Data.Set as Set (difference, empty, fold, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
-import Prelude hiding (pred)
-
-import Formulas (BinOp(..), HasBoolean(..), IsNegatable(..), IsCombinable(..), IsFormula(..),
+import Formulas (BinOp(..), HasBoolean(..), IsCombinable(..), IsFormula(..),
                  (.~.), true, false, onatoms, binop)
 import Lib (setAny, tryApplyD, undefine, (|->))
-import Lit (IsLiteral(foldLiteral'), foldLiteral)
-import Prop (foldPropositional, IsPropositional(foldPropositional'), JustLiteral, JustPropositional, Marked(Mark, unMark'), PFormula)
-
-#ifndef NOTESTS
-import Test.HUnit
-import Pretty (Doc, Associativity(InfixN, InfixR, InfixA), HasFixity(fixity), Fixity(Fixity), parenthesize, Pretty(pPrint), prettyShow, text, rootFixity, Side(LHS, RHS, Unary), (<>))
-#endif
+import Lit (foldLiteral, IsLiteral)
+import Prelude hiding (pred)
+import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
+               parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
+import Prop (foldPropositional, IsPropositional, JustLiteral, JustPropositional, Marked(Mark, unMark'))
 import Text.PrettyPrint (parens, braces)
+#ifndef NOTESTS
+import Data.Map as Map (empty, fromList)
+import Data.Set as Set (fromList)
+import Formulas (IsNegatable(..))
+import Lit (foldLiteral')
+import Prop (foldPropositional', PFormula)
+import Test.HUnit
+#endif
 
 ---------------
 -- VARIABLES --

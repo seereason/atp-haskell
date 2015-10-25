@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -15,15 +16,19 @@ module Pretty
     , rootFixity
     , leafFixity
     , parenthesize
+    , assertEqual'
     ) where
 
-import Data.Monoid ((<>))
-import Language.Haskell.TH.Syntax (maxPrecedence)
-import Language.Haskell.TH.Ppr (noPrec, Precedence)
-import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), nest, {-braces, brackets, parens,-} prettyShow, text)
+import Control.Monad (unless)
 import Data.List as List (intercalate, map, sort)
 import Data.Map as Map (Map, toList)
+import Data.Monoid ((<>))
 import Data.Set as Set (Set, toAscList)
+import GHC.Stack
+import Language.Haskell.TH.Syntax (maxPrecedence)
+import Language.Haskell.TH.Ppr (noPrec, Precedence)
+import Test.HUnit (Assertion, assertFailure)
+import Text.PrettyPrint.HughesPJClass (Doc, Pretty(pPrint), nest, {-braces, brackets, parens,-} prettyShow, text)
 
 data Associativity
     = InfixL  -- Left-associative - a-b-c == (a-b)-c
@@ -101,3 +106,14 @@ instance Pretty a => Pretty (Set a) where
 
 instance (Pretty v, Pretty term) => Pretty (Map v term) where
     pPrint = pPrint . Map.toList
+
+-- | Version of assertEqual that uses the pretty printer instead of show.
+assertEqual' :: (?loc :: CallStack, Eq a, Pretty a) =>
+                String -- ^ The message prefix
+             -> a      -- ^ The expected value
+             -> a      -- ^ The actual value
+             -> Assertion
+assertEqual' preface expected actual =
+  unless (actual == expected) (assertFailure msg)
+ where msg = (if null preface then "" else preface ++ "\n") ++
+             "expected: " ++ prettyShow expected ++ "\n but got: " ++ prettyShow actual

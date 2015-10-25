@@ -19,10 +19,10 @@ module Unif
 import Data.Bool (bool)
 import Data.List as List (map)
 import Data.Map as Map
-
-import Lib (Failing(Success, Failure))
 import FOL (IsTerm(..), tsubst)
+import Lib (Failing)
 #ifndef NOTESTS
+import Lib (Failing(Success, Failure))
 import Skolem (MyTerm)
 import Test.HUnit
 #endif

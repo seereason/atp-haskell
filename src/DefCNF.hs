@@ -24,20 +24,19 @@ module DefCNF
 #endif
     ) where
 
-import Data.Function (on)
 import Data.List as List
 import Data.Map as Map hiding (fromList)
 import Data.Set as Set
-
 import Formulas as P
 import Lit (IsLiteral)
-import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
-import Prop as P (cnf', foldPropositional, IsPropositional(foldPropositional'), JustLiteral, JustPropositional, list_conj, list_disj, Literal, Marked, nenf, simpcnf, unmarkLiteral)
-
+import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), text)
+import Prop (foldPropositional, IsPropositional(foldPropositional'), JustLiteral, JustPropositional,
+             list_conj, list_disj, Literal, Marked, nenf, simpcnf, unmarkLiteral)
 #ifndef NOTESTS
+import Data.Function (on)
+import Pretty (assertEqual', prettyShow)
+import Prop (cnf', Prop(P), PFormula)
 import Test.HUnit
-import Pretty (assertEqual')
-import Prop (Prop(P), PFormula)
 #endif
 
 #ifndef NOTESTS

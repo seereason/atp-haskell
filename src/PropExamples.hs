@@ -25,12 +25,14 @@ import Data.Bits (Bits, shiftR)
 import Data.List as List (map)
 import Data.Set as Set
 import Prelude hiding (sum)
-import Test.HUnit
-
 import Formulas
 import Lib (allsets)
-import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
+import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), text)
 import Prop
+#ifndef NOTESTS
+import Pretty (prettyShow)
+import Test.HUnit
+#endif
 
 -- | Generate assertion equivalent to R(s,t) <= n for the Ramsey number R(s,t)
 ramsey :: (IsPropositional pf atom, atom ~ Knows Integer, Ord pf) =>

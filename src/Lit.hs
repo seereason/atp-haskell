@@ -15,15 +15,20 @@ module Lit
     , zipLiterals', zipLiterals
     , convertLiteral
     , convertToLiteral
+    , fixityLiteral
     , prettyLiteral
+#ifndef NOTESTS
     , LFormula(T, F, Atom, Not)
+#endif
     ) where
 
 import Data.Monoid ((<>))
+import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic), (.~.))
 import Prelude hiding (negate, null)
-
-import Formulas (HasBoolean(..), IsNegatable(..), IsFormula(atomic, overatoms, onatoms), (.~.))
 import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
+#ifndef NOTESTS
+import Formulas (overatoms, onatoms)
+#endif
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- forms.  They support negation and must include True and False elements.
@@ -97,13 +102,30 @@ prettyLiteral lit =
       tf = pPrint
       at a = pPrint a
 
+-- | Apply a function to the atoms, otherwise keeping structure.  This
+-- can generally be used as the onatoms method of IsFormula.
+onatomsLiteral :: forall lit atom. IsLiteral lit atom => (atom -> lit) -> lit -> lit
+onatomsLiteral f fm =
+    foldLiteral ne tf at fm
+    where
+      ne p = onatomsLiteral f p
+      tf flag = fromBool flag
+      at x = f x
+
+-- | Formula analog of list iterator "itlist".
+overatomsLiteral :: forall lit atom r. (IsLiteral lit atom, JustLiteral lit) => (atom -> r -> r) -> lit -> r -> r
+overatomsLiteral f fm r0 =
+        foldLiteral ne (const r0) (flip f r0) fm
+        where
+          ne fm' = overatomsLiteral f fm' r0
+
 #ifndef NOTESTS
 data LFormula atom
     = F
     | T
     | Atom atom
     | Not (LFormula atom)
-    deriving (Eq, Ord, Read)
+    deriving (Eq, Ord, Read, Show)
 
 instance JustLiteral (LFormula atom)
 
@@ -121,23 +143,6 @@ instance Ord atom => IsNegatable (LFormula atom) where
     naiveNegate = Not
     foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
     foldNegation' _ normal x = normal x
-
--- | Apply a function to the atoms, otherwise keeping structure.  This
--- can generally be used as the onatoms method of IsFormula.
-onatomsLiteral :: forall lit atom. IsLiteral lit atom => (atom -> lit) -> lit -> lit
-onatomsLiteral f fm =
-    foldLiteral ne tf at fm
-    where
-      ne p = onatomsLiteral f p
-      tf flag = fromBool flag
-      at x = f x
-
--- | Formula analog of list iterator "itlist".
-overatomsLiteral :: forall lit atom r. (IsLiteral lit atom, JustLiteral lit) => (atom -> r -> r) -> lit -> r -> r
-overatomsLiteral f fm r0 =
-        foldLiteral ne (const r0) (flip f r0) fm
-        where
-          ne fm' = overatomsLiteral f fm' r0
 
 instance (Ord atom, Pretty atom) => IsFormula (LFormula atom) atom where
     atomic = Atom

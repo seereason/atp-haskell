@@ -42,23 +42,24 @@ module Skolem
 
 import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT)
-import Data.Generics (Data, Typeable)
 import Data.List as List (map)
 import Data.Map as Map (singleton)
-import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union)
-import Data.String (IsString(fromString))
-import FOL (exists, fApp, for_all, fv, IsFirstOrder, IsFunction, IsQuantified(foldQuantified),
-            pApp, quant, Quant((:?:), (:!:)), subst, variant, vt)
-#ifndef NOTESTS
-import FOL (Formula, Term, V, FOL, Predicate)
-#endif
+import FOL (exists, fApp, for_all, fv, IsFirstOrder, IsQuantified(foldQuantified),
+            quant, Quant((:?:), (:!:)), subst, variant, vt)
 import Formulas (BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), (.&.), (.|.), (.=>.), (.<=>.), negate, false, true, atomic)
 import Lib (setAny, distrib)
 import Prelude hiding (negate)
+import Prop (convertToPropositional, IsPropositional, JustPropositional, psimplify1, trivial)
+#ifndef NOTESTS
+import Data.Generics (Data, Typeable)
+import Data.Monoid ((<>))
+import Data.String (IsString(fromString))
+import FOL (FOL, Formula, IsFunction, pApp, Predicate, Term, V)
 import Pretty (Pretty(pPrint), prettyShow, text)
-import Prop (convertToPropositional, IsPropositional, JustPropositional, Marked, Propositional, psimplify1, trivial)
+import Prop (Marked, Propositional)
 import Test.HUnit
+#endif
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
 simplify :: IsFirstOrder formula atom predicate term v function => formula -> formula

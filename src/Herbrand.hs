@@ -20,16 +20,17 @@ import Data.String (IsString(..))
 import Debug.Trace
 
 import DP (dpll)
-import FOL (Arity, HasFunctions(funcs), HasPredicate, IsFirstOrder, IsTerm, fApp, lsubst, fv, generalize, exists, for_all, pApp, vt)
-import Formulas ((.~.), overatoms, atomic, (.=>.), (.&.), (.|.))
+import FOL (Arity, HasFunctions(funcs), HasPredicate, IsFirstOrder, IsTerm, fApp, lsubst, fv, generalize)
+import Formulas ((.~.), overatoms, atomic)
 import Lib (allpairs, distrib)
 import Lit (IsLiteral)
-import Pretty (prettyShow)
 import Prop (eval, IsPropositional, JustPropositional, Literal, Marked, Propositional, simpcnf, simpdnf, trivial)
 import Skolem (HasSkolem, runSkolem, skolemize)
 
 #ifndef NOTESTS
-import FOL (V)
+import FOL (exists, for_all, pApp, V, vt)
+import Formulas ((.=>.), (.&.), (.|.))
+import Pretty (prettyShow)
 import Skolem (MyFormula, MyTerm)
 import Test.HUnit hiding (tried)
 #endif

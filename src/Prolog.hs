@@ -12,14 +12,13 @@ import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
+import FOL (fvl, HasPredicate, IsTerm, lsubst, vt)
+import Lit (IsLiteral)
+import Prop (JustLiteral)
+import Tableaux (deepen)
 #ifndef NOTESTS
 import Test.HUnit
 #endif
-
-import Prop (JustLiteral)
-import FOL (fvl, HasPredicate, IsTerm, lsubst, vt)
-import Lit (IsLiteral)
-import Tableaux (deepen)
 
 -- -------------------------------------------------------------------------
 -- Rename a rule.

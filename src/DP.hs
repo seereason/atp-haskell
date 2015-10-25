@@ -8,12 +8,10 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module DP
-    ( dpll
-    , dpllsat
-    , dplltaut
-    , dplb
-    , dplbsat
-    , dplbtaut
+    ( dp,   dpsat,   dptaut
+    , dpli, dplisat, dplitaut
+    , dpll, dpllsat, dplltaut
+    , dplb, dplbsat, dplbtaut
 #ifndef NOTESTS
     , testDP
 #endif
@@ -26,9 +24,13 @@ import DefCNF (NumAtom(ai, ma), defcnfs)
 import Formulas (IsNegatable, (.~.), negative, positive, negate, negated)
 import Lib (Failing(Success, Failure), allpairs, minimize, maximize, defined, (|->), setmapfilter)
 import Prelude hiding (negate, pure)
-import Prop (trivial, IsPropositional, JustPropositional, PFormula)
-import PropExamples (prime, Knows(K))
+import Prop (trivial, IsPropositional, JustPropositional)
+import PropExamples (Knows(K))
+#ifndef NOTESTS
+import Prop (PFormula)
+import PropExamples (prime)
 import Test.HUnit
+#endif
 
 instance NumAtom (Knows Integer) where
     ma n = K "p" n Nothing
