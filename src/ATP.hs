@@ -28,7 +28,7 @@ import DefCNF
 import DP
 import FOL
 import Skolem
-import Herbrand -- hiding (test01, test02)
+import Herbrand
 import Unif
 import Tableaux hiding (K)
 import Resolution
