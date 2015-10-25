@@ -211,7 +211,7 @@ convertTerm :: (IsTerm term1 v1 f1, IsTerm term2 v2 f2) => (v1 -> v2) -> (f1 -> 
 convertTerm cv cf = foldTerm (vt . cv) (\f ts -> fApp (cf f) (map (convertTerm cv cf) ts))
 
 showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
-showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp " ++ show fn ++ "[" ++ intercalate ", " (map showTerm ts) ++ "]")
+showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp (" ++ show fn ++ ") [" ++ intercalate ", " (map showTerm ts) ++ "]")
 
 prettyTerm :: (IsTerm term v function, Pretty v, Pretty function) => term -> Doc
 prettyTerm = foldTerm pPrint (\f args -> pPrint f <> prettyArguments args)
@@ -356,7 +356,7 @@ instance IsPredicate Predicate
 
 instance Show Predicate where
     show Equals = " .=. "
-    show (NamedPredicate s) = s
+    show (NamedPredicate s) = "(NamedPredicate " ++ show s ++ ")"
 
 instance HasEquals Predicate where
     equals = Equals
