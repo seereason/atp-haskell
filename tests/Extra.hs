@@ -3,18 +3,19 @@ module Extra where
 
 import Control.Applicative.Error (Failing(Failure, Success))
 import Data.List as List (map)
-import Data.Map as Map (fromList)
-import Data.Set as Set (fromList, map, Set)
-import Test.HUnit
-
+import Data.Map as Map (empty, fromList)
+import Data.Set as Set (fromList, map, Set, singleton)
+import Data.String (fromString)
 import FOL (vt, fApp, (.=.), pApp, for_all, exists, HasPredicate(applyPredicate), Predicate(Equals))
 import Formulas
 import Lib (failing)
 import Meson (meson)
 import Pretty (prettyShow)
 import Prop hiding (nnf)
+import Resolution
 import Skolem (HasSkolem(toSkolem), skolemize, runSkolem, MyAtom, MyFormula, MyTerm)
-import Tableaux (Depth(Depth))
+import Tableaux (Depth(Depth), K(K), tab)
+import Test.HUnit
 
 testExtra :: Test
 testExtra = TestList [test05, test06, test07, test00]
