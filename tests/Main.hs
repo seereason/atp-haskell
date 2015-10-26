@@ -16,8 +16,10 @@ import Meson (testMeson)
 import Equal (testEqual)
 import Extra (testExtra)
 
+import System.Exit (exitWith, ExitCode(ExitSuccess, ExitFailure))
+
 main :: IO Counts
-main = runTestTT $ TestList [testLib,
+main = runTestTT (TestList  [testLib,
                              testProp,
                              testPropExamples,
                              testDefCNF,
@@ -31,4 +33,6 @@ main = runTestTT $ TestList [testLib,
                              testProlog,
                              testMeson,
                              testEqual,
-                             testExtra]
+                             testExtra]) >>= doCounts
+    where
+      doCounts counts' = exitWith (if errors counts' /= 0 || failures counts' /= 0 then ExitFailure 1 else ExitSuccess)
