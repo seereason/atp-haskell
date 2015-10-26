@@ -18,7 +18,7 @@ import Data.List as List (foldr, map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
 import Formulas ((∧), (⇒), IsFormula(atomic), atom_union)
-import FOL (foldEquate, (.=.), HasFunctions(funcs), IsAtom(applyPredicate), IsAtomWithEquate(..), IsQuantified(..), (∀), IsTerm(..))
+import FOL ((.=.), HasFunctions(funcs), IsAtom(applyPredicate), IsAtomWithEquate(..), IsQuantified(..), (∀), IsTerm(..))
 import Lib ((∅))
 import Prelude hiding ((*))
 #ifndef NOTESTS
@@ -52,10 +52,9 @@ import Test.HUnit
 -- rhs eq = dest_eq eq >>= return . snd
 
 -- | The set of predicates in a formula.
-predicates :: (IsQuantified formula atom v, IsAtomWithEquate atom p term, Ord atom, Ord p) => formula -> Set atom
-predicates fm =
-    atom_union pair fm
-    where pair atom = foldEquate (\ _ _ -> Set.singleton atom) (\ _ _ -> Set.singleton atom) atom
+-- predicates :: (IsQuantified formula atom v, IsAtomWithEquate atom p term, Ord atom, Ord p) => formula -> Set atom
+predicates :: IsFormula formula r => formula -> Set r
+predicates fm = atom_union Set.singleton fm
 
 -- | Code to generate equate axioms for functions.
 function_congruence :: forall fof atom term v p f. (IsQuantified fof atom v, IsAtomWithEquate atom p term, IsTerm term v f, Ord fof) =>
@@ -77,7 +76,7 @@ function_congruence (f,n) =
 predicate_congruence :: (IsQuantified fof atom v, IsAtomWithEquate atom p term, IsTerm term v f, Ord p) =>
                         atom -> Set fof
 predicate_congruence =
-    foldEquate (\p ts -> ap p (length ts)) (\_ _ -> Set.empty)
+    foldEquate (\_ _ -> Set.empty) (\p ts -> ap p (length ts))
     where
       ap _ 0 = Set.empty
       ap p n = Set.singleton (List.foldr (∀) (ant ⇒ con) (argnames_x ++ argnames_y))
@@ -112,7 +111,7 @@ equalitize fm =
       axioms = Set.fold (Set.union . function_congruence)
                         (Set.fold (Set.union . predicate_congruence) equivalence_axioms otherPreds)
                         (funcs fm)
-      (eqPreds, otherPreds) = Set.partition (foldEquate (\_ _ -> False) (\_ _ -> True)) (predicates fm)
+      (eqPreds, otherPreds) = Set.partition (foldEquate (\_ _ -> True) (\_ _ -> False)) (predicates fm)
 
 #ifndef NOTESTS
 

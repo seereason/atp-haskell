@@ -28,7 +28,7 @@ module FOL
     , IsPredicate(prettyPredicateApplication), prettyApply, prettyEquate
     -- * Atoms
     , IsAtom(applyPredicate, foldPredicate), convertPredicate, zipPredicates, showPredicate, pApp, atomFuncs
-    , IsAtomWithEquate(equate, foldEquate'), isEquate, (.=.), foldEquate, equalsFuncs, zipEquals, showEquate
+    , IsAtomWithEquate(equate, foldEquate), isEquate, (.=.), equalsFuncs, zipEquals, showEquate
     , HasEquals(equals, isEquals) -- deprecated
     -- * Quantifiers
     , Quant((:!:), (:?:))
@@ -287,33 +287,33 @@ showPredicate = foldPredicate (\ p ts -> "pApp (" ++ show p ++ ") [" ++ intercal
 -- atom/predicate/term combo that IsAtomWithEquate.
 class (IsAtom atom predicate term) => IsAtomWithEquate atom predicate term where
     equate :: term -> term -> atom
-    foldEquate' :: (term -> term -> r) -> atom -> Maybe r
+    foldEquate :: (term -> term -> r) -> (predicate -> [term] -> r) -> atom -> r
 
-foldEquate :: IsAtomWithEquate atom predicate term => (predicate -> [term] -> r) -> (term -> term -> r) -> atom -> r
-foldEquate ap eq atom = fromMaybe (foldPredicate ap atom) (foldEquate' eq atom)
+-- foldEquate :: IsAtomWithEquate atom predicate term => (predicate -> [term] -> r) -> (term -> term -> r) -> atom -> r
+-- foldEquate ap eq atom = fromMaybe (foldPredicate ap atom) (foldEquate' eq atom)
 
 isEquate :: IsAtomWithEquate atom predicate term => atom -> Bool
-isEquate = foldEquate (\_ _ -> False) (\_ _ -> True)
+isEquate = foldEquate (\_ _ -> True) (\_ _ -> False)
 
 -- | Implementation of funcs for atoms with equality.
 equalsFuncs :: (IsAtomWithEquate atom predicate term, HasFunctions term function) => atom -> Set (function, Arity)
-equalsFuncs = foldEquate (\_ ts -> unions (map funcs ts)) (\t1 t2 -> union (funcs t1) (funcs t2))
+equalsFuncs = foldEquate (\t1 t2 -> union (funcs t1) (funcs t2)) (\_ ts -> unions (map funcs ts))
 
 zipEquals :: IsAtomWithEquate atom predicate term =>
              (predicate -> predicate -> [(term, term)] -> Maybe r)
           -> (term -> term -> term -> term -> Maybe r)
           -> atom -> atom -> Maybe r
 zipEquals ap eq atom1 atom2 =
-    foldEquate ap' eq' atom1
+    foldEquate eq' ap' atom1
     where
-      ap' p ts = foldEquate (ap'' p ts) (\_ _ -> Nothing) atom2
+      ap' p ts = foldEquate (\_ _ -> Nothing) (ap'' p ts) atom2
       ap'' _p1 ts1 _p2 ts2 | length ts1 /= length ts2 = Nothing
       ap'' p1 ts1 p2 ts2 = ap p1 p2 (zip ts1 ts2)
-      eq' lhs1 rhs1 = foldEquate (\_ _ -> Nothing) (eq lhs1 rhs1) atom2
+      eq' lhs1 rhs1 = foldEquate (eq lhs1 rhs1) (\_ _ -> Nothing) atom2
 
 showEquate :: (IsAtomWithEquate atom predicate term, Show term) => atom -> String
-showEquate = foldEquate (\ p ts -> show (prettyApply (text ("pApp (" ++ show p ++ ")")) (text " ") (map (text . show) ts)))
-                        (\t1 t2 -> "(" ++ show t1 ++ ") .=. (" ++ show t2 ++ ")")
+showEquate = foldEquate (\t1 t2 -> "(" ++ show t1 ++ ") .=. (" ++ show t2 ++ ")")
+                        (\ p ts -> show (prettyApply (text ("pApp (" ++ show p ++ ")")) (text " ") (map (text . show) ts)))
 
 -- | Convert between two instances of IsAtom
 convertPredicate :: (IsAtom atom1 p1 t1, IsAtom atom2 p2 t2) => (p1 -> p2) -> (t1 -> t2) -> atom1 -> atom2
@@ -378,8 +378,9 @@ instance (Pretty term, Show term, Ord term) => Show (FOL Predicate term) where
 
 instance (IsPredicate Predicate, Ord term, Pretty term) => IsAtomWithEquate (FOL Predicate term) Predicate term where
     equate lhs rhs = applyPredicate Equals [lhs, rhs]
-    foldEquate' f (R Equals [lhs, rhs]) = Just (f lhs rhs)
-    foldEquate' _ _ = Nothing
+    foldEquate eq _ (R Equals [lhs, rhs]) = eq lhs rhs
+    foldEquate _ _ (R Equals _) = error "equate arity error"
+    foldEquate _ ap (R p ts) = ap p ts
 
 instance (IsPredicate Predicate, IsTerm term v function, HasFunctions term function
          ) => HasFunctions (FOL Predicate term) function where
@@ -1017,7 +1018,7 @@ fvl fm =
       at = foldPredicate (\_ args -> unions (map fvt args))
 
 fva :: (IsAtomWithEquate atom predicate term, IsTerm term v function) => atom -> Set v
-fva = foldEquate (\_ args -> unions (map fvt args)) (\lhs rhs -> union (fvt lhs) (fvt rhs))
+fva = foldEquate (\lhs rhs -> union (fvt lhs) (fvt rhs)) (\_ args -> unions (map fvt args))
 
 -- | Find the variables in a formula.
 #if 0
