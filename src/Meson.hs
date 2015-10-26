@@ -17,6 +17,7 @@ module Meson
 #endif
     ) where
 
+import Control.Monad.State (execStateT)
 import Data.Map as Map
 import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
@@ -212,10 +213,10 @@ mexpand rules ancestors g cont (env,n,k) =
            Failure _ -> settryfind doRule rules
     where
       doAncestor a =
-          do mp <- unify_literals env (g, ((.~.) a))
+          do mp <- execStateT (unify_literals (g, ((.~.) a))) env
              cont (mp, n, k)
       doRule rule =
-          do mp <- unify_literals env (g, c)
+          do mp <- execStateT (unify_literals (g, c)) env
              mexpand' (mp, fromEnum n - Set.size asm, k')
           where
             mexpand' = Set.fold (mexpand rules (Set.insert g ancestors)) cont asm

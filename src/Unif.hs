@@ -6,6 +6,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Unif
     ( Unify(unify)
@@ -18,6 +19,7 @@ module Unif
 #endif
     ) where
 
+import Control.Monad.State -- (evalStateT, runStateT, State, StateT, get)
 import Data.Bool (bool)
 import Data.List as List (map)
 import Data.Map as Map
@@ -26,34 +28,45 @@ import Lib (Failing)
 #ifndef NOTESTS
 import Lib (Failing(Success, Failure))
 import Skolem (MyTerm)
-import Test.HUnit
+import Test.HUnit hiding (State)
 #endif
 
 -- | Main unification procedure.  Using the Monad instance of Failing here and in istriv.
 class Unify a v term where
-    unify :: Map v term -> a -> Failing (Map v term)
+    unify :: a -> StateT (Map v term) Failing ()
 
-unify_terms :: IsTerm term v f => Map v term -> [(term,term)] -> Failing (Map v term)
-unify_terms env [] = return env
-unify_terms env ((a,b):oth) =
+{-
+instance Unify a v term => Unify [(a, a)] v term where
+    unify env pairs =
+-}
+
+unify_terms :: forall term v f. IsTerm term v f => [(term,term)] -> StateT (Map v term) Failing ()
+unify_terms = mapM_ (uncurry unify_term_pair)
+
+unify_term_pair :: forall term v f. IsTerm term v f => term -> term -> StateT (Map v term) Failing ()
+unify_term_pair a b =
     foldTerm (vr b) (\ f fargs -> foldTerm (vr a) (fn f fargs) b) a
     where
+      vr :: term -> v -> StateT (Map v term) Failing ()
       vr t x =
-          maybe (istriv env x t >>= bool (unify_terms (Map.insert x t env) oth) (unify_terms env oth))
-                (\y -> unify_terms env ((y, t) : oth)) -- x is bound to y, so unify y with t
-                (Map.lookup x env)
+          (Map.lookup x <$> get) >>=
+          maybe (istriv x t >>= bool (modify (Map.insert x t)) (return ()))
+                (\y -> unify_term_pair y t)
+      fn :: f -> [term] -> f -> [term] -> StateT (Map v term) Failing ()
       fn f fargs g gargs =
           if f == g && length fargs == length gargs
-          then unify_terms env (zip fargs gargs ++ oth)
+          then mapM_ (uncurry unify_term_pair) (zip fargs gargs)
           else fail "impossible unification"
 
-istriv :: IsTerm term v f => Map v term -> v -> term -> Failing Bool
-istriv env x t =
+istriv :: forall term v f. IsTerm term v f => v -> term -> StateT (Map v term) Failing Bool
+istriv x t =
     foldTerm vr fn t
     where
+      -- vr :: v -> StateT (Map v term) Failing Bool
       vr y | x == y = return True
-      vr y = maybe (return False) (istriv env x) (Map.lookup y env)
-      fn _ args = mapM (istriv env x) args >>= bool (return False) (fail "cyclic") . or
+      vr y = (Map.lookup y <$> get) >>= maybe (return False) (istriv x)
+      -- fn :: f -> [term] -> StateT (Map v term) Failing Bool
+      fn _ args = mapM (istriv x) args >>= bool (return False) (fail "cyclic") . or
 
 -- | Solve to obtain a single instantiation.
 solve :: IsTerm term v f => Map v term -> Map v term
@@ -63,7 +76,7 @@ solve env =
 
 -- | Unification reaching a final solved form (often this isn't needed).
 fullunify :: IsTerm term v f => [(term,term)] -> Failing (Map v term)
-fullunify eqs = solve <$> unify_terms Map.empty eqs
+fullunify eqs = solve <$> execStateT (unify_terms eqs) Map.empty
 
 -- | Examples.
 unify_and_apply :: IsTerm term v f => [(term, term)] -> Failing [(term, term)]

@@ -27,6 +27,7 @@ module Tableaux
     ) where
 
 import Control.Monad.RWS (RWS)
+import Control.Monad.State (execStateT, StateT)
 import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
@@ -53,42 +54,41 @@ unify_literals :: forall lit atom term predicate v function.
                   (IsLiteral lit atom,
                    IsAtom atom predicate term, Unify (atom, atom) v term,
                    IsTerm term v function) =>
-                  Map v term -> (lit, lit) -> Failing (Map v term)
-unify_literals env (f1, f2) =
+                  (lit, lit) -> StateT (Map v term) Failing ()
+unify_literals (f1, f2) =
     maybe err id (zipLiterals' ho ne tf at f1 f2)
     where
       ho _ _ = Nothing
-      ne p q = Just $ unify_literals env (p, q)
-      tf p q = if p == q then Just (unify_terms env [] {-Success env-}) else Nothing
-      at :: atom -> atom -> Maybe (Failing (Map v term))
-      at a1 a2 = Just $ unify env (a1, a2)
-      err = Failure ["Can't unify literals"]
+      ne p q = Just $ unify_literals (p, q)
+      tf p q = if p == q then Just (unify_terms []) else Nothing
+      -- at :: atom -> atom -> Maybe (Failing (Map v term))
+      at a1 a2 = Just $ unify (a1, a2)
+      err = fail "Can't unify literals"
 
 unify_atoms :: forall atom term predicate v function.
                (IsAtom atom predicate term,
                 HasApply atom predicate term,
                 IsTerm term v function) =>
-               Map v term -> (atom, atom) -> Failing (Map v term)
-unify_atoms env (a1, a2) =
-    let r = zipPredicates (\_ tpairs -> Just (unify_terms env tpairs)) a1 a2 in
-    maybe (Failure ["unify_atoms"]) id r
+               (atom, atom) -> StateT (Map v term) Failing ()
+unify_atoms (a1, a2) =
+    maybe (fail "unify_atoms") id (zipPredicates (\_ tpairs -> Just (unify_terms tpairs)) a1 a2)
 
 unify_atoms_eq :: forall atom term predicate v function.
                (IsAtom atom predicate term,
                 HasApplyAndEquate atom predicate term,
                 IsTerm term v function) =>
-               Map v term -> (atom, atom) -> Failing (Map v term)
-unify_atoms_eq env (a1, a2) =
-    let r = zipPredicatesEq (\l1 r1 l2 r2 -> Just (unify_terms env [(l1, l2), (r1, r2)]))
-                            (\_ tpairs -> Just (unify_terms env tpairs)) a1 a2 in
-    maybe (Failure ["unify_atoms"]) id r
+               (atom, atom) -> StateT (Map v term) Failing ()
+unify_atoms_eq (a1, a2) =
+    maybe (fail "unify_atoms") id (zipPredicatesEq (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
+                                                   (\_ tpairs -> Just (unify_terms tpairs))
+                                                   a1 a2)
 
 -- | Unify complementary literals.
 unify_complements :: (IsLiteral lit atom,
                       IsAtom atom predicate term, Unify (atom, atom) v term,
                       IsTerm term v function) =>
-                     Map v term -> lit -> lit -> Failing (Map v term)
-unify_complements env p q = unify_literals env (p, ((.~.) q))
+                     lit -> lit -> StateT (Map v term) Failing ()
+unify_complements p q = unify_literals (p, ((.~.) q))
 
 -- | Unify and refute a set of disjuncts.
 unify_refute :: (IsLiteral lit atom, Ord lit,
@@ -99,7 +99,7 @@ unify_refute djs env =
     case Set.minView djs of
       Nothing -> Success env
       Just (d, odjs) ->
-          settryfind (\ (p, n) -> unify_complements env p n >>= unify_refute odjs) pairs
+          settryfind (\ (p, n) -> execStateT (unify_complements p n) env >>= unify_refute odjs) pairs
           where
             pairs = allpairs (,) pos neg
             (pos,neg) = Set.partition positive d
@@ -272,7 +272,7 @@ tableau (fms, lits, n) cont (k, env) =
           failing (\_ -> tableau (unexp, fm : lits, n) cont (k, env))
                 (return . Success)
       tryLit :: formula -> formula -> RWS () () () (Failing (K, Map v term))
-      tryLit fm l = failing (return . Failure) (\env' -> cont (k, env')) (unify_complements env fm l)
+      tryLit fm l = failing (return . Failure) (\env' -> cont (k, env')) (execStateT (unify_complements fm l) env)
 
 newtype K = K Int deriving (Eq, Ord, Show)
 

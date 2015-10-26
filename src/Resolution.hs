@@ -26,6 +26,7 @@ module Resolution
 #endif
     ) where
 
+import Control.Monad.State (execStateT, get, StateT)
 import Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Set as Set
@@ -70,18 +71,18 @@ test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p
 -- | MGU of a set of literals.
 mgu :: forall lit atom predicate term v function.
        (IsLiteral lit atom, IsAtom atom predicate term, Unify (atom, atom) v term, IsTerm term v function
-       ) => Set lit -> Map v term -> Failing (Map v term)
-mgu l env =
+       ) => Set lit -> StateT (Map v term) Failing (Map v term)
+mgu l =
     case Set.minView l of
       Just (a, rest) ->
           case Set.minView rest of
-            Just (b, _) -> unify_literals env (a, b) >>= mgu rest
-            _ -> Success (solve env)
-      _ -> Success (solve env)
+            Just (b, _) -> unify_literals (a, b) >> mgu rest
+            _ -> solve <$> get
+      _ -> solve <$> get
 
 unifiable :: (IsLiteral lit atom, IsTerm term v function, IsAtom atom predicate term, Unify (atom, atom) v term
              ) => lit -> lit -> Bool
-unifiable p q = failing (const False) (const True) (unify_literals Map.empty (p, q))
+unifiable p q = failing (const False) (const True) (execStateT (unify_literals (p, q)) Map.empty)
 
 -- -------------------------------------------------------------------------
 -- Rename a clause.
@@ -108,7 +109,7 @@ resolvents cl1 cl2 p acc =
     if Set.null ps2 then acc else Set.fold doPair acc pairs
     where
       doPair (s1,s2) sof =
-          case mgu (Set.union s1 (Set.map (.~.) s2)) Map.empty of
+          case execStateT (mgu (Set.union s1 (Set.map (.~.) s2))) Map.empty of
             Success mp -> Set.union (Set.map (lsubst mp) (Set.union (Set.difference cl1 s1) (Set.difference cl2 s2))) sof
             Failure _ -> sof
       -- pairs :: Set (Set fof, Set fof)
