@@ -66,7 +66,7 @@ test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p
 
 -- | MGU of a set of literals.
 mgu :: forall lit atom predicate term v function.
-       (IsLiteral lit atom, HasPredicate atom predicate term, IsTerm term v function
+       (IsLiteral lit atom, IsAtom atom predicate term, IsTerm term v function
        ) => Set lit -> Map v term -> Failing (Map v term)
 mgu l env =
     case Set.minView l of
@@ -76,7 +76,7 @@ mgu l env =
             _ -> Success (solve env)
       _ -> Success (solve env)
 
-unifiable :: (IsLiteral lit atom, IsTerm term v function, HasPredicate atom predicate term
+unifiable :: (IsLiteral lit atom, IsTerm term v function, IsAtom atom predicate term
              ) => lit -> lit -> Bool
 unifiable p q = failing (const False) (const True) (unify_literals Map.empty p q)
 
@@ -85,7 +85,7 @@ unifiable p q = failing (const False) (const True) (unify_literals Map.empty p q
 -- -------------------------------------------------------------------------
 
 rename :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-           HasPredicate atom predicate term,
+           IsAtom atom predicate term,
            IsTerm term v function
           ) => (v -> v) -> Set lit -> Set lit
 rename pfx cls =
@@ -98,7 +98,7 @@ rename pfx cls =
 -- -------------------------------------------------------------------------
 
 resolvents :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-               HasPredicate atom predicate term,
+               IsAtom atom predicate term,
                IsTerm term v function
               ) => Set lit -> Set lit -> lit -> Set lit -> Set lit
 resolvents cl1 cl2 p acc =
@@ -116,7 +116,7 @@ resolvents cl1 cl2 p acc =
       ps2 = Set.filter (unifiable ((.~.) p)) cl2
 
 resolve_clauses :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-                    HasPredicate atom predicate term,
+                    IsAtom atom predicate term,
                     IsTerm term v function
                    ) => Set lit -> Set lit -> Set lit
 resolve_clauses cls1 cls2 =
@@ -129,7 +129,7 @@ resolve_clauses cls1 cls2 =
 -- -------------------------------------------------------------------------
 
 resloop1 :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-             HasPredicate atom predicate term,
+             IsAtom atom predicate term,
              IsTerm term v function
             ) => Set (Set lit) -> Set (Set lit) -> Failing Bool
 resloop1 used unused =
@@ -193,7 +193,7 @@ term_match env ((p, q) : oth) =
 
 match_literals :: forall lit term function v atom predicate.
                   (IsLiteral lit atom,
-                   HasPredicate atom predicate term,
+                   IsAtom atom predicate term,
                    IsTerm term v function) =>
                   Map v term -> lit -> lit -> Failing (Map v term)
 match_literals env t1 t2 =
@@ -211,7 +211,7 @@ match_literals env t1 t2 =
 subsumes_clause :: forall lit term function v atom predicate.
                    (IsLiteral lit atom,
                     IsTerm term v function,
-                    HasPredicate atom predicate term) =>
+                    IsAtom atom predicate term) =>
                    Set lit -> Set lit -> Bool
 subsumes_clause cls1 cls2 =
     failing (const False) (const True) (subsume Map.empty cls1)
@@ -228,7 +228,7 @@ subsumes_clause cls1 cls2 =
 
 replace :: (IsLiteral lit atom, Ord lit,
             IsTerm term v function,
-            HasPredicate atom predicate term) =>
+            IsAtom atom predicate term) =>
            Set lit
         -> Set (Set lit)
         -> Set (Set lit)
@@ -240,7 +240,7 @@ replace cl st =
                        else Set.insert c (replace cl st')
 
 incorporate :: (IsLiteral lit atom, Ord lit,
-                HasPredicate atom predicate term,
+                IsAtom atom predicate term,
                 IsTerm term v function) =>
                Set lit
             -> Set lit
@@ -252,7 +252,7 @@ incorporate gcl cl unused =
     else replace cl unused
 
 resloop2 :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-             HasPredicate atom predicate term,
+             IsAtom atom predicate term,
              IsTerm term v function
             ) => Set (Set lit) -> Set (Set lit) -> Failing Bool
 resloop2 used unused =
@@ -267,7 +267,7 @@ resloop2 used unused =
 
 pure_resolution2 :: forall fof atom predicate v term function.
                     (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof,
-                     HasPredicate atom predicate term,
+                     IsAtom atom predicate term,
                      IsTerm term v function
                     ) => fof -> Failing Bool
 pure_resolution2 fm = resloop2 Set.empty (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set (Marked Literal fof)))
@@ -283,7 +283,7 @@ resolution2 fm = askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_r
 -- -------------------------------------------------------------------------
 
 presolve_clauses :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-                     HasPredicate atom predicate term,
+                     IsAtom atom predicate term,
                      IsTerm term v function) =>
                     Set lit -> Set lit -> Set lit
 presolve_clauses cls1 cls2 =
@@ -292,7 +292,7 @@ presolve_clauses cls1 cls2 =
     else Set.empty
 
 presloop :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-             HasPredicate atom predicate term,
+             IsAtom atom predicate term,
              IsTerm term v function
             ) => Set (Set lit) -> Set (Set lit) -> Failing Bool
 presloop used unused =

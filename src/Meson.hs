@@ -20,7 +20,7 @@ module Meson
 import Data.Map as Map
 import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (generalize, HasPredicate, IsFirstOrder, IsTerm)
+import FOL (generalize, IsAtom, IsFirstOrder, IsTerm)
 import Formulas ((.~.), false, negative)
 import Lit (IsLiteral)
 import Pretty (Pretty)
@@ -196,7 +196,7 @@ contrapositives cls =
 -- -------------------------------------------------------------------------
 
 mexpand :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-            HasPredicate atom predicate term,
+            IsAtom atom predicate term,
             IsTerm term v function) =>
            Set (Set lit, lit)
         -> Set lit
