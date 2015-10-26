@@ -27,9 +27,11 @@ module FOL
     -- * Predicates
     , IsPredicate(prettyPredicateApplication), prettyApply, prettyEquate
     -- * Atoms
-    , HasApply(applyPredicate, foldPredicate)
-    , HasApplyAndEquate(equate, foldEquate)
     , IsAtom(overterms, onterms)
+    , HasApply(applyPredicate, foldPredicate)
+    , overtermsApply, ontermsApply
+    , HasApplyAndEquate(equate, foldEquate)
+    , overtermsEq, ontermsEq
     , convertPredicate, convertPredicateEq
     , zipPredicates, zipPredicatesEq
     , pApp, atomFuncs
@@ -273,6 +275,12 @@ class (IsPredicate predicate) => HasApply atom predicate term | atom -> predicat
     applyPredicate :: predicate -> [term] -> atom
     foldPredicate :: (predicate -> [term] -> r) -> atom -> r --- rename FoldAtom
 
+overtermsApply :: HasApply atom predicate term => (term -> r -> r) -> r -> atom -> r
+overtermsApply f r0 = foldPredicate (\_ ts -> foldr f r0 ts)
+
+ontermsApply :: HasApply atom predicate term => (term -> term) -> atom -> atom
+ontermsApply f = foldPredicate (\p ts -> applyPredicate p (map f ts))
+
 -- | Implementation of funcs method for atoms
 atomFuncs :: (IsAtom atom predicate term, HasFunctions term function) => atom -> Set (function, Arity)
 atomFuncs = overterms (\term s -> Set.union (funcs term) s) mempty
@@ -296,6 +304,12 @@ showApply p ts = show (text "pApp " <> parens (text (show p)) <> brackets (fcat 
 class HasApply atom predicate term => HasApplyAndEquate atom predicate term | atom -> predicate term where
     equate :: term -> term -> atom
     foldEquate :: (term -> term -> r) -> (predicate -> [term] -> r) -> atom -> r
+
+overtermsEq :: HasApplyAndEquate atom predicate term => (term -> r -> r) -> r -> atom -> r
+overtermsEq f r0 = foldEquate (\t1 t2 -> f t2 (f t1 r0)) (\_ ts -> foldr f r0 ts)
+
+ontermsEq :: HasApplyAndEquate atom predicate term => (term -> term) -> atom -> atom
+ontermsEq f = foldEquate (\t1 t2 -> equate (f t1) (f t2)) (\p ts -> applyPredicate p (map f ts))
 
 -- | Zip two atoms that support equality
 zipPredicatesEq :: forall atom predicate term r.
