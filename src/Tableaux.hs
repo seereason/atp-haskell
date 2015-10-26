@@ -4,12 +4,16 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wall #-}
 
 module Tableaux
@@ -36,63 +40,59 @@ import Prelude hiding (compare)
 import Pretty (Pretty(pPrint), prettyShow, text)
 import Prop (Literal, Marked, Propositional, simpdnf, unmarkLiteral, unmarkPropositional)
 import Skolem (askolemize, HasSkolem, runSkolem, skolemize)
-import Unif (unify)
+import Unif (Unify(unify), unify_terms)
 #ifndef NOTESTS
 import Data.List as List (intercalate)
 import Herbrand (davisputnam)
-import Skolem (MyTerm, MyFormula)
+import Skolem (MyFormula, MyAtom, MyTerm, Function)
 import Test.HUnit hiding (State)
 #endif
 
 -- | Unify literals (just pretend the toplevel relation is a function).
 unify_literals :: forall lit atom term predicate v function.
                   (IsLiteral lit atom,
-                   IsAtom atom predicate term,
+                   IsAtom atom predicate term, Unify (atom, atom) v term,
                    IsTerm term v function) =>
-                  Map v term -> lit -> lit -> Failing (Map v term)
-unify_literals env f1 f2 =
+                  Map v term -> (lit, lit) -> Failing (Map v term)
+unify_literals env (f1, f2) =
     maybe err id (zipLiterals' ho ne tf at f1 f2)
     where
       ho _ _ = Nothing
-      ne p q = Just $ unify_literals env p q
-      tf p q = if p == q then Just (unify env []) else Nothing
+      ne p q = Just $ unify_literals env (p, q)
+      tf p q = if p == q then Just (unify_terms env [] {-Success env-}) else Nothing
       at :: atom -> atom -> Maybe (Failing (Map v term))
-      at a1 a2 = Just $ unify_atoms env a1 a2
+      at a1 a2 = Just $ unify env (a1, a2)
       err = Failure ["Can't unify literals"]
 
 unify_atoms :: forall atom term predicate v function.
                (IsAtom atom predicate term,
+                HasApply atom predicate term,
                 IsTerm term v function) =>
-               Map v term -> atom -> atom -> Failing (Map v term)
-unify_atoms env a1 a2 =
-    let r = zipPredicates (\_ tpairs -> Just (unify env tpairs)) a1 a2 in
+               Map v term -> (atom, atom) -> Failing (Map v term)
+unify_atoms env (a1, a2) =
+    let r = zipPredicates (\_ tpairs -> Just (unify_terms env tpairs)) a1 a2 in
     maybe (Failure ["unify_atoms"]) id r
-{-
-unifyAtomsEq :: forall v function atom p term.
-                (AtomEq atom p term, Term term v function) =>
-                Map v term -> atom -> atom -> Failing (Map v term)
-unifyAtomsEq env a1 a2 =
-    maybe err id (zipAtomsEq ap tf eq a1 a2)
-    where
-      ap p1 ts1 p2 ts2 =
-          if p1 == p2 && length ts1 == length ts2
-          then Just $ unify env (zip ts1 ts2)
-          else Nothing
-      tf p q = if p == q then Just $ unify env [] else Nothing
-      eq pl pr ql qr = Just $ unify env [(pl, ql), (pr, qr)]
-      err = Failure ["Can't unify atoms"]
--}
+
+unify_atoms_eq :: forall atom term predicate v function.
+               (IsAtom atom predicate term,
+                HasApplyAndEquate atom predicate term,
+                IsTerm term v function) =>
+               Map v term -> (atom, atom) -> Failing (Map v term)
+unify_atoms_eq env (a1, a2) =
+    let r = zipPredicatesEq (\l1 r1 l2 r2 -> Just (unify_terms env [(l1, l2), (r1, r2)]))
+                            (\_ tpairs -> Just (unify_terms env tpairs)) a1 a2 in
+    maybe (Failure ["unify_atoms"]) id r
 
 -- | Unify complementary literals.
 unify_complements :: (IsLiteral lit atom,
-                      IsAtom atom predicate term,
+                      IsAtom atom predicate term, Unify (atom, atom) v term,
                       IsTerm term v function) =>
                      Map v term -> lit -> lit -> Failing (Map v term)
-unify_complements env p q = unify_literals env p ((.~.) q)
+unify_complements env p q = unify_literals env (p, ((.~.) q))
 
 -- | Unify and refute a set of disjuncts.
 unify_refute :: (IsLiteral lit atom, Ord lit,
-                 IsAtom atom predicate term,
+                 IsAtom atom predicate term, Unify (atom, atom) v term,
                  IsTerm term v function) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
@@ -106,7 +106,7 @@ unify_refute djs env =
 
 -- | Hence a Prawitz-like procedure (using unification on DNF).
 prawitz_loop :: (IsLiteral lit atom, Ord lit,
-                 IsAtom atom predicate term,
+                 IsAtom atom predicate term, Unify (atom, atom) v term,
                  IsTerm term v function) =>
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
@@ -120,6 +120,7 @@ prawitz_loop djs0 fvs djs n =
 
 prawitz :: forall formula atom term predicate function v.
            (IsFirstOrder formula atom predicate term v function,
+            Unify (atom, atom) v term,
             Ord formula, Pretty formula, HasSkolem function v
            ) => formula -> Int
 prawitz fm =
@@ -134,6 +135,9 @@ prawitz fm =
 -- -------------------------------------------------------------------------
 -- Examples.
 -- -------------------------------------------------------------------------
+
+instance (IsAtom MyAtom Predicate MyTerm, IsTerm MyTerm V Function) => Unify (MyAtom, MyAtom) V MyTerm where
+    unify = unify_atoms_eq
 
 p20 :: Test
 p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
@@ -150,7 +154,9 @@ p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
 -- -------------------------------------------------------------------------
 
 #ifndef NOTESTS
-compare :: (IsFirstOrder formula atom predicate term v function, Ord formula, Pretty formula, HasSkolem function v) => formula -> (Int, Failing Int)
+compare :: (IsFirstOrder formula atom predicate term v function,
+            Unify (atom, atom) v term,
+            Ord formula, Pretty formula, HasSkolem function v) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
 p19 :: Test
@@ -235,7 +241,8 @@ instance Pretty Depth where
 
 -- | More standard tableau procedure, effectively doing DNF incrementally.  (p. 177)
 tableau :: forall formula atom predicate function v term.
-           IsFirstOrder formula atom predicate term v function =>
+           (IsFirstOrder formula atom predicate term v function,
+            Unify (atom, atom) v term) =>
            ([formula], [formula], Depth)
         -> ((K, Map v term) -> RWS () () () (Failing (K, Map v term)))
         -> (K, Map v term)
@@ -276,13 +283,13 @@ instance Enum K where
 instance Pretty K where
     pPrint (K n) = text ("K" ++ show n)
 
-tabrefute :: IsFirstOrder formula atom predicate term v function =>
+tabrefute :: (IsFirstOrder formula atom predicate term v function, Unify (atom, atom) v term) =>
              Maybe Depth -> [formula] -> Failing ((K, Map v term), Depth)
 tabrefute limit fms =
     let r = deepen (\n -> (,n) <$> evalRS (tableau (fms,[],n) (return . Success) (K 0, Map.empty)) () ()) (Depth 0) limit in
     failing Failure (Success . fst) r
 
-tab :: (IsFirstOrder formula atom predicate term v function, Pretty formula, HasSkolem function v) =>
+tab :: (IsFirstOrder formula atom predicate term v function, Unify (atom, atom) v term, Pretty formula, HasSkolem function v) =>
        Maybe Depth -> formula -> Failing ((K, Map v term), Depth)
 tab limit fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
@@ -330,7 +337,8 @@ END_INTERACTIVE;;
 -- Try to split up the initial formula first; often a big improvement.
 -- -------------------------------------------------------------------------
 splittab :: forall formula atom predicate term v function.
-            (IsFirstOrder formula atom predicate term v function, Ord formula, Pretty formula, HasSkolem function v
+            (IsFirstOrder formula atom predicate term v function, Unify (atom, atom) v term,
+             Ord formula, Pretty formula, HasSkolem function v
             ) => formula -> [Failing ((K, Map v term), Depth)]
 splittab fm =
     (List.map (tabrefute Nothing) . ssll . simpdnf' . runSkolem . skolemize id . (.~.) . generalize) fm

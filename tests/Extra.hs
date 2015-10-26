@@ -6,7 +6,7 @@ import Data.List as List (map)
 import Data.Map as Map (empty, fromList)
 import Data.Set as Set (fromList, map, Set, singleton)
 import Data.String (fromString)
-import FOL (vt, fApp, (.=.), pApp, for_all, exists, IsAtom(applyPredicate), Predicate(Equals))
+import FOL (vt, fApp, (.=.), pApp, for_all, exists, HasApply(applyPredicate), Predicate(Equals))
 import Formulas
 import Lib (failing)
 import Meson (meson)

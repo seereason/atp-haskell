@@ -4,10 +4,12 @@
 
 {-# OPTIONS -Wall #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Unif
-    ( unify
+    ( Unify(unify)
+    , unify_terms
     , solve
     , fullunify
     , unify_and_apply
@@ -28,18 +30,21 @@ import Test.HUnit
 #endif
 
 -- | Main unification procedure.  Using the Monad instance of Failing here and in istriv.
-unify :: IsTerm term v f => Map v term -> [(term,term)] -> Failing (Map v term)
-unify env [] = return env
-unify env ((a,b):oth) =
+class Unify a v term where
+    unify :: Map v term -> a -> Failing (Map v term)
+
+unify_terms :: IsTerm term v f => Map v term -> [(term,term)] -> Failing (Map v term)
+unify_terms env [] = return env
+unify_terms env ((a,b):oth) =
     foldTerm (vr b) (\ f fargs -> foldTerm (vr a) (fn f fargs) b) a
     where
       vr t x =
-          maybe (istriv env x t >>= bool (unify (Map.insert x t env) oth) (unify env oth))
-                (\y -> unify env ((y, t) : oth)) -- x is bound to y, so unify y with t
+          maybe (istriv env x t >>= bool (unify_terms (Map.insert x t env) oth) (unify_terms env oth))
+                (\y -> unify_terms env ((y, t) : oth)) -- x is bound to y, so unify y with t
                 (Map.lookup x env)
       fn f fargs g gargs =
           if f == g && length fargs == length gargs
-          then unify env (zip fargs gargs ++ oth)
+          then unify_terms env (zip fargs gargs ++ oth)
           else fail "impossible unification"
 
 istriv :: IsTerm term v f => Map v term -> v -> term -> Failing Bool
@@ -58,7 +63,7 @@ solve env =
 
 -- | Unification reaching a final solved form (often this isn't needed).
 fullunify :: IsTerm term v f => [(term,term)] -> Failing (Map v term)
-fullunify eqs = solve <$> unify Map.empty eqs
+fullunify eqs = solve <$> unify_terms Map.empty eqs
 
 -- | Examples.
 unify_and_apply :: IsTerm term v f => [(term, term)] -> Failing [(term, term)]

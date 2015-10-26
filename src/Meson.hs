@@ -28,6 +28,7 @@ import Prolog (renamerule)
 import Prop (JustLiteral, list_conj, Literal, Marked, Propositional, simpcnf)
 import Skolem (askolemize, HasSkolem, pnf, SkolemT, simpdnf', specialize)
 import Tableaux (Depth(Depth), deepen, unify_literals)
+import Unif (Unify)
 
 #ifndef NOTESTS
 import Data.List as List (map)
@@ -196,7 +197,7 @@ contrapositives cls =
 -- -------------------------------------------------------------------------
 
 mexpand :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-            IsAtom atom predicate term,
+            IsAtom atom predicate term, Unify (atom, atom) v term,
             IsTerm term v function) =>
            Set (Set lit, lit)
         -> Set lit
@@ -211,10 +212,10 @@ mexpand rules ancestors g cont (env,n,k) =
            Failure _ -> settryfind doRule rules
     where
       doAncestor a =
-          do mp <- unify_literals env g ((.~.) a)
+          do mp <- unify_literals env (g, ((.~.) a))
              cont (mp, n, k)
       doRule rule =
-          do mp <- unify_literals env g c
+          do mp <- unify_literals env (g, c)
              mexpand' (mp, fromEnum n - Set.size asm, k')
           where
             mexpand' = Set.fold (mexpand rules (Set.insert g ancestors)) cont asm
@@ -225,7 +226,7 @@ mexpand rules ancestors g cont (env,n,k) =
 -- -------------------------------------------------------------------------
 
 puremeson :: forall fof atom predicate term v f.
-             (IsFirstOrder fof atom predicate term v f, Ord fof, Pretty fof
+             (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof, Pretty fof
              ) => Maybe Depth -> fof -> Failing ((Map v term, Int, Int), Depth)
 puremeson maxdl fm =
     deepen f (Depth 0) maxdl
@@ -236,7 +237,7 @@ puremeson maxdl fm =
       (cls :: Set (Set (Marked Literal fof))) = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
 
 meson :: forall m fof atom predicate term f v.
-         (IsFirstOrder fof atom predicate term v f, Ord fof, Pretty fof,
+         (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof, Pretty fof,
           HasSkolem f v, Monad m
          ) => Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
 meson maxdl fm =
