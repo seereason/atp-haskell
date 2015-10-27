@@ -17,15 +17,15 @@
 
 module FOL
     ( -- * Variables
-      IsVariable(variant, prefix, prettyVariable), variants, showVariable
+      IsVariable(variant, prefix), variants --, showVariable
     -- * Functions
     , IsFunction
     , Arity
     , HasFunctions(funcs)
     -- * Terms
-    , IsTerm(vt, fApp, foldTerm), zipTerms, termFuncs, convertTerm, showTerm, prettyTerm
+    , IsTerm(vt, fApp, foldTerm), zipTerms, termFuncs, convertTerm, prettyTerm --, showTerm
     -- * Predicates
-    , IsPredicate(prettyPredicateApplication), prettyApply, prettyEquate
+    , IsPredicate{-(prettyPredicateApplication, prettyPredicateEquate)-}, prettyApply, prettyEquate
     -- * Atoms
     , IsAtom(overterms, onterms)
     , HasApply(applyPredicate, foldPredicate)
@@ -68,7 +68,7 @@ module FOL
     , V(V)
     , FName(FName)
     , Term(Var, FApply)
-    , Predicate(NamedPredicate, Equals)
+    , Predicate
     , FOL(R)
     , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     , MyFormula1
@@ -78,14 +78,14 @@ module FOL
     ) where
 
 import Data.Data (Data)
-import Data.Function (on)
+--import Data.Function (on)
 import Data.Map as Map (insert, lookup, Map)
 import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Formulas ((.~.), BinOp(..), binop, false, HasBoolean(..), IsCombinable(..), IsFormula(..),
-                 onatoms, true)
+                 onatoms, prettyBool, true)
 import Lib (Marked(Mark, unMark'), setAny, tryApplyD, undefine, (|->))
 import Lit (foldLiteral, IsLiteral)
 import Prelude hiding (pred)
@@ -115,8 +115,10 @@ class (Ord v, IsString v, Pretty v, Show v) => IsVariable v where
     -- ^ Modify a variable by adding a prefix.  This unfortunately
     -- assumes that v is "string-like" but at least one algorithm in
     -- Harrison currently requires this.
+{-
     prettyVariable :: v -> Doc
     -- ^ Pretty print a variable
+-}
 
 -- | Return an infinite list of variations on v
 variants :: IsVariable v => v -> [v]
@@ -124,8 +126,10 @@ variants v0 =
     loop Set.empty v0
     where loop s v = let v' = variant v s in v' : loop (Set.insert v s) v'
 
+{-
 showVariable :: IsVariable v => v -> String
 showVariable v = "(fromString (" ++ show (show (prettyVariable v)) ++ "))"
+-}
 
 #ifndef NOTESTS
 newtype V = V String deriving (Eq, Ord, Data, Typeable, Read, Show)
@@ -133,12 +137,12 @@ newtype V = V String deriving (Eq, Ord, Data, Typeable, Read, Show)
 instance IsVariable String where
     variant v vs = if Set.member v vs then variant (v ++ "'") vs else v
     prefix pre s = pre ++ s
-    prettyVariable = text
+    -- prettyVariable = text
 
 instance IsVariable V where
     variant v@(V s) vs = if Set.member v vs then variant (V (s ++ "'")) vs else v
     prefix pre (V s) = V (pre ++ s)
-    prettyVariable (V s) = text s
+    -- prettyVariable (V s) = text s
 
 instance IsString V where
     fromString = V
@@ -214,12 +218,18 @@ termFuncs = foldTerm (\_ -> Set.empty) (\f ts -> Set.singleton (f, length ts))
 convertTerm :: (IsTerm term1 v1 f1, IsTerm term2 v2 f2) => (v1 -> v2) -> (f1 -> f2) -> term1 -> term2
 convertTerm cv cf = foldTerm (vt . cv) (\f ts -> fApp (cf f) (map (convertTerm cv cf) ts))
 
+{-
 showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
 showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> show (prettyApply (text ("fApp (" ++ show fn ++ ")")) (text " ") (map (text . showTerm) ts)))
 -- showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp (" ++ show fn ++ ") [" ++ intercalate ", " (map showTerm ts) ++ "]")
+-}
 
 prettyTerm :: (IsTerm term v function, Pretty v, Pretty function) => term -> Doc
-prettyTerm = foldTerm pPrint (\f args -> prettyApply (pPrint f) (text " ") (map pPrint args))
+prettyTerm = foldTerm pPrint prettyFunctionApply
+
+prettyFunctionApply :: IsTerm term v function => function -> [term] -> Doc
+prettyFunctionApply f [] = pPrint f
+prettyFunctionApply f ts = pPrint f <> space <> brackets (hsep (punctuate comma (map prettyTerm ts)))
 
 #ifndef NOTESTS
 data Term function v
@@ -227,8 +237,10 @@ data Term function v
     | FApply function [Term function v]
     deriving (Eq, Ord, Data, Typeable, Show)
 
+{-
 instance (IsVariable v, Show v, IsFunction function, Show function) => Show (Marked Expr (Term function v)) where
     show = showTerm . unMark'
+-}
 
 instance (IsFunction function, IsVariable v) => HasFunctions (Term function v) function where
     funcs = termFuncs
@@ -260,9 +272,7 @@ test00 = TestCase $ assertEqual "print an expression"
 -- | A predicate is the thing we apply to a list of terms to get an
 -- atom.  It doesn't have a Pretty superclass because we only render
 -- it in combination with the argument terms.
-class (IsString predicate, Eq predicate, Ord predicate, Show predicate)
-    => IsPredicate predicate where
-    prettyPredicateApplication :: forall term. Pretty term => predicate -> [term] -> Doc
+class (Eq predicate, Ord predicate, Show predicate, IsString predicate, Pretty predicate, HasBoolean predicate) => IsPredicate predicate
 
 ---------------------------
 -- ATOM (Atomic Formula) --
@@ -273,10 +283,13 @@ class (IsPredicate predicate, Ord atom, Pretty atom, HasFixity atom)
     overterms :: (term -> r -> r) -> r -> atom -> r
     onterms :: (term -> term) -> atom -> atom
 
-class IsPredicate predicate
-    => HasApply atom predicate term | atom -> predicate term where
+class IsPredicate predicate => HasApply atom predicate term | atom -> predicate term where
     applyPredicate :: predicate -> [term] -> atom
     foldPredicate :: (predicate -> [term] -> r) -> atom -> r --- rename FoldAtom
+
+-- | Pretty print prefix application of a predicate
+prettyApply :: (IsPredicate predicate, IsTerm term v function) => predicate -> [term] -> Doc
+prettyApply p ts = pPrint p <> brackets (fcat (punctuate (comma <> space) (map pPrint ts)))
 
 -- | Implementation of 'overterms' for 'HasApply' types.
 overtermsApply :: HasApply atom predicate term => (term -> r -> r) -> r -> atom -> r
@@ -308,90 +321,115 @@ showApply = foldPredicate (\p ts -> show (text "pApp " <> parens (text (show p))
 -- | Atoms that support equality must have HasApplyAndEquals instance
 class HasApply atom predicate term => HasApplyAndEquate atom predicate term | atom -> predicate term where
     equate :: term -> term -> atom
-    foldEquate :: (term -> term -> r) -> (predicate -> [term] -> r) -> atom -> r
+    foldEquate :: (term -> predicate -> term -> r) -> (predicate -> [term] -> r) -> atom -> r
+    -- prettyEquate :: forall term. Pretty term => predicate -> term -> term -> Doc
 
 overtermsEq :: HasApplyAndEquate atom predicate term => (term -> r -> r) -> r -> atom -> r
-overtermsEq f r0 = foldEquate (\t1 t2 -> f t2 (f t1 r0)) (\_ ts -> foldr f r0 ts)
+overtermsEq f r0 = foldEquate (\t1 _p t2 -> f t2 (f t1 r0)) (\_ ts -> foldr f r0 ts)
 
 ontermsEq :: HasApplyAndEquate atom predicate term => (term -> term) -> atom -> atom
-ontermsEq f = foldEquate (\t1 t2 -> equate (f t1) (f t2)) (\p ts -> applyPredicate p (map f ts))
+ontermsEq f = foldEquate (\t1 _p t2 -> equate (f t1) (f t2)) (\p ts -> applyPredicate p (map f ts))
 
 -- | Zip two atoms that support equality
 zipPredicatesEq :: forall atom predicate term r.
                    (HasApplyAndEquate atom predicate term) =>
-                   (term -> term -> term -> term -> Maybe r)
+                   (term -> predicate -> term ->
+                    term -> predicate -> term -> Maybe r)
                 -> (predicate -> [(term, term)] -> Maybe r)
                 -> atom -> atom -> Maybe r
 zipPredicatesEq eq ap atom1 atom2 =
     foldEquate eq' ap' atom1
     where
-      eq' l1 r1 = foldEquate (eq l1 r1) (\_ _ -> Nothing) atom2
+      eq' l1 p r1 = foldEquate (eq l1 p r1) (\_ _ -> Nothing) atom2
       ap' :: predicate -> [term] -> Maybe r
-      ap' p1 ts1 = foldEquate (\_ _ -> Nothing) (ap'' p1 ts1) atom2
+      ap' p1 ts1 = foldEquate (\_ _ _ -> Nothing) (ap'' p1 ts1) atom2
       ap'' :: predicate -> [term] -> predicate -> [term] -> Maybe r
       ap'' p1 ts1 p2 ts2 | p1 == p2 && length ts1 == length ts2 = ap p1 (zip ts1 ts2)
       ap'' _ _ _ _ = Nothing
 
 isEquate :: HasApplyAndEquate atom predicate term => atom -> Bool
-isEquate = foldEquate (\_ _ -> True) (\_ _ -> False)
+isEquate = foldEquate (\_ _ _ -> True) (\_ _ -> False)
+
+prettyEquate :: (IsPredicate predicate, IsTerm term v function) => term -> predicate -> term -> Doc
+prettyEquate t1 _p t2 = pPrint t1 <> text "=" <> pPrint t2
 
 showApplyAndEquate :: (HasApplyAndEquate atom predicat term, Show term) => atom -> String
 showApplyAndEquate atom = foldEquate showEquate (\_ _ -> showApply atom) atom
 
-showEquate :: Show term => term -> term -> String
-showEquate t1 t2 = "(" ++ show t1 ++ ") .=. (" ++ show t2 ++ ")"
+showEquate :: Show term => term -> predicate -> term -> String
+showEquate t1 _p t2 = "(" ++ show t1 ++ ") .=. (" ++ show t2 ++ ")"
 
 -- | Convert between two instances of IsAtom
 convertPredicate :: (HasApply atom1 p1 t1, HasApply atom2 p2 t2) => (p1 -> p2) -> (t1 -> t2) -> atom1 -> atom2
 convertPredicate cp ct = foldPredicate (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
 convertPredicateEq :: (HasApplyAndEquate atom1 p1 t1, HasApplyAndEquate atom2 p2 t2) => (p1 -> p2) -> (t1 -> t2) -> atom1 -> atom2
-convertPredicateEq cp ct = foldEquate (equate `on` ct) (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
+convertPredicateEq cp ct = foldEquate (\t1 p t2 -> equate (ct t1) (ct t2)) (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
 #ifndef NOTESTS
 
 -- | This Predicate type includes an distinct Equals constructor, so
 -- that we can use it to build an atoms with HasApplyAndEquate.
 data Predicate
-    = NamedPredicate String
+    = TP
+    | FP
+    | NamedPred String
     | Equals
     deriving (Eq, Ord, Data, Typeable, Show)
 
+instance HasBoolean Predicate where
+    fromBool True = TP
+    fromBool False = FP
+    asBool TP = Just True
+    asBool FP = Just False
+    asBool _ = Nothing
+
 instance IsString Predicate where
-    fromString = NamedPredicate
+    fromString "True" = error "bad predicate name: True"
+    fromString "False" = error "bad predicate name: True"
+    fromString "=" = error "bad predicate name: True"
+    fromString s = NamedPred s
 
 instance Pretty Predicate where
-    pPrint Equals = text "="
-    pPrint (NamedPredicate "=") = error "Use of = as a predicate name is prohibited"
-    pPrint (NamedPredicate s) = text s
+    pPrint Equals = error "pPrint Equals"
+    pPrint TP = error "Use of True as a prefix predicate is prohibited"
+    pPrint FP = error "Use of False as a prefix predicate is prohibited"
+    pPrint (NamedPred "=") = error "Use of = as a predicate name is prohibited"
+    pPrint (NamedPred "True") = error "Use of True as a predicate name is prohibited"
+    pPrint (NamedPred "False") = error "Use of False as a predicate name is prohibited"
+    pPrint (NamedPred s) = text s
 
+{-
 prettyApply :: Doc -> Doc -> [Doc] -> Doc
 prettyApply p _ [] = p
 prettyApply p sep ts = p <> sep <> brackets (hsep (punctuate comma ts))
 
 prettyEquate :: Doc -> Doc -> Doc
 prettyEquate a b = a <> text "=" <> b
+-}
 
-instance IsPredicate Predicate where
+instance Pretty Predicate => IsPredicate Predicate {- where
     prettyPredicateApplication Equals [t1, t2] = prettyEquate (pPrint t1) (pPrint t2)
     prettyPredicateApplication Equals _ = error "prettyEquate Predicate - expected two argument terms"
-    prettyPredicateApplication (NamedPredicate s) ts = prettyApply (text s) mempty (map pPrint ts)
+    prettyPredicateApplication p@(NamedPredicate s) ts = maybe (prettyApply (text s) mempty (map pPrint ts)) prettyBool (asBool p) -}
 
 instance Show (Marked Expr Predicate) where
     show (Mark Equals) = " .=. "
-    show (Mark (NamedPredicate s)) = "fromString " ++ show s
+    show (Mark TP) = "true"
+    show (Mark FP) = "false"
+    show (Mark (NamedPred s)) = "fromString " ++ show s
 
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable, Show)
 
-instance (IsPredicate predicate, Ord term, Pretty term) => Pretty (FOL predicate term) where
-    pPrint = foldPredicate prettyPredicateApplication
+instance (IsPredicate predicate, IsTerm term v function) => Pretty (FOL predicate term) where
+    pPrint = foldPredicate prettyApply
 
 instance (IsPredicate predicate, Pretty term, Ord term) => HasApply (FOL predicate term) predicate term where
     applyPredicate = R
     foldPredicate f (R p ts) = f p ts
 
-instance (IsPredicate predicate, Ord term, Pretty term) => IsAtom (FOL predicate term) predicate term where
+instance (IsPredicate predicate, IsTerm term v function) => IsAtom (FOL predicate term) predicate term where
     overterms f r (R _ ts) = foldr f r ts
     onterms f (R p ts) = R p (map f ts)
 
@@ -400,7 +438,7 @@ instance (Pretty term, Show term, Ord term) => Show (Marked Expr (FOL Predicate 
 
 instance (IsPredicate Predicate, Ord term, Pretty term) => HasApplyAndEquate (FOL Predicate term) Predicate term where
     equate lhs rhs = applyPredicate Equals [lhs, rhs]
-    foldEquate eq _ (R Equals [lhs, rhs]) = eq lhs rhs
+    foldEquate eq _ (R p@Equals [lhs, rhs]) = eq lhs p rhs
     foldEquate _ _ (R Equals _) = error "equate arity error"
     foldEquate _ ap (R p ts) = ap p ts
 
@@ -930,7 +968,7 @@ holdsAtom m v at = foldPredicate (\r args -> predApply m r (map (termval m v) ar
 
 holdsAtomEq :: (Eq dom, IsTerm term v function, HasApplyAndEquate atom predicate term) =>
                Interp function predicate dom -> Map v dom -> atom -> Bool
-holdsAtomEq m v at = foldEquate (eqApply m `on` termval m v)
+holdsAtomEq m v at = foldEquate (\t1 p t2 -> eqApply m (termval m v t1) (termval m v t2))
                                 (\r args -> predApply m r (map (termval m v) args)) at
 
 termval :: (IsTerm term v function, Show v) => Interp function predicate r -> Map v r -> term -> r

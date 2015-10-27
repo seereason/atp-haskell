@@ -203,7 +203,7 @@ match_atoms env (a1, a2) =
 
 match_atoms_eq :: (HasApplyAndEquate atom predicate term, IsTerm term v function) => Map v term -> (atom, atom) -> Failing (Map v term)
 match_atoms_eq env (a1, a2) =
-    maybe (Failure ["match_atoms_eq"]) id (zipPredicatesEq (\l1 r1 l2 r2 -> Just (term_match env [(l1, l2), (r1, r2)]))
+    maybe (Failure ["match_atoms_eq"]) id (zipPredicatesEq (\l1 _p1 r1 l2 _p2 r2 -> Just (term_match env [(l1, l2), (r1, r2)]))
                                                            (\_ pairs -> Just (term_match env pairs)) a1 a2)
 
 match_literals :: forall lit term function v atom predicate.

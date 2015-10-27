@@ -79,7 +79,7 @@ unify_atoms_eq :: forall atom term predicate v function.
                 IsTerm term v function) =>
                (atom, atom) -> StateT (Map v term) Failing ()
 unify_atoms_eq (a1, a2) =
-    maybe (fail "unify_atoms") id (zipPredicatesEq (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
+    maybe (fail "unify_atoms") id (zipPredicatesEq (\l1 _p1 r1 l2 _p2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
                                                    (\_ tpairs -> Just (unify_terms tpairs))
                                                    a1 a2)
 
