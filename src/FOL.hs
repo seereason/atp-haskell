@@ -84,14 +84,14 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
-import Formulas (BinOp(..), HasBoolean(..), IsCombinable(..), IsFormula(..),
-                 (.~.), true, false, onatoms, binop)
-import Lib (setAny, tryApplyD, undefine, (|->))
+import Formulas ((.~.), BinOp(..), binop, false, HasBoolean(..), IsCombinable(..), IsFormula(..),
+                 onatoms, true)
+import Lib (Marked(Mark, unMark'), setAny, tryApplyD, undefine, (|->))
 import Lit (foldLiteral, IsLiteral)
 import Prelude hiding (pred)
-import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
+import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Expr, Fixity(Fixity), HasFixity(fixity),
                parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
-import Prop (foldPropositional, IsPropositional, JustLiteral, JustPropositional, Marked(Mark, unMark'))
+import Prop (foldPropositional, IsPropositional, JustLiteral, JustPropositional)
 import Text.PrettyPrint (parens, braces, brackets, punctuate, comma, fcat, hsep, space)
 #ifndef NOTESTS
 import Data.Map as Map (empty, fromList)
@@ -128,7 +128,7 @@ showVariable :: IsVariable v => v -> String
 showVariable v = "(fromString (" ++ show (show (prettyVariable v)) ++ "))"
 
 #ifndef NOTESTS
-newtype V = V String deriving (Eq, Ord, Read, Data, Typeable)
+newtype V = V String deriving (Eq, Ord, Data, Typeable, Read, Show)
 
 instance IsVariable String where
     variant v vs = if Set.member v vs then variant (v ++ "'") vs else v
@@ -143,8 +143,8 @@ instance IsVariable V where
 instance IsString V where
     fromString = V
 
-instance Show V where
-    show (V s) = show s
+instance Show (Marked Expr V) where
+    show (Mark (V s)) = show s
 
 instance Pretty V where
     pPrint (V s) = text s
@@ -169,13 +169,13 @@ instance HasFunctions t function => HasFunctions (Marked mk t) function where
 -- | A simple type to use as the function parameter of Term, FOL, etc.
 -- The only reason to use this instead of String is to get nicer
 -- pretty printing.
-newtype FName = FName String deriving (Eq, Ord)
+newtype FName = FName String deriving (Eq, Ord, Show)
 
 instance IsFunction FName
 
 instance IsString FName where fromString = FName
 
-instance Show FName where show (FName s) = s
+instance Show (Marked Expr FName) where show (Mark (FName s)) = s
 
 instance Pretty FName where pPrint (FName s) = text s
 #endif
@@ -225,10 +225,10 @@ prettyTerm = foldTerm pPrint (\f args -> prettyApply (pPrint f) (text " ") (map 
 data Term function v
     = Var v
     | FApply function [Term function v]
-    deriving (Eq, Ord, Data, Typeable)
+    deriving (Eq, Ord, Data, Typeable, Show)
 
-instance (IsVariable v, Show v, IsFunction function, Show function) => Show (Term function v) where
-    show = showTerm
+instance (IsVariable v, Show v, IsFunction function, Show function) => Show (Marked Expr (Term function v)) where
+    show = showTerm . unMark'
 
 instance (IsFunction function, IsVariable v) => HasFunctions (Term function v) function where
     funcs = termFuncs
@@ -355,7 +355,7 @@ convertPredicateEq cp ct = foldEquate (equate `on` ct) (\p1 ts1 -> applyPredicat
 data Predicate
     = NamedPredicate String
     | Equals
-    deriving (Eq, Ord, Data, Typeable)
+    deriving (Eq, Ord, Data, Typeable, Show)
 
 instance IsString Predicate where
     fromString = NamedPredicate
@@ -377,12 +377,12 @@ instance IsPredicate Predicate where
     prettyPredicateApplication Equals _ = error "prettyEquate Predicate - expected two argument terms"
     prettyPredicateApplication (NamedPredicate s) ts = prettyApply (text s) mempty (map pPrint ts)
 
-instance Show Predicate where
-    show Equals = " .=. "
-    show (NamedPredicate s) = "(NamedPredicate " ++ show s ++ ")"
+instance Show (Marked Expr Predicate) where
+    show (Mark Equals) = " .=. "
+    show (Mark (NamedPredicate s)) = "fromString " ++ show s
 
 -- | First order logic formula atom type.
-data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable)
+data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable, Show)
 
 instance (IsPredicate predicate, Ord term, Pretty term) => Pretty (FOL predicate term) where
     pPrint = foldPredicate prettyPredicateApplication
@@ -395,8 +395,8 @@ instance (IsPredicate predicate, Ord term, Pretty term) => IsAtom (FOL predicate
     overterms f r (R _ ts) = foldr f r ts
     onterms f (R p ts) = R p (map f ts)
 
-instance (Pretty term, Show term, Ord term) => Show (FOL Predicate term) where
-    show = showApplyAndEquate
+instance (Pretty term, Show term, Ord term) => Show (Marked Expr (FOL Predicate term)) where
+    show = showApplyAndEquate . unMark'
 
 instance (IsPredicate Predicate, Ord term, Pretty term) => HasApplyAndEquate (FOL Predicate term) Predicate term where
     equate lhs rhs = applyPredicate Equals [lhs, rhs]

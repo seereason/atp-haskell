@@ -33,7 +33,7 @@ import Data.Set as Set
 import FOL
 import Formulas
 import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
-            Failing(..), failing, (|->), setAll, setAny, settryfind)
+            Failing(..), failing, (|->), Marked, setAll, setAny, settryfind)
 import Lit
 import Pretty (assertEqual', Pretty)
 import Prop

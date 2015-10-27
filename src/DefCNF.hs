@@ -28,10 +28,11 @@ import Data.List as List
 import Data.Map as Map hiding (fromList)
 import Data.Set as Set
 import Formulas as P
+import Lib (Marked)
 import Lit (IsLiteral)
 import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), text)
 import Prop (foldPropositional, IsPropositional(foldPropositional'), JustLiteral, JustPropositional,
-             list_conj, list_disj, Literal, Marked, nenf, simpcnf, unmarkLiteral)
+             list_conj, list_disj, Literal, nenf, simpcnf, unmarkLiteral)
 #ifndef NOTESTS
 import Data.Function (on)
 import Pretty (assertEqual', prettyShow)

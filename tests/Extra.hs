@@ -4,9 +4,9 @@ module Extra where
 import Control.Applicative.Error (Failing(Failure, Success))
 import Data.List as List (map)
 import Data.Map as Map (empty, fromList)
-import Data.Set as Set (fromList, map, Set, singleton)
+import Data.Set as Set (fromList, map, minView, null, Set, singleton)
 import Data.String (fromString)
-import FOL (vt, fApp, (.=.), pApp, for_all, exists, HasApply(applyPredicate), Predicate(Equals))
+import FOL (vt, fApp, (.=.), pApp, for_all, exists)
 import Formulas
 import Lib (failing)
 import Meson (meson)
@@ -69,7 +69,7 @@ test06 =
     TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y"
                            (expected,
                             TruthTable
-                              [applyPredicate Equals [vt "x", vt "x"], applyPredicate Equals [fApp (toSkolem "x")[], vt "x"]]
+                              (List.map asAtom ([vt "x" .=. vt "x", fApp (toSkolem "x") [] .=. vt "x"] :: [MyFormula]))
                               [([False,False],False),
                                ([False,True],False),
                                ([True,False],True),
@@ -80,6 +80,11 @@ test06 =
                                                    2),
                                                   Depth 1)])
                            (sk, table, runSkolem (meson Nothing fm))
+
+asAtom :: forall formula atom. IsFormula formula atom => formula -> atom
+asAtom fm = case Set.minView (atom_union singleton fm :: Set atom) of
+              Just (a, s) | Set.null s -> a
+              _ -> error "asAtom"
 
 mesonTest :: MyFormula -> Set (Failing Depth) -> Test
 mesonTest fm expected =

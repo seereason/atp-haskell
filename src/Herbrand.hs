@@ -22,9 +22,9 @@ import Debug.Trace
 import DP (dpll)
 import FOL (Arity, HasFunctions(funcs), IsAtom, IsFirstOrder, IsTerm, fApp, lsubst, fv, generalize)
 import Formulas ((.~.), overatoms, atomic)
-import Lib (allpairs, distrib)
+import Lib (allpairs, distrib, Marked)
 import Lit (IsLiteral)
-import Prop (eval, IsPropositional, JustPropositional, Literal, Marked, Propositional, simpcnf, simpdnf, trivial)
+import Prop (eval, IsPropositional, JustPropositional, Literal, Propositional, simpcnf, simpdnf, trivial)
 import Skolem (HasSkolem, runSkolem, skolemize)
 
 #ifndef NOTESTS

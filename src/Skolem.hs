@@ -56,8 +56,9 @@ import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
 import Data.String (IsString(fromString))
 import FOL (FOL, Formula, IsFunction, pApp, Predicate, Term, V)
-import Pretty (Pretty(pPrint), prettyShow, text)
-import Prop (Marked, Propositional)
+import Lib (Marked(Mark))
+import Pretty (Expr, Pretty(pPrint), prettyShow, text)
+import Prop (Propositional)
 import Test.HUnit
 #endif
 
@@ -343,16 +344,16 @@ skolemize ca fm = (specialize ca . pnf) <$> askolemize fm
 data Function
     = Fn String
     | Skolem V
-    deriving (Eq, Ord, Data, Typeable)
+    deriving (Eq, Ord, Data, Typeable, Show)
 
 instance IsFunction Function
 
 instance IsString Function where
     fromString = Fn
 
-instance Show Function where
-    show (Fn s) = show s
-    show (Skolem v) = "(toSkolem " ++ show v ++ ")"
+instance Show (Marked Expr Function) where
+    show (Mark (Fn s)) = show s
+    show (Mark (Skolem v)) = "(toSkolem " ++ show v ++ ")"
 
 instance Pretty Function where
     pPrint (Fn s) = text s

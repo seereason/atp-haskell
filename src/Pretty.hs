@@ -1,7 +1,10 @@
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -17,15 +20,19 @@ module Pretty
     , leafFixity
     , parenthesize
     , assertEqual'
+    , Expr
+    , markExpr
     ) where
 
 import Control.Monad (unless)
+import Data.Generics (Data)
 import Data.Map as Map (Map, toList)
 import Data.Monoid ((<>))
 import Data.Set as Set (Set, toAscList)
 import GHC.Stack
 import Language.Haskell.TH.Syntax (maxPrecedence)
 import Language.Haskell.TH.Ppr (noPrec, Precedence)
+import Lib (Marked(Mark))
 import Test.HUnit (Assertion, assertFailure)
 import Text.PrettyPrint.HughesPJClass (brackets, comma, Doc, fsep, hcat, nest, Pretty(pPrint), prettyShow, punctuate, text)
 
@@ -116,3 +123,11 @@ assertEqual' preface expected actual =
   unless (actual == expected) (assertFailure msg)
  where msg = (if null preface then "" else preface ++ "\n") ++
              "expected: " ++ prettyShow expected ++ "\n but got: " ++ prettyShow actual
+
+-- | Phantom type to modify a formula's show instance to output an
+-- expression that only use class methods instead of the constructors
+-- of the specific instance.
+data Expr
+deriving instance Data Expr
+markExpr :: a -> Marked Expr a
+markExpr = Mark

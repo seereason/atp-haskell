@@ -39,7 +39,7 @@ import Lib
 import Lit
 import Prelude hiding (compare)
 import Pretty (Pretty(pPrint), prettyShow, text)
-import Prop (Literal, Marked, Propositional, simpdnf, unmarkLiteral, unmarkPropositional)
+import Prop (Literal, Propositional, simpdnf, unmarkLiteral, unmarkPropositional)
 import Skolem (askolemize, HasSkolem, runSkolem, skolemize)
 import Unif (Unify(unify), unify_terms)
 #ifndef NOTESTS

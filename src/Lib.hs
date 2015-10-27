@@ -41,6 +41,7 @@ module Lib
     , mapfilter
     , setmapfilter
     , (∅)
+    , Marked(Mark, unMark')
 #ifndef NOTESTS
     , testLib
 #endif
@@ -891,6 +892,9 @@ let equated (Partition f) = dom f;;
 
 let rec first n p = if p(n) then n else first (n +/ Int 1) p;;
 -}
+
+-- This is a type used to mark values with the phantom type "mark".
+data Marked mark a = Mark {unMark' :: a} deriving (Data, Typeable, Read)
 
 #ifndef NOTESTS
 testLib :: Test
