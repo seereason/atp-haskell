@@ -259,7 +259,7 @@ instance IsCombinable formula => IsCombinable (Marked mk formula) where
                         (\a -> other a)
                         fm
 
-instance (IsPropositional formula atom, Pretty formula) => Pretty (Marked mk formula) where
+instance Pretty formula => Pretty (Marked mk formula) where
     pPrint = pPrint . unMark'
 
 instance IsPropositional formula atom => IsPropositional (Marked mk formula) atom where
