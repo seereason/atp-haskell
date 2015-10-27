@@ -119,9 +119,9 @@ prawitz_loop djs0 fvs djs n =
       newvar k = vt (fromString ("_" ++ show (n * length fvs + k)))
 
 prawitz :: forall formula atom term predicate function v.
-           (IsFirstOrder formula atom predicate term v function,
+           (IsFirstOrder formula atom predicate term v function, Ord formula,
             Unify (atom, atom) v term,
-            Ord formula, Pretty formula, HasSkolem function v
+            HasSkolem function v
            ) => formula -> Int
 prawitz fm =
     snd (prawitz_loop dnf (Set.toList fvs) dnf0 0)
@@ -154,9 +154,9 @@ p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
 -- -------------------------------------------------------------------------
 
 #ifndef NOTESTS
-compare :: (IsFirstOrder formula atom predicate term v function,
+compare :: (IsFirstOrder formula atom predicate term v function, Ord formula,
             Unify (atom, atom) v term,
-            Ord formula, Pretty formula, HasSkolem function v) => formula -> (Int, Failing Int)
+            HasSkolem function v) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
 p19 :: Test

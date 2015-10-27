@@ -38,16 +38,22 @@ class (IsFormula lit atom,
        Pretty atom, -- We will definitely want to render these
        Ord atom -- atoms almost always end up in sets, so this is indispensable
       ) => IsLiteral lit atom where
-    foldLiteral' :: (lit -> r) -> (lit -> r) -> (Bool -> r) -> (atom -> r) -> lit -> r
+    -- | This is the internal fold for literals, 'foldLiteral' below should
+    -- normally be used, but its argument must be an instance of 'JustLiteral'.
+    foldLiteral' :: (lit -> r) -- ^ Called for higher order formulas (non-literal)
+                 -> (lit -> r) -- ^ Called for negated formulas
+                 -> (Bool -> r) -- ^ Called for true and false formulas
+                 -> (atom -> r) -- ^ Called for atomic formulas
+                 -> lit -> r
 
 foldLiteral :: IsLiteral lit atom => (lit -> r) -> (Bool -> r) -> (atom -> r) -> lit -> r
 foldLiteral = foldLiteral' (error "JustLiteral failure")
 
--- | Class that indicates that a formula type *only* supports Literal
+-- | Class that indicates that a formula type *only* contains 'IsLiteral'
 -- features - no combinations or quantifiers.
 class JustLiteral formula
 
--- | Unify two literals
+-- | Combine two literals (internal version).
 zipLiterals' :: (IsLiteral lit1 atom1, IsLiteral lit2 atom2) =>
                 (lit1 -> lit2 -> Maybe r)
              -> (lit1 -> lit2 -> Maybe r)
@@ -62,6 +68,7 @@ zipLiterals' ho neg tf at fm1 fm2 =
       tf' x1 = foldLiteral' (\ _ -> Nothing) (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
       at' a1 = foldLiteral' (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
 
+-- | Combine two literals.
 zipLiterals :: (IsLiteral lit1 atom1, JustLiteral lit1, IsLiteral lit2 atom2, JustLiteral lit2) =>
                (lit1 -> lit2 -> Maybe r)
             -> (Bool -> Bool -> Maybe r)
@@ -92,8 +99,7 @@ fixityLiteral fm =
       tf _ = Fixity 10 InfixN
       at = fixity
 
--- | Function typically used to implement Pretty instances for
--- JustLiteral formulas.
+-- | Implementation of 'pPrint' for -- 'JustLiteral' types.
 prettyLiteral :: (IsLiteral formula atom, JustLiteral formula) => formula -> Doc
 prettyLiteral lit =
     foldLiteral ne tf at lit
@@ -102,9 +108,8 @@ prettyLiteral lit =
       tf = pPrint
       at a = pPrint a
 
--- | Apply a function to the atoms, otherwise keeping structure.  This
--- can generally be used as the onatoms method of IsFormula.
-onatomsLiteral :: forall lit atom. IsLiteral lit atom => (atom -> lit) -> lit -> lit
+-- | Implementation of 'onatoms' for 'JustLiteral' types.
+onatomsLiteral :: IsLiteral lit atom => (atom -> lit) -> lit -> lit
 onatomsLiteral f fm =
     foldLiteral ne tf at fm
     where
@@ -112,14 +117,15 @@ onatomsLiteral f fm =
       tf flag = fromBool flag
       at x = f x
 
--- | Formula analog of list iterator "itlist".
-overatomsLiteral :: forall lit atom r. (IsLiteral lit atom, JustLiteral lit) => (atom -> r -> r) -> lit -> r -> r
+-- | implementation of 'overatoms' for 'JustLiteral' types.
+overatomsLiteral :: (IsLiteral lit atom, JustLiteral lit) => (atom -> r -> r) -> lit -> r -> r
 overatomsLiteral f fm r0 =
         foldLiteral ne (const r0) (flip f r0) fm
         where
           ne fm' = overatomsLiteral f fm' r0
 
 #ifndef NOTESTS
+-- | Example of a 'JustLiteral' type.
 data LFormula atom
     = F
     | T

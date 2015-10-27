@@ -24,7 +24,6 @@ import FOL (Arity, HasFunctions(funcs), IsAtom, IsFirstOrder, IsTerm, fApp, lsub
 import Formulas ((.~.), overatoms, atomic)
 import Lib (allpairs, distrib)
 import Lit (IsLiteral)
-import Pretty (Pretty)
 import Prop (eval, IsPropositional, JustPropositional, Literal, Marked, Propositional, simpcnf, simpdnf, trivial)
 import Skolem (HasSkolem, runSkolem, skolemize)
 
@@ -116,10 +115,8 @@ gilmore_loop =
       mfn djs0 ifn djs = Set.filter (not . trivial) (distrib (Set.map (Set.map ifn) djs0) djs)
 
 gilmore :: forall fof atom predicate term function v.
-           (IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof,
-            IsPropositional fof atom,
+           (IsFirstOrder fof atom predicate term v function, Ord fof,
             HasFunctions fof function,
-            IsLiteral fof atom,
             HasSkolem function v) =>
            fof -> Failing Int
 gilmore fm =
@@ -213,7 +210,7 @@ dp_loop :: (IsLiteral lit atom, Ord lit,
 dp_loop = herbloop dp_mfn dpll
 
 davisputnam :: forall formula atom term v predicate function.
-               (IsFirstOrder formula atom predicate term v function, Ord formula, Pretty formula,
+               (IsFirstOrder formula atom predicate term v function, Ord formula,
                 HasSkolem function v) =>
                formula -> Failing Int
 davisputnam fm =
@@ -234,7 +231,7 @@ END_INTERACTIVE;;
 
 -- | Show how few of the instances we really need. Hence unification!
 davisputnam' :: forall formula atom predicate term v f.
-                (IsFirstOrder formula atom predicate term v f, Ord formula, Pretty formula,
+                (IsFirstOrder formula atom predicate term v f, Ord formula,
                  HasFunctions formula f,
                  HasSkolem f v) =>
                 formula -> formula -> formula -> Failing Int

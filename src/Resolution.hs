@@ -35,7 +35,7 @@ import Formulas
 import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
             Failing(..), failing, (|->), setAll, setAny, settryfind)
 import Lit
-import Pretty (Pretty)
+import Pretty (assertEqual', Pretty)
 import Prop
 import Skolem
 import Tableaux (unify_literals)
@@ -48,7 +48,6 @@ import Test.HUnit
 import Pretty (prettyShow)
 
 -- | Barber's paradox is an example of why we need factoring.
-
 test01 :: Test
 test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p. 181)")
                     (prettyShow expected)
@@ -173,7 +172,7 @@ test02 :: Test
 test02 =
     TestCase $ assertEqual "Davis-Putnam example 1" expected (runSkolem (resolution1 davis_putnam_example_formula))
         where
-          expected = Set.singleton (Success True) :: Set (Failing Bool)
+          expected = Set.singleton (Success True)
 #endif
 
 -- -------------------------------------------------------------------------
@@ -295,6 +294,13 @@ resolution2 :: forall fof atom predicate term v function m.
                fof -> SkolemT m (Set (Failing Bool))
 resolution2 fm = askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_resolution2 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
+#ifndef NOTESTS
+test03 :: Test
+test03 = TestCase $ assertEqual' "Davis-Putnam example 2" expected (runSkolem (resolution2 davis_putnam_example_formula))
+        where
+          expected = Set.singleton (Success True)
+#endif
+
 -- -------------------------------------------------------------------------
 -- Positive (P1) resolution.
 -- -------------------------------------------------------------------------
@@ -361,6 +367,20 @@ resolution3 fm =
 #ifndef NOTESTS
 instance Match (MyAtom, MyAtom) V MyTerm where
     match = match_atoms_eq
+
+
+gilmore_1 :: Test
+gilmore_1 = TestCase $ assertEqual "Gilmore 1" expected (runSkolem (resolution3 fm))
+    where
+      expected = Set.singleton (Success True)
+      fm :: MyFormula
+      fm = exists "x" . for_all "y" . for_all "z" $
+           ((f[y] .=>. g[y]) .<=>. f[x]) .&.
+           ((f[y] ==> h[y]) <=> g[x]) .&.
+           (((f[y] .=>. g[y]) .=>. h[y]) .<=>. h[x])
+           .=>. f[z] .&. g[z] .&. h[z]
+      [x, y, z] = [vt "x", vt "y", vt "z"] :: [MyTerm]
+      [f, g, h] = [pApp "F", pApp "G", pApp "H"]
 
 -- The Pelletier examples again.
 p1 :: Test
@@ -1109,5 +1129,5 @@ los =
     TestCase $ assertEqual "los (p. 198)" expected result
 
 testResolution :: Test
-testResolution = TestLabel "Resolution" (TestList [test01, test02, p1, los])
+testResolution = TestLabel "Resolution" (TestList [test01, test02, test03, gilmore_1, p1, los])
 #endif

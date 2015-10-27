@@ -83,7 +83,7 @@ import Data.Map as Map (Map)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, intersection, isProperSubsetOf, map,
                         minView, partition, Set, singleton, toAscList, union)
-import Formulas (atom_union,
+import Formulas (atom_union, binop,
                  HasBoolean(fromBool, asBool), true, false,
                  IsNegatable(naiveNegate, foldNegation'), (.~.), negate, positive,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination),
@@ -204,6 +204,22 @@ prettyPropositional fm0 =
             ne f = text "¬" <> go fix Unary f
             tf = pPrint
             at a = pPrint a
+
+onatomsPropositional :: (IsPropositional pf atom, JustPropositional pf) => (atom -> pf) -> pf -> pf
+onatomsPropositional f fm =
+    foldPropositional co ne tf at fm
+    where
+      co p op q = binop (onatomsPropositional f p) op (onatomsPropositional f q)
+      ne p = (.~.) (onatomsPropositional f p)
+      tf flag = fromBool flag
+      at x = f x
+
+overatomsPropositional :: (IsPropositional pf atom, JustPropositional pf) => (atom -> r -> r) -> pf -> r -> r
+overatomsPropositional f fof r0 =
+    foldPropositional co ne (const r0) (flip f r0) fof
+    where
+      co p _ q = overatomsPropositional f p (overatomsPropositional f q r0)
+      ne fof' = overatomsPropositional f fof' r0
 
 ---------------------------------------------------------
 -- Formula marker types and restricted formula classes --
@@ -372,6 +388,10 @@ instance (HasFixity atom, Ord atom, Pretty atom) => HasFixity (PFormula atom) wh
 
 instance (Ord atom, HasFixity atom, Pretty atom) => IsFormula (PFormula atom) atom where
     atomic = Atom
+#if 1
+    overatoms = overatomsPropositional
+    onatoms = onatomsPropositional
+#else
     overatoms f fm b =
       case fm of
         Atom a -> f a b
@@ -390,18 +410,23 @@ instance (Ord atom, HasFixity atom, Pretty atom) => IsFormula (PFormula atom) at
         Imp p q -> Imp (onatoms f p) (onatoms f q)
         Iff p q -> Iff (onatoms f p) (onatoms f q)
         _ -> fm
+#endif
 
 instance (Ord atom, HasFixity atom, Pretty atom) => IsPropositional (PFormula atom) atom where
     foldPropositional' _ co ne tf at fm =
         case fm of
+          Imp p q -> co p (:=>:) q
+          Iff p q -> co p (:<=>:) q
+          And p q -> co p (:&:) q
+          Or p q -> co p (:|:) q
+#if 1
+          _ -> foldLiteral' (error "IsPropositional PFormula") ne tf at fm
+#else
+          Not p -> ne p
           T -> tf True
           F -> tf False
           Atom a -> at a
-          Not p -> ne p
-          And p q -> co p (:&:) q
-          Or p q -> co p (:|:) q
-          Imp p q -> co p (:=>:) q
-          Iff p q -> co p (:<=>:) q
+#endif
 
 instance (Ord atom, HasFixity atom, Pretty atom) => IsLiteral (PFormula atom) atom where
     foldLiteral' ho ne tf at fm =
@@ -1012,8 +1037,8 @@ test32 = TestCase $ assertEqual "purednf (p. 58)" expected input
 -- | Filtering out trivial disjuncts (in this guise, contradictory).
 trivial :: (Ord lit, IsNegatable lit) => Set lit -> Bool
 trivial lits =
-    not . null $ Set.intersection neg (Set.map (.~.) pos)
-    where (pos, neg) = Set.partition positive lits
+    let (pos, neg) = Set.partition positive lits in
+    (not . null . Set.intersection neg . Set.map (.~.)) pos
 
 #ifndef NOTESTS
 -- Example.

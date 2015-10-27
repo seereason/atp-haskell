@@ -29,16 +29,16 @@ module FOL
     -- * Atoms
     , IsAtom(overterms, onterms)
     , HasApply(applyPredicate, foldPredicate)
-    , overtermsApply, ontermsApply
+    , overtermsApply, ontermsApply, showApply
+    -- * Atoms supporting Equate
     , HasApplyAndEquate(equate, foldEquate)
     , overtermsEq, ontermsEq
     , convertPredicate, convertPredicateEq
     , zipPredicates, zipPredicatesEq
     , pApp, atomFuncs
-    , isEquate, (.=.), showEquate
-    -- * Quantifiers
+    , isEquate, (.=.), showEquate, showApplyAndEquate
+    -- * Quantified Formulas
     , Quant((:!:), (:?:))
-    -- Formula
     , IsQuantified(quant, foldQuantified), for_all, exists, (∀), (∃)
     , quantifiedFuncs
     , propositionalFuncs
@@ -267,7 +267,7 @@ class (IsString predicate, Eq predicate, Ord predicate, Show predicate) => IsPre
 -- ATOM (Atomic Formula) --
 ---------------------------
 
-class (IsPredicate predicate) => IsAtom atom predicate term | atom -> predicate term where
+class (IsPredicate predicate, Ord atom, Pretty atom, HasFixity atom) => IsAtom atom predicate term | atom -> predicate term where
     overterms :: (term -> r -> r) -> r -> atom -> r
     onterms :: (term -> term) -> atom -> atom
 
@@ -297,8 +297,8 @@ zipPredicates f atom1 atom2 =
                                      then Nothing
                                      else f p1 (zip ts1 ts2)) atom2
 
-showApply :: (Show predicate, Show term) => predicate -> [term] -> String
-showApply p ts = show (text "pApp " <> parens (text (show p)) <> brackets (fcat (punctuate (comma <> space) (map (text . show) ts))))
+showApply :: (HasApply atom predicate term, Show term) => atom -> String
+showApply = foldPredicate (\p ts -> show (text "pApp " <> parens (text (show p)) <> brackets (fcat (punctuate (comma <> space) (map (text . show) ts)))))
 
 -- | Atoms that support equality must have HasApplyAndEquals instance
 class HasApply atom predicate term => HasApplyAndEquate atom predicate term | atom -> predicate term where
@@ -329,6 +329,9 @@ zipPredicatesEq eq ap atom1 atom2 =
 
 isEquate :: HasApplyAndEquate atom predicate term => atom -> Bool
 isEquate = foldEquate (\_ _ -> True) (\_ _ -> False)
+
+showApplyAndEquate :: (HasApplyAndEquate atom predicat term, Show term) => atom -> String
+showApplyAndEquate atom = foldEquate showEquate (\_ _ -> showApply atom) atom
 
 showEquate :: Show term => term -> term -> String
 showEquate t1 t2 = "(" ++ show t1 ++ ") .=. (" ++ show t2 ++ ")"
@@ -383,14 +386,12 @@ instance (IsPredicate predicate, Pretty term, Ord term) => HasApply (FOL predica
     applyPredicate = R
     foldPredicate f (R p ts) = f p ts
 
-instance IsPredicate predicate => IsAtom (FOL predicate term) predicate term where
+instance (IsPredicate predicate, Ord term, Pretty term) => IsAtom (FOL predicate term) predicate term where
     overterms f r (R _ ts) = foldr f r ts
     onterms f (R p ts) = R p (map f ts)
 
 instance (Pretty term, Show term, Ord term) => Show (FOL Predicate term) where
-    show (R Equals [t1, t2]) = showEquate t1 t2
-    show (R Equals _) = error "Show (FOL Prredicate term)"
-    show (R p ts) = showApply p ts
+    show = showApplyAndEquate
 
 instance (IsPredicate Predicate, Ord term, Pretty term) => HasApplyAndEquate (FOL Predicate term) Predicate term where
     equate lhs rhs = applyPredicate Equals [lhs, rhs]
@@ -545,9 +546,6 @@ data Formula v atom
 instance (IsAtom atom predicate term,
           IsFunction function,
           HasFunctions atom function,
-          Ord atom,
-          Pretty atom,
-          HasFixity atom,
           IsTerm term v function
          ) => HasFunctions (Formula v atom) function where
     funcs = quantifiedFuncs
@@ -555,15 +553,12 @@ instance (IsAtom atom predicate term,
 instance (IsAtom atom predicate term,
           IsFunction function,
           HasFunctions atom function,
-          Ord atom,
-          Pretty atom,
-          HasFixity atom,
           IsTerm term v function
          ) => HasFunctions (PFormula atom) function where
     funcs = propositionalFuncs
 
 instance (Ord atom, Pretty atom, IsAtom atom predicate term, IsTerm term v function,
-          IsVariable v, HasFixity atom, Pretty v) => Pretty (Formula v atom) where
+          IsVariable v, Pretty v) => Pretty (Formula v atom) where
     pPrint = prettyQuantified
 
 instance HasBoolean (Formula v atom) where
@@ -591,8 +586,7 @@ instance (Ord v, Ord atom) => IsCombinable (Formula v atom) where
           Iff a b -> a `iff` b
           _ -> other fm
 
-instance (Ord atom, HasFixity atom, Pretty atom, IsAtom atom predicate term, IsTerm term v function
-         ) => IsQuantified (Formula v atom) atom v where
+instance (IsAtom atom predicate term, IsTerm term v function) => IsQuantified (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldQuantified qu _co _ne _tf _at (Forall v fm) = qu (:!:) v fm
@@ -608,50 +602,21 @@ instance (IsQuantified (Formula v atom) atom v, HasFixity atom) => HasFixity (Fo
     fixity = fixityQuantified
 
 -- The IsFormula instance for Formula
-instance (HasFixity atom, Pretty atom, IsAtom atom predicate term, IsTerm term v function, Ord v, Ord atom) => IsFormula (Formula v atom) atom where
+instance (IsAtom atom predicate term, IsTerm term v function, Ord v) => IsFormula (Formula v atom) atom where
     atomic = Atom
-    overatoms f fm b =
-      case fm of
-        Atom a -> f a b
-        Not p -> overatoms f p b
-        And p q -> overatoms f p (overatoms f q b)
-        Or p q -> overatoms f p (overatoms f q b)
-        Imp p q -> overatoms f p (overatoms f q b)
-        Iff p q -> overatoms f p (overatoms f q b)
-        Forall _x p -> overatoms f p b
-        Exists _x p -> overatoms f p b
-        _ -> b
-    onatoms f fm =
-      case fm of
-        Atom a -> f a
-        Not p -> Not (onatoms f p)
-        And p q -> And (onatoms f p) (onatoms f q)
-        Or p q -> Or (onatoms f p) (onatoms f q)
-        Imp p q -> Imp (onatoms f p) (onatoms f q)
-        Iff p q -> Iff (onatoms f p) (onatoms f q)
-        Forall x p -> Forall x (onatoms f p)
-        Exists x p -> Exists x (onatoms f p)
-        _ -> fm
+    overatoms = overatomsQuantified
+    onatoms = onatomsQuantified
 
-instance (Ord atom, HasFixity atom, Pretty atom, IsAtom atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
+instance (IsAtom atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional' ho co ne tf at fm =
         case fm of
-          T -> tf True
-          F -> tf False
-          Atom a -> at a
-          Not p -> ne p
           And p q -> co p (:&:) q
           Or p q -> co p (:|:) q
           Imp p q -> co p (:=>:) q
           Iff p q -> co p (:<=>:) q
-          -- Although every instance of IsFirstOrder is also an
-          -- instance of IsPropositional, we see here that it is
-          -- an error to use foldPropositional (IsPropositional's
-          -- only method) on a Formula that has quantifiers.
-          Forall _ _ -> ho fm
-          Exists _ _ -> ho fm
+          _ -> foldLiteral' ho ne tf at fm
 
-instance (Ord atom, HasFixity atom, Pretty atom, IsAtom atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
+instance (IsAtom atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
     foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
@@ -672,14 +637,14 @@ zipQuantified :: IsQuantified formula atom v =>
 zipQuantified qu co ne tf at fm1 fm2 =
     foldQuantified qu' co' ne' tf' at' fm1
     where
-      qu' op1 v1 p1 = foldQuantified (qu op1 v1 p1) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
-      co' l1 op1 r1 = foldQuantified (\ _ _ _ -> Nothing) (co l1 op1 r1) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
-      ne' x1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (ne x1) (\ _ -> Nothing) (\ _ -> Nothing) fm2
-      tf' x1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (tf x1) (\ _ -> Nothing) fm2
-      at' atom1 = foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at atom1) fm2
+      qu' op1 v1 p1 = foldQuantified (qu op1 v1 p1)       (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      co' l1 op1 r1 = foldQuantified (\ _ _ _ -> Nothing) (co l1 op1 r1)       (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      ne' x1 =        foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (ne x1)          (\ _ -> Nothing) (\ _ -> Nothing) fm2
+      tf' x1 =        foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (tf x1)          (\ _ -> Nothing) fm2
+      at' atom1 =     foldQuantified (\ _ _ _ -> Nothing) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at atom1)       fm2
 
--- | Use foldPropositional to convert any instance of
--- IsPropositional to any other by specifying the result type.
+-- | Convert any instance of IsQuantified to any other by
+-- specifying the result type.
 convertQuantified :: forall f1 a1 v1 f2 a2 v2.
                      (IsQuantified f1 a1 v1, IsQuantified f2 a2 v2) =>
                      (a1 -> a2) -> (v1 -> v2) -> f1 -> f2
@@ -732,26 +697,23 @@ instance (Eq dom, IsTerm MyTerm v function, HasApplyAndEquate MyAtom predicate M
 onformula :: (IsFormula formula r, IsAtom r predicate term) => (term -> term) -> formula -> formula
 onformula f = onatoms (atomic . onterms f)
 
--- | Apply a function to the atoms, otherwise keeping structure.  This
--- can generally be used as the onatoms method of IsFormula.
-onatomsQuantified :: forall formula atom v. IsQuantified formula atom v => (atom -> formula) -> formula -> formula
+onatomsQuantified :: IsQuantified formula atom v => (atom -> formula) -> formula -> formula
 onatomsQuantified f fm =
     foldQuantified qu co ne tf at fm
     where
       qu op v p = quant op v (onatomsQuantified f p)
-      ne p = onatomsQuantified f p
+      ne p = (.~.) (onatomsQuantified f p)
       co p op q = binop (onatomsQuantified f p) op (onatomsQuantified f q)
       tf flag = fromBool flag
       at x = f x
 
--- | Formula analog of list iterator "itlist".
-overatomsQuantified :: forall fof atom v r. IsQuantified fof atom v => (atom -> r -> r) -> fof -> r -> r
+overatomsQuantified :: IsQuantified fof atom v => (atom -> r -> r) -> fof -> r -> r
 overatomsQuantified f fof r0 =
-        foldQuantified qu co ne (const r0) (flip f r0) fof
-        where
-          qu _ _ fof' = overatomsQuantified f fof' r0
-          ne fof' = overatomsQuantified f fof' r0
-          co p _ q = overatomsQuantified f p (overatomsQuantified f q r0)
+    foldQuantified qu co ne (const r0) (flip f r0) fof
+    where
+      qu _ _ fof' = overatomsQuantified f fof' r0
+      ne fof' = overatomsQuantified f fof' r0
+      co p _ q = overatomsQuantified f p (overatomsQuantified f q r0)
 
 {-
 (* Trivial example of "x + y < z".                                           *)
@@ -907,53 +869,58 @@ data Interp function predicate d
              , predApply :: predicate -> [d] -> Bool
              , eqApply :: d -> d -> Bool }
 
+-- | The hold function computes the value of a formula for a finite domain.
 class FiniteInterpretation a function predicate v dom where
     holds :: Interp function predicate dom -> Map v dom -> a -> Bool
 
+-- | Implementation of holds for IsQuantified formulas.
 holdsQuantified :: (IsQuantified formula atom v,
                     FiniteInterpretation atom function predicate v dom,
                     FiniteInterpretation formula function predicate v dom) =>
                    Interp function predicate dom -> Map v dom -> formula -> Bool
 holdsQuantified m v fm =
-        foldQuantified qu co ne tf at fm
-        where
-          qu (:!:) x p = and (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- >>= return . any (== True)
-          qu (:?:) x p = or (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- return . all (== True)?
-          ne p = not (holds m v p)
-          co p (:&:) q = (holds m v p) && (holds m v q)
-          co p (:|:) q = (holds m v p) || (holds m v q)
-          co p (:=>:) q = not (holds m v p) || (holds m v q)
-          co p (:<=>:) q = (holds m v p) == (holds m v q)
-          tf x = x
-          at x = holds m v x
+    foldQuantified qu co ne tf at fm
+    where
+      qu (:!:) x p = and (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- >>= return . any (== True)
+      qu (:?:) x p = or (map (\a -> holds m (Map.insert x a v) p) (domain m)) -- return . all (== True)?
+      ne p = not (holds m v p)
+      co p (:&:) q = (holds m v p) && (holds m v q)
+      co p (:|:) q = (holds m v p) || (holds m v q)
+      co p (:=>:) q = not (holds m v p) || (holds m v q)
+      co p (:<=>:) q = (holds m v p) == (holds m v q)
+      tf x = x
+      at x = holds m v x
 
-holdsPropositional :: (JustPropositional pf, IsPropositional pf atom,
+-- | Implementation of holds for IsPropositional formulas.
+holdsPropositional :: (IsPropositional pf atom, JustPropositional pf,
                        FiniteInterpretation atom function predicate v dom,
                        FiniteInterpretation pf function predicate v dom) =>
                       Interp function predicate dom -> Map v dom -> pf -> Bool
 holdsPropositional m v fm =
-        foldPropositional co ne tf at fm
-        where
-          ne p = not (holds m v p)
-          co p (:&:) q = (holds m v p) && (holds m v q)
-          co p (:|:) q = (holds m v p) || (holds m v q)
-          co p (:=>:) q = not (holds m v p) || (holds m v q)
-          co p (:<=>:) q = (holds m v p) == (holds m v q)
-          tf x = x
-          at x = holds m v x
+    foldPropositional co ne tf at fm
+    where
+      co p (:&:) q = (holds m v p) && (holds m v q)
+      co p (:|:) q = (holds m v p) || (holds m v q)
+      co p (:=>:) q = not (holds m v p) || (holds m v q)
+      co p (:<=>:) q = (holds m v p) == (holds m v q)
+      ne p = not (holds m v p)
+      tf x = x
+      at x = holds m v x
 
+-- | Implementation of holds for IsLiteral formulas.
 holdsLiteral :: (IsLiteral lit atom, JustLiteral lit,
                  FiniteInterpretation atom function predicate v dom,
                  FiniteInterpretation lit function predicate v dom) =>
                 Interp function predicate dom -> Map v dom -> lit -> Bool
 holdsLiteral m v fm =
-        foldLiteral ne tf at fm
-        where
-          ne p = not (holds m v p)
-          tf x = x
-          at x = holds m v x
+    foldLiteral ne tf at fm
+    where
+      ne p = not (holds m v p)
+      tf x = x
+      at x = holds m v x
 
-holdsAtom :: (IsTerm term v function, HasApply atom predicate term, Eq dom) => Interp function predicate dom -> Map v dom -> atom -> Bool
+holdsAtom :: (IsTerm term v function, HasApply atom predicate term, Eq dom) =>
+             Interp function predicate dom -> Map v dom -> atom -> Bool
 holdsAtom m v at = foldPredicate (\r args -> predApply m r (map (termval m v) args)) at
 
 holdsAtomEq :: (Eq dom, IsTerm term v function, HasApplyAndEquate atom predicate term) =>
@@ -1070,13 +1037,8 @@ fva :: (IsAtom atom predicate term, IsTerm term v function) => atom -> Set v
 fva = overterms (\t s -> Set.union (fvt t) s) mempty
 
 -- | Find the variables in a formula.
-#if 0
-var :: (IsFormula formula atom, IsAtom atom predicate term, IsTerm term v function) => formula -> Set v
-var fm = overatoms (\a s -> foldPredicate (\_ args -> unions (s : map fvt args)) a) fm Set.empty
-#else
 var :: IsFirstOrder formula atom predicate term v function => formula -> Set v
 var fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
-#endif
 
 -- | Find the variables in a 'Term'.
 fvt :: IsTerm term v function => term -> Set v

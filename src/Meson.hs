@@ -24,7 +24,6 @@ import Lib (Failing(Failure, Success), setAll, settryfind)
 import FOL (generalize, IsAtom, IsFirstOrder, IsTerm)
 import Formulas ((.~.), false, negative)
 import Lit (IsLiteral)
-import Pretty (Pretty)
 import Prolog (renamerule)
 import Prop (JustLiteral, list_conj, Literal, Marked, Propositional, simpcnf)
 import Skolem (askolemize, HasSkolem, pnf, SkolemT, simpdnf', specialize)
@@ -227,7 +226,7 @@ mexpand rules ancestors g cont (env,n,k) =
 -- -------------------------------------------------------------------------
 
 puremeson :: forall fof atom predicate term v f.
-             (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof, Pretty fof
+             (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof
              ) => Maybe Depth -> fof -> Failing ((Map v term, Int, Int), Depth)
 puremeson maxdl fm =
     deepen f (Depth 0) maxdl
@@ -238,7 +237,7 @@ puremeson maxdl fm =
       (cls :: Set (Set (Marked Literal fof))) = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
 
 meson :: forall m fof atom predicate term f v.
-         (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof, Pretty fof,
+         (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof,
           HasSkolem f v, Monad m
          ) => Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
 meson maxdl fm =
