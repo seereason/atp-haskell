@@ -129,7 +129,7 @@ class IsNegatable formula => IsCombinable formula where
 
 infixl 1  .<=>. ,  .<~>., ⇔, <=>
 infixr 2  .=>., ⇒, ==>
-infixr 3  .|., ∨
+infixl 3  .|., ∨
 infixl 4  .&., ∧
 
 (==>) :: IsCombinable formula => formula -> formula -> formula
