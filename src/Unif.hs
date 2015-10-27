@@ -4,6 +4,7 @@
 
 {-# OPTIONS -Wall #-}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -31,16 +32,14 @@ import Skolem (MyTerm)
 import Test.HUnit hiding (State)
 #endif
 
--- | Main unification procedure.  Using the Monad instance of Failing here and in istriv.
+-- | Main unification procedure.
 class Unify a v term where
     unify :: a -> StateT (Map v term) Failing ()
 
-{-
-instance Unify a v term => Unify [(a, a)] v term where
-    unify env pairs =
--}
+instance Unify a v term => Unify [a] v term where
+    unify = mapM_ unify
 
-unify_terms :: forall term v f. IsTerm term v f => [(term,term)] -> StateT (Map v term) Failing ()
+unify_terms :: IsTerm term v f => [(term,term)] -> StateT (Map v term) Failing ()
 unify_terms = mapM_ (uncurry unify_term_pair)
 
 unify_term_pair :: forall term v f. IsTerm term v f => term -> term -> StateT (Map v term) Failing ()

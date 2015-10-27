@@ -17,7 +17,7 @@ module Formulas
     -- * IsCombinable
     , IsCombinable((.|.), (.&.), (.<=>.), (.=>.), foldCombination), (.<=.), (.<~>.), (.~|.), (.~&.)
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
-    , BinOp(..), binop, Combination
+    , BinOp(..), binop
     -- * Formulas
     , IsFormula(atomic, overatoms, onatoms)
     , atom_union
@@ -156,20 +156,19 @@ data BinOp
     | (:|:)
     deriving (Eq, Ord, Data, Typeable, Show, Enum, Bounded)
 
+-- | Combine formulas with a 'BinOp'.
 binop :: IsCombinable formula => formula -> BinOp -> formula -> formula
 binop f1 (:<=>:) f2 = f1 .<=>. f2
 binop f1 (:=>:) f2 = f1 .=>. f2
 binop f1 (:&:) f2 = f1 .&. f2
 binop f1 (:|:) f2 = f1 .|. f2
 
-type Combination formula = formula -> BinOp -> formula
-
--- | Class associating a formula type with its atom type.
+-- | Class associating a formula type with its atom (atomic formula) type.
 class (Eq atom, Ord atom, Pretty atom) => IsFormula formula atom | formula -> atom where
     atomic :: atom -> formula
     -- ^ Build a formula from an atom.
     overatoms :: (atom -> r -> r) -> formula -> r -> r
-    -- ^ Formula analog of list iterator "itlist".
+    -- ^ Formula analog of iterator 'foldr'.
     onatoms :: (atom -> formula) -> formula -> formula
     -- ^ Apply a function to the atoms, otherwise keeping structure.
 
