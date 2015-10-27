@@ -113,9 +113,7 @@ import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 -- raise errors in the implementation if a non-atomic formula somehow
 -- appears where an atomic formula is expected (i.e. as an argument to
 -- atomic or to the third argument of foldPropositional.)
-class (IsLiteral formula atom,
-       IsCombinable formula
-      ) => IsPropositional formula atom where
+class (IsLiteral formula atom, IsCombinable formula) => IsPropositional formula atom where
     -- | Build an atomic formula from the atom type.
     -- | A fold function that distributes different sorts of formula
     -- to its parameter functions, one to handle binary operators, one
@@ -177,7 +175,7 @@ convertToPropositional ho ca fm =
       ne p = (.~.) (convertToPropositional ho ca p)
       tf = fromBool
 
-fixityPropositional :: (IsPropositional pf atom, JustPropositional pf, HasFixity atom) => pf -> Fixity
+fixityPropositional :: (IsPropositional pf atom, JustPropositional pf) => pf -> Fixity
 fixityPropositional fm =
     foldPropositional co ne tf at fm
     where
@@ -189,7 +187,7 @@ fixityPropositional fm =
       tf _ = Fixity 10 InfixN
       at = fixity
 
-prettyPropositional :: (IsPropositional pf atom, JustPropositional pf, HasFixity pf, Pretty atom) => pf -> Doc
+prettyPropositional :: (IsPropositional pf atom, JustPropositional pf) => pf -> Doc
 prettyPropositional fm0 =
     go rootFixity Unary fm0
     where
@@ -227,6 +225,9 @@ overatomsPropositional f fof r0 =
 
 data Marked mark formula = Mark {unMark' :: formula} deriving (Read, Data, Typeable)
 
+instance HasFixity formula => HasFixity (Marked mk formula) where
+    fixity (Mark x) = fixity x
+
 instance IsFormula formula atom => IsFormula (Marked mk formula) atom where
     atomic = Mark . atomic
     overatoms at (Mark fm) = overatoms at fm
@@ -240,10 +241,7 @@ instance IsNegatable formula => IsNegatable (Marked mk formula) where
     naiveNegate (Mark x) = Mark (naiveNegate x)
     foldNegation' ne ot (Mark x) = foldNegation' (ne . Mark) (ot . Mark) x
 
-instance (IsFormula (Marked mk formula) atom,
-          IsLiteral formula atom,
-          HasBoolean (Marked mk formula)
-         ) => IsLiteral (Marked mk formula) atom where
+instance (IsLiteral formula atom, IsNegatable formula) => IsLiteral (Marked mk formula) atom where
     foldLiteral' ho ne tf at (Mark x) = foldLiteral' (ho . Mark) (ne . Mark) tf at x
 
 instance IsCombinable formula => IsCombinable (Marked mk formula) where
@@ -388,29 +386,8 @@ instance (HasFixity atom, Ord atom, Pretty atom) => HasFixity (PFormula atom) wh
 
 instance (Ord atom, HasFixity atom, Pretty atom) => IsFormula (PFormula atom) atom where
     atomic = Atom
-#if 1
     overatoms = overatomsPropositional
     onatoms = onatomsPropositional
-#else
-    overatoms f fm b =
-      case fm of
-        Atom a -> f a b
-        Not p -> overatoms f p b
-        And p q -> overatoms f p (overatoms f q b)
-        Or p q -> overatoms f p (overatoms f q b)
-        Imp p q -> overatoms f p (overatoms f q b)
-        Iff p q -> overatoms f p (overatoms f q b)
-        _ -> b
-    onatoms f fm =
-      case fm of
-        Atom a -> f a
-        Not p -> Not (onatoms f p)
-        And p q -> And (onatoms f p) (onatoms f q)
-        Or p q -> Or (onatoms f p) (onatoms f q)
-        Imp p q -> Imp (onatoms f p) (onatoms f q)
-        Iff p q -> Iff (onatoms f p) (onatoms f q)
-        _ -> fm
-#endif
 
 instance (Ord atom, HasFixity atom, Pretty atom) => IsPropositional (PFormula atom) atom where
     foldPropositional' _ co ne tf at fm =
@@ -419,14 +396,7 @@ instance (Ord atom, HasFixity atom, Pretty atom) => IsPropositional (PFormula at
           Iff p q -> co p (:<=>:) q
           And p q -> co p (:&:) q
           Or p q -> co p (:|:) q
-#if 1
           _ -> foldLiteral' (error "IsPropositional PFormula") ne tf at fm
-#else
-          Not p -> ne p
-          T -> tf True
-          F -> tf False
-          Atom a -> at a
-#endif
 
 instance (Ord atom, HasFixity atom, Pretty atom) => IsLiteral (PFormula atom) atom where
     foldLiteral' ho ne tf at fm =

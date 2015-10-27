@@ -260,32 +260,37 @@ test00 = TestCase $ assertEqual "print an expression"
 -- | A predicate is the thing we apply to a list of terms to get an
 -- atom.  It doesn't have a Pretty superclass because we only render
 -- it in combination with the argument terms.
-class (IsString predicate, Eq predicate, Ord predicate, Show predicate) => IsPredicate predicate where
+class (IsString predicate, Eq predicate, Ord predicate, Show predicate)
+    => IsPredicate predicate where
     prettyPredicateApplication :: forall term. Pretty term => predicate -> [term] -> Doc
 
 ---------------------------
 -- ATOM (Atomic Formula) --
 ---------------------------
 
-class (IsPredicate predicate, Ord atom, Pretty atom, HasFixity atom) => IsAtom atom predicate term | atom -> predicate term where
+class (IsPredicate predicate, Ord atom, Pretty atom, HasFixity atom)
+    => IsAtom atom predicate term | atom -> predicate term where
     overterms :: (term -> r -> r) -> r -> atom -> r
     onterms :: (term -> term) -> atom -> atom
 
-class (IsPredicate predicate) => HasApply atom predicate term | atom -> predicate term where
+class IsPredicate predicate
+    => HasApply atom predicate term | atom -> predicate term where
     applyPredicate :: predicate -> [term] -> atom
     foldPredicate :: (predicate -> [term] -> r) -> atom -> r --- rename FoldAtom
 
+-- | Implementation of 'overterms' for 'HasApply' types.
 overtermsApply :: HasApply atom predicate term => (term -> r -> r) -> r -> atom -> r
 overtermsApply f r0 = foldPredicate (\_ ts -> foldr f r0 ts)
 
+-- | Implementation of 'onterms' for 'HasApply' types.
 ontermsApply :: HasApply atom predicate term => (term -> term) -> atom -> atom
 ontermsApply f = foldPredicate (\p ts -> applyPredicate p (map f ts))
 
--- | Implementation of funcs method for atoms
+-- | Implementation of 'funcs' for 'IsAtom' types
 atomFuncs :: (IsAtom atom predicate term, HasFunctions term function) => atom -> Set (function, Arity)
 atomFuncs = overterms (\term s -> Set.union (funcs term) s) mempty
 
--- | Zip two atoms
+-- | Zip two atoms if they are similar
 zipPredicates :: HasApply atom predicate term =>
                  (predicate -> [(term, term)] -> Maybe r)
               -> atom -> atom -> Maybe r
@@ -442,7 +447,7 @@ class (IsQuantified formula atom v,
        IsAtom atom predicate term,
        IsTerm term v function,
        HasFunctions formula function,
-       Show v
+       Show v, Pretty formula
       ) => IsFirstOrder formula atom predicate term v function
 
 instance (IsQuantified formula atom v,
@@ -543,22 +548,21 @@ data Formula v atom
     | Exists v (Formula v atom)
     deriving (Eq, Ord, Data, Typeable, Read)
 
-instance (IsAtom atom predicate term,
-          IsFunction function,
-          HasFunctions atom function,
-          IsTerm term v function
-         ) => HasFunctions (Formula v atom) function where
+instance (HasFunctions atom function,
+          IsAtom atom predicate term,
+          IsTerm term v function)
+    => HasFunctions (Formula v atom) function where
     funcs = quantifiedFuncs
 
-instance (IsAtom atom predicate term,
-          IsFunction function,
-          HasFunctions atom function,
-          IsTerm term v function
-         ) => HasFunctions (PFormula atom) function where
+instance (HasFunctions atom function,
+          IsAtom atom predicate term,
+          IsTerm term v function)
+    => HasFunctions (PFormula atom) function where
     funcs = propositionalFuncs
 
-instance (Ord atom, Pretty atom, IsAtom atom predicate term, IsTerm term v function,
-          IsVariable v, Pretty v) => Pretty (Formula v atom) where
+instance (IsAtom atom predicate term,
+          IsTerm term v function)
+    => Pretty (Formula v atom) where
     pPrint = prettyQuantified
 
 instance HasBoolean (Formula v atom) where
@@ -568,12 +572,12 @@ instance HasBoolean (Formula v atom) where
     fromBool True = T
     fromBool False = F
 
-instance (Ord v, Ord atom) => IsNegatable (Formula v atom) where
+instance IsNegatable (Formula v atom) where
     naiveNegate = Not
     foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
     foldNegation' _ normal x = normal x
 
-instance (Ord v, Ord atom) => IsCombinable (Formula v atom) where
+instance IsCombinable (Formula v atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
@@ -586,7 +590,8 @@ instance (Ord v, Ord atom) => IsCombinable (Formula v atom) where
           Iff a b -> a `iff` b
           _ -> other fm
 
-instance (IsAtom atom predicate term, IsTerm term v function) => IsQuantified (Formula v atom) atom v where
+instance (IsAtom atom predicate term, IsTerm term v function)
+    => IsQuantified (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldQuantified qu _co _ne _tf _at (Forall v fm) = qu (:!:) v fm
@@ -594,11 +599,11 @@ instance (IsAtom atom predicate term, IsTerm term v function) => IsQuantified (F
     foldQuantified _qu co ne tf at fm = foldPropositional' (\_ -> error "IsQuantified Formula") co ne tf at fm
 
 -- Build a Haskell expression for this formula
-instance (IsQuantified (Formula v atom) atom v, Show atom, HasFixity atom) => Show (Formula v atom) where
+instance (IsQuantified (Formula v atom) atom v, Show atom) => Show (Formula v atom) where
     show = showQuantified
 
 -- Precedence information for Formula
-instance (IsQuantified (Formula v atom) atom v, HasFixity atom) => HasFixity (Formula v atom) where
+instance (IsQuantified (Formula v atom) atom v) => HasFixity (Formula v atom) where
     fixity = fixityQuantified
 
 -- The IsFormula instance for Formula

@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Lit
     ( IsLiteral(foldLiteral'), foldLiteral
@@ -34,10 +35,8 @@ import Formulas (overatoms, onatoms)
 -- forms.  They support negation and must include True and False elements.
 class (IsFormula lit atom,
        IsNegatable lit,
-       HasBoolean lit,
-       Pretty atom, -- We will definitely want to render these
-       Ord atom -- atoms almost always end up in sets, so this is indispensable
-      ) => IsLiteral lit atom where
+       HasBoolean lit)
+    => IsLiteral lit atom where
     -- | This is the internal fold for literals, 'foldLiteral' below should
     -- normally be used, but its argument must be an instance of 'JustLiteral'.
     foldLiteral' :: (lit -> r) -- ^ Called for higher order formulas (non-literal)
@@ -91,7 +90,7 @@ convertToLiteral :: (IsLiteral formula atom1, IsLiteral lit atom2, JustLiteral l
                     ) => (formula -> lit) -> (atom1 -> atom2) -> formula -> lit
 convertToLiteral ho ca fm = foldLiteral' ho (\fm' -> (.~.) (convertToLiteral ho ca fm')) fromBool (atomic . ca) fm
 
-fixityLiteral :: (IsLiteral lit atom, JustLiteral lit, HasFixity atom) => lit -> Fixity
+fixityLiteral :: (IsLiteral lit atom, JustLiteral lit) => lit -> Fixity
 fixityLiteral fm =
     foldLiteral ne tf at fm
     where
@@ -142,27 +141,27 @@ instance HasBoolean (LFormula atom) where
     fromBool True = T
     fromBool False = F
 
-instance (Ord atom, Pretty atom, HasFixity atom) => HasFixity (LFormula atom) where
-    fixity = fixityLiteral
-
 instance Ord atom => IsNegatable (LFormula atom) where
     naiveNegate = Not
     foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
     foldNegation' _ normal x = normal x
 
-instance (Ord atom, Pretty atom) => IsFormula (LFormula atom) atom where
+instance (Ord atom, Pretty atom, HasFixity atom) => IsFormula (LFormula atom) atom where
     atomic = Atom
     overatoms = overatomsLiteral
     onatoms = onatomsLiteral
 
-instance (Ord atom, Pretty atom) => Pretty (LFormula atom) where
-    pPrint = prettyLiteral
-
-instance (Ord atom, Pretty atom) => IsLiteral (LFormula atom) atom where
+instance IsFormula (LFormula atom) atom => IsLiteral (LFormula atom) atom where
     foldLiteral' _ ne tf at lit =
         case lit of
           F -> tf False
           T -> tf True
           Atom a -> at a
           Not f -> ne f
+
+instance (Ord atom, Pretty atom, HasFixity atom) => HasFixity (LFormula atom) where
+    fixity = fixityLiteral
+
+instance IsLiteral (LFormula atom) atom => Pretty (LFormula atom) where
+    pPrint = prettyLiteral
 #endif
