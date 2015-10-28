@@ -27,8 +27,8 @@ module FOL
     -- * Predicates
     , IsPredicate{-(prettyPredicateApplication, prettyPredicateEquate)-}, prettyApply, prettyEquate
     -- * Atoms
-    , IsAtomWithApply(overterms, onterms)
-    , HasApply(applyPredicate, foldPredicate'), foldPredicate, JustApply
+    -- , IsAtomWithApply(overterms, onterms)
+    , HasApply(applyPredicate, foldPredicate', overterms, onterms), foldPredicate, JustApply
     , overtermsApply, ontermsApply, showApply
     -- * Atoms supporting Equate
     , HasApplyAndEquate(equate, foldEquate)
@@ -282,16 +282,20 @@ class (Eq predicate, Ord predicate, Show predicate, IsString predicate, Pretty p
 -- ATOM (Atomic Formula) --
 ---------------------------
 
+{-
 class (IsAtom atom, IsPredicate predicate, Ord term, Pretty term) => IsAtomWithApply atom predicate term | atom -> predicate term where
+    overterms :: (term -> r -> r) -> r -> atom -> r
+    onterms :: (term -> term) -> atom -> atom
+-}
+
+class (IsAtom atom, IsPredicate predicate, Ord term, Pretty term) => HasApply atom predicate term | atom -> predicate term where
+    applyPredicate :: predicate -> [term] -> atom
+    foldPredicate' :: (atom -> r) -> (predicate -> [term] -> r) -> atom -> r --- rename FoldAtom
     overterms :: (term -> r -> r) -> r -> atom -> r
     onterms :: (term -> term) -> atom -> atom
 
 -- | Atoms that have apply but do not support equate
 class JustApply atom
-
-class IsPredicate predicate => HasApply atom predicate term | atom -> predicate term where
-    applyPredicate :: predicate -> [term] -> atom
-    foldPredicate' :: (atom -> r) -> (predicate -> [term] -> r) -> atom -> r --- rename FoldAtom
 
 foldPredicate :: (HasApply atom predicate term, JustApply atom) => (predicate -> [term] -> r) -> atom -> r
 foldPredicate = foldPredicate' (error "JustApply failure")
@@ -309,7 +313,7 @@ ontermsApply :: (HasApply atom predicate term, JustApply atom) => (term -> term)
 ontermsApply f = foldPredicate (\p ts -> applyPredicate p (map f ts))
 
 -- | Implementation of 'funcs' for 'IsAtomWithApply' types
-atomFuncs :: (IsAtomWithApply atom predicate term, HasFunctions term function) => atom -> Set (function, Arity)
+atomFuncs :: (HasApply atom predicate term, HasFunctions term function) => atom -> Set (function, Arity)
 atomFuncs = overterms (\term s -> Set.union (funcs term) s) mempty
 
 -- | Zip two atoms if they are similar
@@ -371,7 +375,7 @@ showApplyAndEquate atom = foldEquate showEquate showApply atom
 showEquate :: Show term => term -> term -> String
 showEquate t1 t2 = "(" ++ show t1 ++ ") .=. (" ++ show t2 ++ ")"
 
--- | Convert between two instances of IsAtomWithApply
+-- | Convert between two instances of HasApply
 convertPredicate :: (HasApply atom1 p1 t1, JustApply atom1, HasApply atom2 p2 t2) => (p1 -> p2) -> (t1 -> t2) -> atom1 -> atom2
 convertPredicate cp ct = foldPredicate (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
@@ -437,55 +441,52 @@ data FOLEQ predicate term = AP predicate [term] | Equals term term deriving (Eq,
 
 instance (IsPredicate predicate, IsTerm term v function) => IsAtom (FOL predicate term)
 
-instance (HasApplyAndEquate (FOLEQ predicate term) predicate term, IsTerm term v function) => IsAtom (FOLEQ predicate term)
+instance (IsPredicate predicate, IsTerm term v function) => IsAtom (FOLEQ predicate term)
 
-instance (HasApplyAndEquate (FOLEQ predicate term) predicate term, IsTerm term v function) => IsAtomWithApply (FOLEQ predicate term) predicate term where
+instance (HasApply (FOL predicate term) predicate term,
+          JustApply (FOL predicate term), IsTerm term v function
+         ) => Pretty (FOL predicate term) where
+    pPrint = foldPredicate prettyApply
+
+instance (HasApply (FOLEQ predicate term) predicate term,
+          HasApplyAndEquate (FOLEQ predicate term) predicate term,
+          IsTerm term v function) => Pretty (FOLEQ predicate term) where
+    pPrint = foldEquate prettyEquate prettyApply
+
+instance (IsPredicate predicate, IsTerm term v function) => HasApply (FOL predicate term) predicate term where
+    applyPredicate = R
+    foldPredicate' _ f (R p ts) = f p ts
+    overterms f r (R _ ts) = foldr f r ts
+    onterms f (R p ts) = R p (map f ts)
+
+instance (IsPredicate predicate, IsTerm term v function) => HasApply (FOLEQ predicate term) predicate term where
+    applyPredicate = AP
+    foldPredicate' _ f (AP p ts) = f p ts
+    foldPredicate' d _ x = d x
     overterms f r (AP _ ts) = foldr f r ts
     overterms f r (Equals t1 t2) = foldr f r [t1, t2]
     onterms f (AP p ts) = AP p (map f ts)
     onterms f (Equals t1 t2) = Equals (f t1) (f t2)
 
-instance (IsAtomWithApply (FOL predicate term) predicate term,
-          JustApply (FOL predicate term), IsTerm term v function
-         ) => Pretty (FOL predicate term) where
-    pPrint = foldPredicate prettyApply
-
-instance (IsAtomWithApply (FOLEQ predicate term) predicate term,
-          HasApplyAndEquate (FOLEQ predicate term) predicate term,
-          IsTerm term v function) => Pretty (FOLEQ predicate term) where
-    pPrint = foldEquate prettyEquate prettyApply
-
-instance (IsPredicate predicate, Pretty term, Ord term) => HasApply (FOL predicate term) predicate term where
-    applyPredicate = R
-    foldPredicate' _ f (R p ts) = f p ts
-
-instance (IsPredicate predicate, Pretty term, Ord term) => HasApply (FOLEQ predicate term) predicate term where
-    applyPredicate = AP
-    foldPredicate' _ f (AP p ts) = f p ts
-    foldPredicate' d _ x = d x
-
-instance (IsPredicate predicate, IsTerm term v function) => IsAtomWithApply (FOL predicate term) predicate term where
-    overterms f r (R _ ts) = foldr f r ts
-    onterms f (R p ts) = R p (map f ts)
-
-instance (Pretty term, Show term, Ord term, IsPredicate predicate,
-          Show (Marked Expr predicate), Show (Marked Expr term)) => Show (Marked Expr (FOL predicate term)) where
+instance (IsPredicate predicate, IsTerm term v function,
+          Show (Marked Expr predicate),
+          Show (Marked Expr term)) => Show (Marked Expr (FOL predicate term)) where
     show = foldPredicate (\p ts -> showApply (Mark p :: Marked Expr predicate) (map Mark ts :: [Marked Expr term])) . unMark'
 
-instance (Pretty term, Show term, Ord term, IsPredicate predicate,
+instance (IsPredicate predicate, IsTerm term v function,
           Show (Marked Expr predicate), Show (Marked Expr term)) => Show (Marked Expr (FOLEQ predicate term)) where
     show = foldEquate (\t1 t2 -> showEquate (Mark t1 :: Marked Expr term) (Mark t2 :: Marked Expr term))
                       (\p ts -> showApply (Mark p :: Marked Expr predicate) (map Mark ts :: [Marked Expr term])) . unMark'
 
-instance (IsPredicate predicate, Ord term, Pretty term) => HasApplyAndEquate (FOLEQ predicate term) predicate term where
+instance (IsPredicate predicate, IsTerm term v function) => HasApplyAndEquate (FOLEQ predicate term) predicate term where
     equate lhs rhs = Equals lhs rhs
     foldEquate eq _ (Equals lhs rhs) = eq lhs rhs
     foldEquate _ ap (AP p ts) = ap p ts
 
-instance (IsAtomWithApply (FOL predicate term) predicate term, HasFunctions term function) => HasFunctions (FOL predicate term) function where
+instance (HasApply (FOL predicate term) predicate term, HasFunctions term function) => HasFunctions (FOL predicate term) function where
     funcs = atomFuncs
 
-instance (IsAtomWithApply (FOLEQ predicate term) predicate term, HasFunctions term function) => HasFunctions (FOLEQ predicate term) function where
+instance (HasApply (FOLEQ predicate term) predicate term, HasFunctions term function) => HasFunctions (FOLEQ predicate term) function where
     funcs = atomFuncs
 
 instance HasFixity (FOL predicate term) where
@@ -525,9 +526,9 @@ class (IsPropositional formula atom, IsVariable v) => IsQuantified formula atom 
                    -> (atom -> r)
                    -> formula -> r
 
--- | Combine IsQuantified, IsAtomWithApply, IsTerm
+-- | Combine IsQuantified, HasApply, IsTerm
 class (IsQuantified formula atom v,
-       IsAtomWithApply atom predicate term,
+       HasApply atom predicate term,
        IsTerm term v function,
        HasFunctions formula function,
        Show v, Pretty formula
@@ -547,7 +548,7 @@ instance IsFirstOrder formula atom predicate term v function => IsFirstOrder (Ma
 -- | Implementation of funcs for quantified formulas.
 quantifiedFuncs :: forall formula atom predicate term v function.
                    (IsQuantified formula atom v, Ord function,
-                    IsAtomWithApply atom predicate term,
+                    HasApply atom predicate term,
                     HasFunctions atom function,
                     IsTerm term v function
                    ) => formula -> Set (function, Arity)
@@ -634,18 +635,18 @@ data Formula v atom
     deriving (Eq, Ord, Data, Typeable, Read)
 
 instance (HasFunctions atom function,
-          IsAtomWithApply atom predicate term,
+          HasApply atom predicate term,
           IsTerm term v function)
     => HasFunctions (Formula v atom) function where
     funcs = quantifiedFuncs
 
 instance (HasFunctions atom function,
-          IsAtomWithApply atom predicate term,
+          HasApply atom predicate term,
           IsTerm term v function)
     => HasFunctions (PFormula atom) function where
     funcs = propositionalFuncs
 
-instance (IsAtomWithApply atom predicate term,
+instance (HasApply atom predicate term,
           IsTerm term v function)
     => Pretty (Formula v atom) where
     pPrint = prettyQuantified
@@ -675,7 +676,7 @@ instance IsCombinable (Formula v atom) where
           Iff a b -> a `iff` b
           _ -> other fm
 
-instance (IsAtomWithApply atom predicate term, IsTerm term v function)
+instance (HasApply atom predicate term, IsTerm term v function)
     => IsQuantified (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
@@ -692,12 +693,12 @@ instance (IsQuantified (Formula v atom) atom v) => HasFixity (Formula v atom) wh
     fixity = fixityQuantified
 
 -- The IsFormula instance for Formula
-instance (IsAtomWithApply atom predicate term, IsTerm term v function, Ord v) => IsFormula (Formula v atom) atom where
+instance (HasApply atom predicate term, IsTerm term v function, Ord v) => IsFormula (Formula v atom) atom where
     atomic = Atom
     overatoms = overatomsQuantified
     onatoms = onatomsQuantified
 
-instance (IsAtomWithApply atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
+instance (HasApply atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional' ho co ne tf at fm =
         case fm of
           And p q -> co p (:&:) q
@@ -706,7 +707,7 @@ instance (IsAtomWithApply atom predicate term, IsTerm term v function) => IsProp
           Iff p q -> co p (:<=>:) q
           _ -> foldLiteral' ho ne tf at fm
 
-instance (IsAtomWithApply atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
+instance (HasApply atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
     foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
@@ -779,7 +780,7 @@ instance IsFirstOrder MyFormula1 MyAtom2 Predicate MyTerm1 V FName
 #endif
 
 -- | Special case of applying a subfunction to the top *terms*.
-onformula :: (IsFormula formula r, IsAtomWithApply r predicate term) => (term -> term) -> formula -> formula
+onformula :: (IsFormula formula r, HasApply r predicate term) => (term -> term) -> formula -> formula
 onformula f = onatoms (atomic . onterms f)
 
 onatomsQuantified :: IsQuantified formula atom v => (atom -> formula) -> formula -> formula
@@ -1114,20 +1115,19 @@ fv fm =
 
 fvp :: (IsPropositional formula atom,
         JustPropositional formula,
-        IsTerm term v f,
-        IsAtomWithApply atom predicate term,
         HasApply atom predicate term,
+        IsTerm term v function,
         IsVariable v) => formula -> Set v
 fvp fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
 
 fvl :: (IsLiteral formula atom,
         JustLiteral formula,
         IsTerm term v f,
-        IsAtomWithApply atom predicate term,
+        HasApply atom predicate term,
         IsVariable v) => formula -> Set v
 fvl fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
 
-fva :: (IsAtomWithApply atom predicate term, IsTerm term v function) => atom -> Set v
+fva :: (HasApply atom predicate term, IsTerm term v function) => atom -> Set v
 fva = overterms (\t s -> Set.union (fvt t) s) mempty
 
 -- | Find the variables in a formula.
@@ -1182,7 +1182,7 @@ tsubst sfn tm =
              tm
 
 -- | Substitution within a Literal
-lsubst :: (IsLiteral lit atom, IsAtomWithApply atom predicate term, IsTerm term v function) =>
+lsubst :: (IsLiteral lit atom, HasApply atom predicate term, IsTerm term v function) =>
          Map v term -> lit -> lit
 lsubst subfn fm =
     foldLiteral ne fromBool at fm
@@ -1191,7 +1191,7 @@ lsubst subfn fm =
       at = atomic . asubst subfn
 
 -- | Substitution within atoms.
-asubst :: (IsAtomWithApply atom predicate term, IsTerm term v function) => Map v term -> atom -> atom
+asubst :: (HasApply atom predicate term, IsTerm term v function) => Map v term -> atom -> atom
 asubst sfn a = onterms (tsubst sfn) a
 
 -- | Substitution within quantifiers

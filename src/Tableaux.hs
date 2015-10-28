@@ -33,9 +33,9 @@ import Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace (trace)
-import FOL (asubst, exists, FOLEQ(AP, Equals), foldQuantified, for_all, fv, generalize, HasApply,
-            HasApplyAndEquate(equate, foldEquate), JustApply, IsAtomWithApply, IsFirstOrder, IsTerm,
-            pApp, Predicate, Quant((:!:)), subst, V(V), vt, zipPredicates, zipPredicatesEq)
+import FOL (asubst, exists, foldQuantified, for_all, fv, generalize, HasApply,
+            HasApply, HasApplyAndEquate, JustApply, IsFirstOrder, IsTerm,
+            pApp, Predicate, Quant((:!:)), subst, V, vt, zipPredicates, zipPredicatesEq)
 import Formulas
 import Lib
 import Lit
@@ -54,7 +54,7 @@ import Test.HUnit hiding (State)
 -- | Unify literals (just pretend the toplevel relation is a function).
 unify_literals :: forall lit atom term predicate v function.
                   (IsLiteral lit atom,
-                   IsAtomWithApply atom predicate term, Unify (atom, atom) v term,
+                   HasApply atom predicate term, Unify (atom, atom) v term,
                    IsTerm term v function) =>
                   (lit, lit) -> StateT (Map v term) Failing ()
 unify_literals (f1, f2) =
@@ -67,18 +67,13 @@ unify_literals (f1, f2) =
       at a1 a2 = Just $ unify (a1, a2)
       err = fail "Can't unify literals"
 
-unify_atoms :: forall atom term predicate v function.
-               (IsAtomWithApply atom predicate term,
-                HasApply atom predicate term, JustApply atom,
-                IsTerm term v function) =>
+unify_atoms :: (HasApply atom predicate term, JustApply atom, IsTerm term v function) =>
                (atom, atom) -> StateT (Map v term) Failing ()
 unify_atoms (a1, a2) =
     maybe (fail "unify_atoms") id (zipPredicates (\_ tpairs -> Just (unify_terms tpairs)) a1 a2)
 
 unify_atoms_eq :: forall atom term predicate v function.
-               (IsAtomWithApply atom predicate term,
-                HasApplyAndEquate atom predicate term,
-                IsTerm term v function) =>
+               (HasApplyAndEquate atom predicate term, IsTerm term v function) =>
                (atom, atom) -> StateT (Map v term) Failing ()
 unify_atoms_eq (a1, a2) =
     maybe (fail "unify_atoms") id (zipPredicatesEq (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
@@ -87,14 +82,14 @@ unify_atoms_eq (a1, a2) =
 
 -- | Unify complementary literals.
 unify_complements :: (IsLiteral lit atom,
-                      IsAtomWithApply atom predicate term, Unify (atom, atom) v term,
+                      HasApply atom predicate term, Unify (atom, atom) v term,
                       IsTerm term v function) =>
                      lit -> lit -> StateT (Map v term) Failing ()
 unify_complements p q = unify_literals (p, ((.~.) q))
 
 -- | Unify and refute a set of disjuncts.
 unify_refute :: (IsLiteral lit atom, Ord lit,
-                 IsAtomWithApply atom predicate term, Unify (atom, atom) v term,
+                 HasApply atom predicate term, Unify (atom, atom) v term,
                  IsTerm term v function) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
@@ -108,7 +103,7 @@ unify_refute djs env =
 
 -- | Hence a Prawitz-like procedure (using unification on DNF).
 prawitz_loop :: (IsLiteral lit atom, Ord lit,
-                 IsAtomWithApply atom predicate term, Unify (atom, atom) v term,
+                 HasApply atom predicate term, Unify (atom, atom) v term,
                  IsTerm term v function) =>
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
@@ -138,7 +133,7 @@ prawitz fm =
 -- Examples.
 -- -------------------------------------------------------------------------
 
-instance (IsAtomWithApply MyAtom Predicate MyTerm, HasApplyAndEquate MyAtom Predicate MyTerm, IsTerm MyTerm V Function) => Unify (MyAtom, MyAtom) V MyTerm where
+instance (HasApply MyAtom Predicate MyTerm, HasApplyAndEquate MyAtom Predicate MyTerm, IsTerm MyTerm V Function) => Unify (MyAtom, MyAtom) V MyTerm where
     unify = unify_atoms_eq
 
 p20 :: Test

@@ -40,7 +40,7 @@ data Associativity
     = InfixL  -- Left-associative - a-b-c == (a-b)-c
     | InfixR  -- Right-associative - a=>b=>c == a=>(b=>c)
     | InfixN  -- Non-associative - a>b>c is an error
-    | InfixA  -- Associative - a+b+c == (a+b)+c == a+(b+c)
+    | InfixA  -- Associative - a+b+c == (a+b)+c == a+(b+c), ~~a == ~(~a)
 
 data Fixity = Fixity Precedence Associativity
 
@@ -81,7 +81,7 @@ data Side = LHS | RHS | Unary
 
 -- | Combine the parent and child fixities to determine whether the
 -- child formula should be parenthesized.
-parenthesize :: Monoid r => (r -> r) -> (r -> r) -> Fixity -> Fixity -> Side -> r -> r
+parenthesize :: (Monoid r, Show r) => (r -> r) -> (r -> r) -> Fixity -> Fixity -> Side -> r -> r
 parenthesize parens braces (Fixity pprec pdir) (Fixity prec _dir) side pp =
     -- If fixity goes in the "wrong direction" we need to add parens.
     -- leafFixity is the highest, so if the parent fixity is greater
@@ -105,7 +105,7 @@ parenthesize parens braces (Fixity pprec pdir) (Fixity prec _dir) side pp =
             (RHS, InfixR) -> pp
             (_, InfixA) -> pp
             (Unary, _) -> braces pp -- not sure
-            (_, InfixN) -> error "Nested non-associative operators"
+            (_, InfixN) -> error ("Nested non-associative operators: " ++ show pp)
 
 instance Pretty a => Pretty (Set a) where
     pPrint s = brackets (fsep (punctuate comma (map pPrint (Set.toAscList s))))
