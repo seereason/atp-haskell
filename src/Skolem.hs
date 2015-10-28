@@ -78,13 +78,9 @@ simplify fm =
 simplify1 :: IsFirstOrder formula atom predicate term v function =>
              formula -> formula
 simplify1 fm =
-    foldQuantified qu co ne (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) fm
+    foldQuantified qu (\_ _ _ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) fm
     where
       qu _ x p = if member x (fv p) then fm else p
-      -- If psimplify1 sees a negation it looks at its argument, so here we
-      -- make sure that argument isn't a quantifier which would cause an error.
-      ne p = foldQuantified (\_ _ _ -> fm) (\_ _ _ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) p
-      co _ _ _ = psimplify1 fm
 
 #ifndef NOTESTS
 -- | Concrete types for use in unit tests.
