@@ -16,7 +16,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Prop
-    ( IsPropositional( foldPropositional')
+    ( IsAtom
+    , IsPropositional( foldPropositional')
     , foldPropositional
     , convertPropositional
     , convertToPropositional
@@ -104,6 +105,9 @@ import Lit (LFormula)
 import Pretty (leafFixity)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 #endif
+
+-- | Basic properties of an atomic formula
+class (Ord atom, Show atom, HasFixity atom, Pretty atom) => IsAtom atom
 
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
@@ -339,9 +343,17 @@ instance JustPropositional (LFormula atom)
 
 data Prop = P {pname :: String} deriving (Eq, Ord, Show)
 
+instance IsAtom Prop
+
 -- Allows us to say "q" instead of P "q" or P {pname = "q"}
 instance IsString Prop where
     fromString = P
+
+instance HasBoolean Prop where
+    asBool (P "True") = Just True
+    asBool (P "False") = Just False
+    asBool _ = Nothing
+    fromBool = P . show
 
 -- Because of the IsString instance, the Show instance can just
 -- be a String.
@@ -407,15 +419,15 @@ instance Show (Marked Expr atom) => Show (Marked Expr (PFormula atom)) where
 instance (IsPropositional (PFormula atom) atom, Show atom) => Show (PFormula atom) where
     show = showPropositional
 
-instance (HasFixity atom, Ord atom, Pretty atom) => HasFixity (PFormula atom) where
+instance IsAtom atom => HasFixity (PFormula atom) where
     fixity = fixityPropositional
 
-instance (Ord atom, HasFixity atom, Pretty atom) => IsFormula (PFormula atom) atom where
+instance IsAtom atom => IsFormula (PFormula atom) atom where
     atomic = Atom
     overatoms = overatomsPropositional
     onatoms = onatomsPropositional
 
-instance (Ord atom, HasFixity atom, Pretty atom) => IsPropositional (PFormula atom) atom where
+instance IsAtom atom => IsPropositional (PFormula atom) atom where
     foldPropositional' _ co ne tf at fm =
         case fm of
           Imp p q -> co p (:=>:) q
@@ -424,7 +436,7 @@ instance (Ord atom, HasFixity atom, Pretty atom) => IsPropositional (PFormula at
           Or p q -> co p (:|:) q
           _ -> foldLiteral' (error "IsPropositional PFormula") ne tf at fm
 
-instance (Ord atom, HasFixity atom, Pretty atom) => IsLiteral (PFormula atom) atom where
+instance IsAtom atom => IsLiteral (PFormula atom) atom where
     foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
@@ -433,7 +445,7 @@ instance (Ord atom, HasFixity atom, Pretty atom) => IsLiteral (PFormula atom) at
           Not l -> ne l
           _ -> ho fm
 
-instance (Ord atom, HasFixity atom, Pretty atom) => Pretty (PFormula atom) where
+instance IsAtom atom => Pretty (PFormula atom) where
     pPrint = prettyPropositional
 #endif
 
@@ -507,6 +519,14 @@ test03 = TestCase $ assertEqual "Build Formula 3"
                                 (Or (Atom "fm") (And (Atom "fm") (Atom "fm")))
 
 -- Example of use.
+
+instance HasBoolean String where
+    asBool "True" = Just True
+    asBool "False" = Just False
+    asBool _ = Nothing
+    fromBool = show
+
+instance IsAtom String
 
 test04 :: Test
 test04 = TestCase $ assertEqual "fixity tests" expected input
@@ -1009,7 +1029,7 @@ purednf :: (IsPropositional pf atom, JustPropositional pf,
 purednf ca fm =
     foldPropositional co (\_ -> l2f fm) (\_ -> l2f fm) (\_ -> l2f fm) fm
     where
-      l2f = singleton . singleton . convertToLiteral (error "purednf failure") ca
+      l2f f = singleton . singleton . convertToLiteral (error $ "purednf failure: " ++ prettyShow f) ca $ f
       co p (:&:) q = distrib (purednf ca p) (purednf ca q)
       co p (:|:) q = union (purednf ca p) (purednf ca q)
       co _ _ _ = l2f fm

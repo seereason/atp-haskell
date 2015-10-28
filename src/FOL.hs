@@ -91,7 +91,7 @@ import Lit (foldLiteral, IsLiteral)
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Expr, Fixity(Fixity), HasFixity(fixity),
                leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
-import Prop (foldPropositional, IsPropositional, JustLiteral, JustPropositional)
+import Prop (foldPropositional, IsAtom, IsPropositional, JustLiteral, JustPropositional)
 import Text.PrettyPrint (parens, braces, brackets, punctuate, comma, fcat, hsep, space)
 #ifndef NOTESTS
 import Data.Map as Map (empty, fromList)
@@ -115,10 +115,6 @@ class (Ord v, IsString v, Pretty v, Show v) => IsVariable v where
     -- ^ Modify a variable by adding a prefix.  This unfortunately
     -- assumes that v is "string-like" but at least one algorithm in
     -- Harrison currently requires this.
-{-
-    prettyVariable :: v -> Doc
-    -- ^ Pretty print a variable
--}
 
 -- | Return an infinite list of variations on v
 variants :: IsVariable v => v -> [v]
@@ -158,7 +154,7 @@ instance Pretty V where
 -- FUNCTIONS --
 ---------------
 
-class (IsString function, Ord function, Pretty function) => IsFunction function
+class (IsString function, Ord function, Pretty function, Show function) => IsFunction function
 
 type Arity = Int
 
@@ -189,7 +185,8 @@ instance Pretty FName where pPrint (FName s) = text s
 -----------
 
 -- | Terms are built from variables and combined by functions to build the atoms of a formula.
-class (Eq term, Ord term, Pretty term, IsVariable v, IsFunction function) => IsTerm term v function | term -> v function where
+class (Eq term, Ord term, Pretty term, Show term, IsVariable v, IsFunction function)
+    => IsTerm term v function | term -> v function where
     vt :: v -> term
     -- ^ Build a term which is a variable reference.
     fApp :: function -> [term] -> term
@@ -278,8 +275,7 @@ class (Eq predicate, Ord predicate, Show predicate, IsString predicate, Pretty p
 -- ATOM (Atomic Formula) --
 ---------------------------
 
-class (IsPredicate predicate, Ord atom, Pretty atom, HasFixity atom)
-    => IsAtomWithApply atom predicate term | atom -> predicate term where
+class (IsPredicate predicate, IsAtom atom) => IsAtomWithApply atom predicate term | atom -> predicate term where
     overterms :: (term -> r -> r) -> r -> atom -> r
     onterms :: (term -> term) -> atom -> atom
 
@@ -364,7 +360,7 @@ convertPredicate :: (HasApply atom1 p1 t1, HasApply atom2 p2 t2) => (p1 -> p2) -
 convertPredicate cp ct = foldPredicate (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
 convertPredicateEq :: (HasApplyAndEquate atom1 p1 t1, HasApplyAndEquate atom2 p2 t2) => (p1 -> p2) -> (t1 -> t2) -> atom1 -> atom2
-convertPredicateEq cp ct = foldEquate (\t1 p t2 -> equate (ct t1) (ct t2)) (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
+convertPredicateEq cp ct = foldEquate (\t1 _p t2 -> equate (ct t1) (ct t2)) (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
 #ifndef NOTESTS
 
@@ -421,6 +417,8 @@ instance Show (Marked Expr Predicate) where
 
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable, Show)
+
+instance (IsPredicate predicate, IsTerm term v function) => IsAtom (FOL predicate term)
 
 instance (IsPredicate predicate, IsTerm term v function) => Pretty (FOL predicate term) where
     pPrint = foldPredicate prettyApply

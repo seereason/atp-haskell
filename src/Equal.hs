@@ -28,7 +28,7 @@ import FOL ((∃), pApp, Predicate, V)
 import Formulas ((.&.), (.=>.), (.<=>.))
 import Lib (Failing (Success, Failure))
 import Meson (meson)
-import Pretty (prettyShow)
+import Pretty (assertEqual', prettyShow)
 import Skolem
 import Tableaux (Depth(Depth))
 import Test.HUnit
@@ -124,7 +124,7 @@ equalitize fm =
 test01 :: Test
 test01 = TestCase $ assertEqual "function_congruence" expected input
     where input = List.map function_congruence [(fromString "f", 3 :: Int), (fromString "+",2)]
-          expected :: [Set.Set (MyFormula)]
+          expected :: [Set.Set MyFormula]
           expected = [Set.fromList
                       [(∀) x1
                        ((∀) x2
@@ -151,8 +151,8 @@ test01 = TestCase $ assertEqual "function_congruence" expected input
 -- -------------------------------------------------------------------------
 
 test02 :: Test
-test02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expectedProof) input
-    where input = (prettyShow ewd, runSkolem (meson (Just (Depth 10)) ewd))
+test02 = TestCase $ assertEqual' "equalitize 1 (p. 241)" (expected, expectedProof) input
+    where input = (ewd, runSkolem (meson (Just (Depth 10)) ewd))
           ewd = equalitize fm :: MyFormula
           fm :: MyFormula
           fm = ((∀) "x" (fx ⇒ gx)) ∧
@@ -174,7 +174,7 @@ test02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expectedProof
           gy1 = pApp' "g" [y1]
           -- y1 = fromString "y1"
           -- z = fromString "z"
-          expected = prettyShow $
+          expected =
               ((∀) "x" (x .=. x)) .&.
               ((∀) "x" ((∀) "y" ((∀) "z" (x .=. y .&. x .=. z .=>. y .=. z)))) .&.
               ((∀) "x1" ((∀) "y1" (x1 .=. y1 .=>. fx1 .=>. fy1))) .&.

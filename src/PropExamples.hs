@@ -52,6 +52,7 @@ instance Pretty (Knows Integer) where
 instance HasFixity (Knows Integer) where
     fixity = const leafFixity
 
+instance IsAtom (Knows Integer)
 
 #ifndef NOTESTS
 -- Some currently tractable examples. (p. 36)

@@ -31,7 +31,7 @@ import Formulas as P
 import Lib (Marked)
 import Lit (IsLiteral)
 import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), text)
-import Prop (foldPropositional, IsPropositional(foldPropositional'), JustLiteral, JustPropositional,
+import Prop (foldPropositional, IsAtom, IsPropositional(foldPropositional'), JustLiteral, JustPropositional,
              list_conj, list_disj, Literal, nenf, simpcnf, unmarkLiteral)
 #ifndef NOTESTS
 import Data.Function (on)
@@ -68,6 +68,8 @@ instance NumAtom Atom where
 
 instance HasFixity Atom where
     fixity _ = leafFixity
+
+instance IsAtom Atom
 
 -- | Make a stylized variable and update the index.
 mkprop :: forall pf atom. (IsPropositional pf atom, NumAtom atom) => Integer -> (pf, Integer)
