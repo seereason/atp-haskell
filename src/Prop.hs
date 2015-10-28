@@ -213,7 +213,7 @@ showPropositional fm0 =
     go rootFixity Unary fm0
     where
       go parentFixity side fm =
-          parenthesize' (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") parentFixity fix side $ foldPropositional co ne tf at fm
+          parenthesize' parentFixity fix side $ foldPropositional co ne tf at fm
           where
             fix = fixity fm
             ne f = "(.~.) (" <> go fix Unary f ++ ")" -- parenthesization of prefix operators is sketchy
@@ -223,7 +223,7 @@ showPropositional fm0 =
             co f (:<=>:) g = go fix LHS f <> " .<=>. " <> go fix RHS g
             tf = show
             at = show
-      parenthesize' parens braces _ _ _ fm = parenthesize parens braces leafFixity rootFixity Unary fm
+      parenthesize' _ _ _ fm = parenthesize (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") leafFixity rootFixity Unary fm
 
 onatomsPropositional :: (IsPropositional pf atom, JustPropositional pf) => (atom -> pf) -> pf -> pf
 onatomsPropositional f fm =

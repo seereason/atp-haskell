@@ -46,7 +46,7 @@ import Data.List as List (map)
 import Data.Map as Map (singleton)
 import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union)
 import FOL (exists, fApp, for_all, fv, IsFirstOrder, IsQuantified(foldQuantified),
-            MyFormula1, MyAtom2, MyTerm1, quant, Quant((:?:), (:!:)), subst, variant, vt)
+            quant, Quant((:?:), (:!:)), subst, variant, vt)
 import Formulas (BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), (.&.), (.|.), (.=>.), (.<=>.), negate, false, true, atomic)
 import Lib (setAny, distrib)
 import Prelude hiding (negate)

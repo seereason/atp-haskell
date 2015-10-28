@@ -23,7 +23,7 @@ module FOL
     , Arity
     , HasFunctions(funcs)
     -- * Terms
-    , IsTerm(vt, fApp, foldTerm), zipTerms, termFuncs, convertTerm, prettyTerm --, showTerm
+    , IsTerm(vt, fApp, foldTerm), zipTerms, termFuncs, convertTerm, prettyTerm, showTerm
     -- * Predicates
     , IsPredicate{-(prettyPredicateApplication, prettyPredicateEquate)-}, prettyApply, prettyEquate
     -- * Atoms
@@ -93,7 +93,7 @@ import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Expr, Fixity(Fixity), HasFixity(fixity),
                leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 import Prop (foldPropositional, IsAtom, IsPropositional, JustLiteral, JustPropositional)
-import Text.PrettyPrint (parens, braces, brackets, punctuate, comma, fcat, hsep, space)
+import Text.PrettyPrint (parens, braces, brackets, punctuate, comma, fcat, fsep, hsep, space)
 #ifndef NOTESTS
 import Data.Map as Map (empty, fromList)
 import Data.Set as Set (fromList)
@@ -216,18 +216,24 @@ termFuncs = foldTerm (\_ -> Set.empty) (\f ts -> Set.singleton (f, length ts))
 convertTerm :: (IsTerm term1 v1 f1, IsTerm term2 v2 f2) => (v1 -> v2) -> (f1 -> f2) -> term1 -> term2
 convertTerm cv cf = foldTerm (vt . cv) (\f ts -> fApp (cf f) (map (convertTerm cv cf) ts))
 
-{-
-showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
-showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> show (prettyApply (text ("fApp (" ++ show fn ++ ")")) (text " ") (map (text . showTerm) ts)))
--- showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp (" ++ show fn ++ ") [" ++ intercalate ", " (map showTerm ts) ++ "]")
--}
-
 prettyTerm :: (IsTerm term v function, Pretty v, Pretty function) => term -> Doc
 prettyTerm = foldTerm pPrint prettyFunctionApply
 
 prettyFunctionApply :: IsTerm term v function => function -> [term] -> Doc
 prettyFunctionApply f [] = pPrint f
 prettyFunctionApply f ts = pPrint f <> space <> brackets (hsep (punctuate comma (map prettyTerm ts)))
+
+{-
+showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
+showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> show (prettyApply (text ("fApp (" ++ show fn ++ ")")) (text " ") (map (text . showTerm) ts)))
+-- showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp (" ++ show fn ++ ") [" ++ intercalate ", " (map showTerm ts) ++ "]")
+-}
+
+showTerm :: (IsTerm term v function, Pretty v, Pretty function) => term -> String
+showTerm = foldTerm (\v -> "vt " <> show v) showFunctionApply
+
+showFunctionApply :: IsTerm term v function => function -> [term] -> String
+showFunctionApply f ts = "fApp (" <> show f <> ")" <> show (brackets (fsep (punctuate (comma <> space) (map (text . show) ts))))
 
 #ifndef NOTESTS
 data Term function v
@@ -455,8 +461,8 @@ instance (IsPredicate predicate, Pretty term, Ord term) => HasApply (FOL predica
 
 instance (IsPredicate predicate, Pretty term, Ord term) => HasApply (FOLEQ predicate term) predicate term where
     applyPredicate = AP
-    foldPredicate' d f (AP p ts) = f p ts
-    foldPredicate' d f x = d x
+    foldPredicate' _ f (AP p ts) = f p ts
+    foldPredicate' d _ x = d x
 
 instance (IsPredicate predicate, IsTerm term v function) => IsAtomWithApply (FOL predicate term) predicate term where
     overterms f r (R _ ts) = foldr f r ts
@@ -599,7 +605,7 @@ showQuantified fm0 =
     go rootFixity Unary fm0
     where
       go parentFixity side fm =
-          parenthesize' (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") parentFixity fix side $ foldQuantified qu co ne tf at fm
+          parenthesize' parentFixity fix side $ foldQuantified qu co ne tf at fm
           where
             fix = fixity fm
             qu (:!:) x p = "for_all " ++ show x <> " " <> go fix RHS p
@@ -611,7 +617,7 @@ showQuantified fm0 =
             co f (:<=>:) g = go fix LHS f <> " .<=>. " <> go fix RHS g
             tf = show
             at = show
-      parenthesize' parens braces _ _ _ fm = parenthesize parens braces leafFixity rootFixity Unary fm
+      parenthesize' _ _ _ fm = parenthesize (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") leafFixity rootFixity Unary fm
 
 #ifndef NOTESTS
 data Formula v atom

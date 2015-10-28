@@ -18,6 +18,7 @@ module Lit
     , convertToLiteral
     , fixityLiteral
     , prettyLiteral
+    , showLiteral
 #ifndef NOTESTS
     , LFormula(T, F, Atom, Not)
 #endif
@@ -99,13 +100,20 @@ fixityLiteral fm =
       at = fixity
 
 -- | Implementation of 'pPrint' for -- 'JustLiteral' types.
-prettyLiteral :: (IsLiteral formula atom, JustLiteral formula) => formula -> Doc
+prettyLiteral :: (IsLiteral lit atom, JustLiteral lit) => lit -> Doc
 prettyLiteral lit =
     foldLiteral ne tf at lit
     where
       ne p = text "¬" <> prettyLiteral p
       tf = pPrint
       at a = pPrint a
+
+showLiteral :: (IsLiteral lit atom, JustLiteral lit) => lit -> String
+showLiteral lit = foldLiteral ne tf at lit
+    where
+      ne p = "(.~.)(" ++ showLiteral p ++ ")"
+      tf = show
+      at = show
 
 -- | Implementation of 'onatoms' for 'JustLiteral' types.
 onatomsLiteral :: IsLiteral lit atom => (atom -> lit) -> lit -> lit
