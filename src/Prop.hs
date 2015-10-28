@@ -183,7 +183,7 @@ fixityPropositional :: (IsPropositional pf atom, JustPropositional pf) => pf -> 
 fixityPropositional fm =
     foldPropositional co ne tf at fm
     where
-      ne _ = Fixity 5 InfixN
+      ne _ = Fixity 5 InfixA
       co _ (:&:) _ = Fixity 4 InfixA
       co _ (:|:) _ = Fixity 3 InfixA
       co _ (:=>:) _ = Fixity 2 InfixR

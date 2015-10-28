@@ -95,7 +95,7 @@ fixityLiteral :: (IsLiteral lit atom, JustLiteral lit) => lit -> Fixity
 fixityLiteral fm =
     foldLiteral ne tf at fm
     where
-      ne _ = Fixity 5 InfixN
+      ne _ = Fixity 5 InfixA
       tf _ = Fixity 10 InfixN
       at = fixity
 

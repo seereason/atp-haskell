@@ -573,7 +573,7 @@ fixityQuantified fm =
     foldQuantified qu co ne tf at fm
     where
       qu _ _ _ = Fixity 9 InfixR
-      ne _ = Fixity 5 InfixN
+      ne _ = Fixity 5 InfixA
       co _ (:&:) _ = Fixity 4 InfixA
       co _ (:|:) _ = Fixity 3 InfixA
       co _ (:=>:) _ = Fixity 2 InfixR
