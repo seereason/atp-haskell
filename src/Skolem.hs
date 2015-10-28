@@ -46,7 +46,7 @@ import Data.List as List (map)
 import Data.Map as Map (singleton)
 import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union)
 import FOL (exists, fApp, for_all, fv, IsFirstOrder, IsQuantified(foldQuantified),
-            quant, Quant((:?:), (:!:)), subst, variant, vt)
+            MyFormula1, MyAtom2, MyTerm1, quant, Quant((:?:), (:!:)), subst, variant, vt)
 import Formulas (BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), (.&.), (.|.), (.=>.), (.<=>.), negate, false, true, atomic)
 import Lib (setAny, distrib)
 import Prelude hiding (negate)
@@ -55,7 +55,7 @@ import Prop (convertToPropositional, foldPropositional', IsPropositional, JustPr
 import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
 import Data.String (IsString(fromString))
-import FOL (FOL, Formula, IsFunction, pApp, Predicate, Term, V)
+import FOL (FOLEQ, Formula, IsFunction, pApp, Predicate, Term, V)
 import Lib (Marked(Mark))
 import Pretty (Expr, Pretty(pPrint), prettyShow, text)
 import Prop (Propositional)
@@ -83,9 +83,9 @@ simplify1 fm =
       qu _ x p = if member x (fv p) then fm else p
 
 #ifndef NOTESTS
--- | Concrete types for use in unit tests.
+-- | Concrete formula type for use in unit tests.
 type MyTerm = Term Function V
-type MyAtom = FOL Predicate MyTerm
+type MyAtom = FOLEQ Predicate MyTerm
 type MyFormula = Formula V MyAtom
 
 --instance HasFunctions MyFormula Function where

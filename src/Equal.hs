@@ -78,7 +78,7 @@ function_congruence (f,n) =
 predicate_congruence :: (IsQuantified fof atom v, HasApplyAndEquate atom p term, IsTerm term v f, Ord p) =>
                         atom -> Set fof
 predicate_congruence =
-    foldEquate (\_ _ _ -> Set.empty) (\p ts -> ap p (length ts))
+    foldEquate (\_ _ -> Set.empty) (\p ts -> ap p (length ts))
     where
       ap _ 0 = Set.empty
       ap p n = Set.singleton (List.foldr (∀) (ant ⇒ con) (argnames_x ++ argnames_y))
@@ -113,7 +113,7 @@ equalitize fm =
       axioms = Set.fold (Set.union . function_congruence)
                         (Set.fold (Set.union . predicate_congruence) equivalence_axioms otherPreds)
                         (funcs fm)
-      (eqPreds, otherPreds) = Set.partition (foldEquate (\_ _ _ -> True) (\_ _ -> False)) (predicates fm)
+      (eqPreds, otherPreds) = Set.partition (foldEquate (\_ _ -> True) (\_ _ -> False)) (predicates fm)
 
 #ifndef NOTESTS
 

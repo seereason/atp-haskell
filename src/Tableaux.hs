@@ -33,7 +33,9 @@ import Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace (trace)
-import FOL
+import FOL (asubst, exists, FOLEQ(AP, Equals), foldQuantified, for_all, fv, generalize, HasApply,
+            HasApplyAndEquate(equate, foldEquate), JustApply, IsAtomWithApply, IsFirstOrder, IsTerm,
+            pApp, Predicate, Quant((:!:)), subst, V(V), vt, zipPredicates, zipPredicatesEq)
 import Formulas
 import Lib
 import Lit
@@ -67,7 +69,7 @@ unify_literals (f1, f2) =
 
 unify_atoms :: forall atom term predicate v function.
                (IsAtomWithApply atom predicate term,
-                HasApply atom predicate term,
+                HasApply atom predicate term, JustApply atom,
                 IsTerm term v function) =>
                (atom, atom) -> StateT (Map v term) Failing ()
 unify_atoms (a1, a2) =
@@ -79,7 +81,7 @@ unify_atoms_eq :: forall atom term predicate v function.
                 IsTerm term v function) =>
                (atom, atom) -> StateT (Map v term) Failing ()
 unify_atoms_eq (a1, a2) =
-    maybe (fail "unify_atoms") id (zipPredicatesEq (\l1 _p1 r1 l2 _p2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
+    maybe (fail "unify_atoms") id (zipPredicatesEq (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
                                                    (\_ tpairs -> Just (unify_terms tpairs))
                                                    a1 a2)
 
@@ -136,7 +138,7 @@ prawitz fm =
 -- Examples.
 -- -------------------------------------------------------------------------
 
-instance (IsAtomWithApply MyAtom Predicate MyTerm, IsTerm MyTerm V Function) => Unify (MyAtom, MyAtom) V MyTerm where
+instance (IsAtomWithApply MyAtom Predicate MyTerm, HasApplyAndEquate MyAtom Predicate MyTerm, IsTerm MyTerm V Function) => Unify (MyAtom, MyAtom) V MyTerm where
     unify = unify_atoms_eq
 
 p20 :: Test
