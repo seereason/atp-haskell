@@ -10,6 +10,7 @@ module Equal
     , equalitize
 #ifndef NOTESTS
     -- * Tests
+    , wishnu
     , testEqual
 #endif
     ) where
@@ -150,77 +151,52 @@ test01 = TestCase $ assertEqual "function_congruence" expected input
 -- A simple example (see EWD1266a and the application to Morley's theorem).
 -- -------------------------------------------------------------------------
 
+ewd = equalitize fm :: MyFormula
+    where
+      fm = ((∀) "x" (fx ⇒ gx)) ∧
+           ((∃) "x" fx) ∧
+           ((∀) "x" ((∀) "y" (gx ∧ gy ⇒ x .=. y))) ⇒
+           ((∀) "y" (gy ⇒ fy))
+      fx = pApp "f" [x]
+      gx = pApp "g" [x]
+      fy = pApp "f" [y]
+      gy = pApp "g" [y]
+      x = vt "x"
+      y = vt "y"
+
 test02 :: Test
-test02 = TestCase $ assertEqual' "equalitize 1 (p. 241)" (expected, expectedProof) input
+test02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expectedProof) input
     where input = (ewd, runSkolem (meson (Just (Depth 10)) ewd))
-          ewd = equalitize fm :: MyFormula
-          fm :: MyFormula
-          fm = ((∀) "x" (fx ⇒ gx)) ∧
-               ((∃) "x" fx) ∧
-               ((∀) "x" ((∀) "y" (gx ∧ gy ⇒ x .=. y))) ⇒
-               ((∀) "y" (gy ⇒ fy))
-          fx = pApp' "f" [x]
-          gx = pApp' "g" [x]
-          fy = pApp' "f" [y]
-          gy = pApp' "g" [y]
+          fx = pApp "f" [x]
+          gx = pApp "g" [x]
+          fy = pApp "f" [y]
+          gy = pApp "g" [y]
           x = vt "x"
           y = vt "y"
           z = vt "z"
           x1 = vt "x1"
           y1 = vt "y1"
-          fx1 = pApp' "f" [x1]
-          gx1 = pApp' "g" [x1]
-          fy1 = pApp' "f" [y1]
-          gy1 = pApp' "g" [y1]
+          fx1 = pApp "f" [x1]
+          gx1 = pApp "g" [x1]
+          fy1 = pApp "f" [y1]
+          gy1 = pApp "g" [y1]
           -- y1 = fromString "y1"
           -- z = fromString "z"
           expected =
-              ((∀) "x" (x .=. x)) .&.
-              ((∀) "x" ((∀) "y" ((∀) "z" (x .=. y .&. x .=. z .=>. y .=. z)))) .&.
-              ((∀) "x1" ((∀) "y1" (x1 .=. y1 .=>. fx1 .=>. fy1))) .&.
-              ((∀) "x1" ((∀) "y1" (x1 .=. y1 .=>. gx1 .=>. gy1))) .=>.
+              ((∀) "x" (x .=. x) .&.
+               (((∀) "x" ((∀) "y" ((∀) "z" (x .=. y .&. x .=. z .=>. y .=. z)))) .&.
+                (((∀) "x1" ((∀) "y1" (x1 .=. y1 .=>. fx1 .=>. fy1))) .&.
+                 ((∀) "x1" ((∀) "y1" (x1 .=. y1 .=>. gx1 .=>. gy1)))))) .=>.
               ((∀) "x" (fx .=>. gx)) .&.
               ((∃) "x" (fx)) .&.
               ((∀) "x" ((∀) "y" (gx .&. gy .=>. x .=. y))) .=>.
               ((∀) "y" (gy .=>. fy))
-{-
-          -- I don't yet know if this is right.  Almost certainly not.
-          expectedProof = Set.fromList [Success ((Map.fromList [("_0",vt "_1")],0,2),1),
-                                        Success ((Map.fromList [("_0",vt "_2"),("_1",vt "_2")],0,3),1),
-                                        Success ((Map.fromList [("_0",fApp (Skolem 1) [] :: MyTerm)],0,1),1),
-                                        Success ((Map.fromList [("_0",fApp (Skolem 2) [] :: MyTerm)],0,1),1)]
-
-          expected = ("<<(forall x. x = x) /\ " ++
-                      "    (forall x y z. x = y /\ x = z ==> y = z) /\ " ++
-                      "    (forall x1 y1. x1 = y1 ==> f(x1) ==> f(y1)) /\ " ++
-                      "    (forall x1 y1. x1 = y1 ==> g(x1) ==> g(y1)) ==> " ++
-                      "    (forall x. f(x) ==> g(x)) /\ " ++
-                      "    (exists x. f(x)) /\ (forall x y. g(x) /\ g(y) ==> x = y) ==> " ++
-                      "    (forall y. g(y) ==> f(y))>> ")
--}
           expectedProof =
               Set.fromList [Success ((Map.fromList [(fromString "_0",fApp (toSkolem "x") []),
                                                     (fromString "_1",fApp (toSkolem "y") []),
                                                     (fromString "_2",fApp (toSkolem "x") []),
                                                     (fromString "_3",fApp (toSkolem "y") []),
                                                     (fromString "_4",fApp (toSkolem "x") [])],0,5),Depth 6)]
-{-
-          expectedProof =
-              Set.singleton (Success ((Map.fromList [(fromString "_0",vt' "_2"),
-                                                     (fromString "_1",fApp (toSkolem "x") []),
-                                                     (fromString "_2",vt' "_4"),
-                                                     (fromString "_3",fApp (toSkolem "x") []),
-                                                     (fromString "_4",fApp (toSkolem "x") []),
-                                                     (fromString "_5",fApp (toSkolem "x") [])], 0, 6), 5))
-          fApp' :: String -> [term] -> term
-          fApp' s ts = fApp (fromString s) ts
-          for_all' s = for_all (fromString s)
-          exists' s = exists (fromString s)
--}
-          pApp' :: String -> [MyTerm] -> MyFormula
-          pApp' s ts = pApp (fromString s :: Predicate) ts
-          --vt' :: String -> MyTerm
-          --vt' s = vt (fromString s)
 
 -- | Wishnu Prasetya's example (even nicer with an "exists unique" primitive).
 wishnu :: MyFormula
@@ -235,9 +211,9 @@ wishnu = ((∃) ("x") ((x .=. f[g[x]]) ∧ (∀) ("x'") ((x' .=. f[g[x']]) ⇒ (
       g terms = fApp (fromString "g") terms
 
 test03 :: Test
-test03 = TestLabel "equalitize 2" $ TestCase $ assertEqual "equalitize 2 (p. 241)" (prettyShow expected, expectedProof) input
+test03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (p. 241)" (expected, expectedProof) input
     where -- It should finish with Depth 16, but that takes a long time.
-          input = (prettyShow (equalitize wishnu), runSkolem (meson (Just (Depth 16)) wishnu))
+          input = (equalitize wishnu, runSkolem (meson (Just (Depth 30)) wishnu))
           x = vt "x" :: MyTerm
           x1 = vt "x1"
           y = vt "y"
@@ -269,9 +245,9 @@ test03 = TestLabel "equalitize 2" $ TestCase $ assertEqual "equalitize 2 (p. 241
 -- -------------------------------------------------------------------------
 
 test04 :: Test
-test04 = TestCase $ assertEqual "equalitize 3 (p. 248)" (prettyShow expected, expectedProof) input
+test04 = TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expectedProof) input
     where
-      input = (prettyShow (equalitize fm), runSkolem (meson (Just (Depth 20)) . equalitize $ fm))
+      input = (equalitize fm, runSkolem (meson (Just (Depth 20)) . equalitize $ fm))
       fm :: MyFormula
       fm = ((∀) "x" . (∀) "y" . (∀) "z") ((*) [x', (*) [y', z']] .=. (*) [((*) [x', y']), z']) ∧
            (∀) "x" ((*) [one, x'] .=. x') ∧
