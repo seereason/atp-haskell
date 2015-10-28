@@ -164,7 +164,7 @@ binop f1 (:&:) f2 = f1 .&. f2
 binop f1 (:|:) f2 = f1 .|. f2
 
 -- | Class associating a formula type with its atom (atomic formula) type.
-class (Pretty formula, HasFixity formula, Eq atom, Ord atom, Pretty atom, HasFixity atom)
+class (Pretty formula, HasFixity formula, Eq atom, Ord atom, Pretty atom, HasFixity atom, Show atom)
     => IsFormula formula atom | formula -> atom where
     atomic :: atom -> formula
     -- ^ Build a formula from an atom.

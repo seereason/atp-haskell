@@ -21,7 +21,7 @@ import Control.Monad.State (execStateT)
 import Data.Map as Map
 import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (generalize, IsAtom, IsFirstOrder, IsTerm)
+import FOL (generalize, IsAtomWithApply, IsFirstOrder, IsTerm)
 import Formulas ((.~.), false, negative)
 import Lib (Marked)
 import Lit (IsLiteral)
@@ -198,7 +198,7 @@ contrapositives cls =
 -- -------------------------------------------------------------------------
 
 mexpand :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-            IsAtom atom predicate term, Unify (atom, atom) v term,
+            IsAtomWithApply atom predicate term, Unify (atom, atom) v term,
             IsTerm term v function) =>
            Set (Set lit, lit)
         -> Set lit

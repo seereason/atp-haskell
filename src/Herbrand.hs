@@ -20,7 +20,7 @@ import Data.String (IsString(..))
 import Debug.Trace
 
 import DP (dpll)
-import FOL (Arity, HasFunctions(funcs), IsAtom, IsFirstOrder, IsTerm, fApp, lsubst, fv, generalize)
+import FOL (Arity, HasFunctions(funcs), IsAtomWithApply, IsFirstOrder, IsTerm, fApp, lsubst, fv, generalize)
 import Formulas ((.~.), overatoms, atomic)
 import Lib (allpairs, distrib, Marked)
 import Lit (IsLiteral)
@@ -65,7 +65,7 @@ groundtuples cntms fns n m =
 -- | Iterate modifier "mfn" over ground terms till "tfn" fails.
 herbloop :: forall lit atom predicate term v function.
             (IsLiteral lit atom,
-             IsAtom atom predicate term,
+             IsAtomWithApply atom predicate term,
              IsTerm term v function,
              HasFunctions lit function) =>
             (Set (Set lit) -> (lit -> lit) -> Set (Set lit) -> Set (Set lit))
@@ -97,7 +97,7 @@ herbloop mfn tfn fl0 cntms fns fvs n fl tried tuples =
 
 -- | Hence a simple Gilmore-type procedure.
 gilmore_loop :: (IsLiteral lit atom, Ord lit,
-                 IsAtom atom predicate term,
+                 IsAtomWithApply atom predicate term,
                  IsTerm term v function,
                  HasFunctions lit function) =>
                 Set (Set lit)
@@ -195,7 +195,7 @@ dp_mfn :: Ord b => Set (Set a) -> (a -> b) -> Set (Set b) -> Set (Set b)
 dp_mfn cjs0 ifn cjs = Set.union (Set.map (Set.map ifn) cjs0) cjs
 
 dp_loop :: (IsLiteral lit atom, Ord lit,
-            IsAtom atom predicate term,
+            IsAtomWithApply atom predicate term,
             HasFunctions lit function,
             IsTerm term v function) =>
            Set (Set lit)
@@ -248,7 +248,7 @@ davisputnam' _ _ fm =
 -- | Try to cut out useless instantiations in final result.
 dp_refine_loop :: (IsLiteral lit atom, Ord lit,
                    IsTerm term v function,
-                   IsAtom atom predicate term,
+                   IsAtomWithApply atom predicate term,
                    HasFunctions lit function) =>
                   Set (Set lit)
                -> Set term
@@ -265,7 +265,7 @@ dp_refine_loop cjs0 cntms fns fvs n cjs tried tuples =
 
 dp_refine :: (IsLiteral lit atom, Ord lit,
               IsTerm term v function,
-              IsAtom atom predicate term) =>
+              IsAtomWithApply atom predicate term) =>
              Set (Set lit) -> [v] -> Set [term] -> Set [term] -> Failing (Set [term])
 dp_refine cjs0 fvs dknow need =
     case Set.minView dknow of

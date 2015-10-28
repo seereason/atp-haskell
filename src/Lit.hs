@@ -146,7 +146,7 @@ instance Ord atom => IsNegatable (LFormula atom) where
     foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
     foldNegation' _ normal x = normal x
 
-instance (Ord atom, Pretty atom, HasFixity atom) => IsFormula (LFormula atom) atom where
+instance (Ord atom, Pretty atom, HasFixity atom, Show atom) => IsFormula (LFormula atom) atom where
     atomic = Atom
     overatoms = overatomsLiteral
     onatoms = onatomsLiteral
@@ -159,7 +159,7 @@ instance IsFormula (LFormula atom) atom => IsLiteral (LFormula atom) atom where
           Atom a -> at a
           Not f -> ne f
 
-instance (Ord atom, Pretty atom, HasFixity atom) => HasFixity (LFormula atom) where
+instance (Ord atom, Pretty atom, HasFixity atom, Show atom) => HasFixity (LFormula atom) where
     fixity = fixityLiteral
 
 instance IsLiteral (LFormula atom) atom => Pretty (LFormula atom) where

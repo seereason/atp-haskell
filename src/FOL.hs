@@ -27,7 +27,7 @@ module FOL
     -- * Predicates
     , IsPredicate{-(prettyPredicateApplication, prettyPredicateEquate)-}, prettyApply, prettyEquate
     -- * Atoms
-    , IsAtom(overterms, onterms)
+    , IsAtomWithApply(overterms, onterms)
     , HasApply(applyPredicate, foldPredicate)
     , overtermsApply, ontermsApply, showApply
     -- * Atoms supporting Equate
@@ -279,7 +279,7 @@ class (Eq predicate, Ord predicate, Show predicate, IsString predicate, Pretty p
 ---------------------------
 
 class (IsPredicate predicate, Ord atom, Pretty atom, HasFixity atom)
-    => IsAtom atom predicate term | atom -> predicate term where
+    => IsAtomWithApply atom predicate term | atom -> predicate term where
     overterms :: (term -> r -> r) -> r -> atom -> r
     onterms :: (term -> term) -> atom -> atom
 
@@ -299,8 +299,8 @@ overtermsApply f r0 = foldPredicate (\_ ts -> foldr f r0 ts)
 ontermsApply :: HasApply atom predicate term => (term -> term) -> atom -> atom
 ontermsApply f = foldPredicate (\p ts -> applyPredicate p (map f ts))
 
--- | Implementation of 'funcs' for 'IsAtom' types
-atomFuncs :: (IsAtom atom predicate term, HasFunctions term function) => atom -> Set (function, Arity)
+-- | Implementation of 'funcs' for 'IsAtomWithApply' types
+atomFuncs :: (IsAtomWithApply atom predicate term, HasFunctions term function) => atom -> Set (function, Arity)
 atomFuncs = overterms (\term s -> Set.union (funcs term) s) mempty
 
 -- | Zip two atoms if they are similar
@@ -359,7 +359,7 @@ showApplyAndEquate atom = foldEquate showEquate (\_ _ -> showApply atom) atom
 showEquate :: Show term => term -> predicate -> term -> String
 showEquate t1 _p t2 = "(" ++ show t1 ++ ") .=. (" ++ show t2 ++ ")"
 
--- | Convert between two instances of IsAtom
+-- | Convert between two instances of IsAtomWithApply
 convertPredicate :: (HasApply atom1 p1 t1, HasApply atom2 p2 t2) => (p1 -> p2) -> (t1 -> t2) -> atom1 -> atom2
 convertPredicate cp ct = foldPredicate (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
@@ -429,7 +429,7 @@ instance (IsPredicate predicate, Pretty term, Ord term) => HasApply (FOL predica
     applyPredicate = R
     foldPredicate f (R p ts) = f p ts
 
-instance (IsPredicate predicate, IsTerm term v function) => IsAtom (FOL predicate term) predicate term where
+instance (IsPredicate predicate, IsTerm term v function) => IsAtomWithApply (FOL predicate term) predicate term where
     overterms f r (R _ ts) = foldr f r ts
     onterms f (R p ts) = R p (map f ts)
 
@@ -480,9 +480,9 @@ class (IsPropositional formula atom, IsVariable v) => IsQuantified formula atom 
                    -> (atom -> r)
                    -> formula -> r
 
--- | Combine IsQuantified, IsAtom, IsTerm
+-- | Combine IsQuantified, IsAtomWithApply, IsTerm
 class (IsQuantified formula atom v,
-       IsAtom atom predicate term,
+       IsAtomWithApply atom predicate term,
        IsTerm term v function,
        HasFunctions formula function,
        Show v, Pretty formula
@@ -502,7 +502,7 @@ instance IsFirstOrder formula atom predicate term v function => IsFirstOrder (Ma
 -- | Implementation of funcs for quantified formulas.
 quantifiedFuncs :: forall formula atom predicate term v function.
                    (IsQuantified formula atom v, Ord function,
-                    IsAtom atom predicate term,
+                    IsAtomWithApply atom predicate term,
                     HasFunctions atom function,
                     IsTerm term v function
                    ) => formula -> Set (function, Arity)
@@ -589,18 +589,18 @@ data Formula v atom
     deriving (Eq, Ord, Data, Typeable, Read)
 
 instance (HasFunctions atom function,
-          IsAtom atom predicate term,
+          IsAtomWithApply atom predicate term,
           IsTerm term v function)
     => HasFunctions (Formula v atom) function where
     funcs = quantifiedFuncs
 
 instance (HasFunctions atom function,
-          IsAtom atom predicate term,
+          IsAtomWithApply atom predicate term,
           IsTerm term v function)
     => HasFunctions (PFormula atom) function where
     funcs = propositionalFuncs
 
-instance (IsAtom atom predicate term,
+instance (IsAtomWithApply atom predicate term,
           IsTerm term v function)
     => Pretty (Formula v atom) where
     pPrint = prettyQuantified
@@ -630,7 +630,7 @@ instance IsCombinable (Formula v atom) where
           Iff a b -> a `iff` b
           _ -> other fm
 
-instance (IsAtom atom predicate term, IsTerm term v function)
+instance (IsAtomWithApply atom predicate term, IsTerm term v function)
     => IsQuantified (Formula v atom) atom v where
     quant (:!:) = Forall
     quant (:?:) = Exists
@@ -647,12 +647,12 @@ instance (IsQuantified (Formula v atom) atom v) => HasFixity (Formula v atom) wh
     fixity = fixityQuantified
 
 -- The IsFormula instance for Formula
-instance (IsAtom atom predicate term, IsTerm term v function, Ord v) => IsFormula (Formula v atom) atom where
+instance (IsAtomWithApply atom predicate term, IsTerm term v function, Ord v) => IsFormula (Formula v atom) atom where
     atomic = Atom
     overatoms = overatomsQuantified
     onatoms = onatomsQuantified
 
-instance (IsAtom atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
+instance (IsAtomWithApply atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
     foldPropositional' ho co ne tf at fm =
         case fm of
           And p q -> co p (:&:) q
@@ -661,7 +661,7 @@ instance (IsAtom atom predicate term, IsTerm term v function) => IsPropositional
           Iff p q -> co p (:<=>:) q
           _ -> foldLiteral' ho ne tf at fm
 
-instance (IsAtom atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
+instance (IsAtomWithApply atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
     foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
@@ -739,7 +739,7 @@ instance (Eq dom, IsTerm MyTerm v function, HasApplyAndEquate MyAtom predicate M
 #endif
 
 -- | Special case of applying a subfunction to the top *terms*.
-onformula :: (IsFormula formula r, IsAtom r predicate term) => (term -> term) -> formula -> formula
+onformula :: (IsFormula formula r, IsAtomWithApply r predicate term) => (term -> term) -> formula -> formula
 onformula f = onatoms (atomic . onterms f)
 
 onatomsQuantified :: IsQuantified formula atom v => (atom -> formula) -> formula -> formula
@@ -1066,7 +1066,7 @@ fv fm =
 fvp :: (IsPropositional formula atom,
         JustPropositional formula,
         IsTerm term v f,
-        IsAtom atom predicate term,
+        IsAtomWithApply atom predicate term,
         HasApply atom predicate term,
         IsVariable v) => formula -> Set v
 fvp fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
@@ -1074,11 +1074,11 @@ fvp fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
 fvl :: (IsLiteral formula atom,
         JustLiteral formula,
         IsTerm term v f,
-        IsAtom atom predicate term,
+        IsAtomWithApply atom predicate term,
         IsVariable v) => formula -> Set v
 fvl fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
 
-fva :: (IsAtom atom predicate term, IsTerm term v function) => atom -> Set v
+fva :: (IsAtomWithApply atom predicate term, IsTerm term v function) => atom -> Set v
 fva = overterms (\t s -> Set.union (fvt t) s) mempty
 
 -- | Find the variables in a formula.
@@ -1133,7 +1133,7 @@ tsubst sfn tm =
              tm
 
 -- | Substitution within a Literal
-lsubst :: (IsLiteral lit atom, IsAtom atom predicate term, IsTerm term v function) =>
+lsubst :: (IsLiteral lit atom, IsAtomWithApply atom predicate term, IsTerm term v function) =>
          Map v term -> lit -> lit
 lsubst subfn fm =
     foldLiteral ne fromBool at fm
@@ -1142,7 +1142,7 @@ lsubst subfn fm =
       at = atomic . asubst subfn
 
 -- | Substitution within atoms.
-asubst :: (IsAtom atom predicate term, IsTerm term v function) => Map v term -> atom -> atom
+asubst :: (IsAtomWithApply atom predicate term, IsTerm term v function) => Map v term -> atom -> atom
 asubst sfn a = onterms (tsubst sfn) a
 
 -- | Substitution within quantifiers

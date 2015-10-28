@@ -12,7 +12,7 @@ import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
-import FOL (fvl, IsAtom, IsTerm, lsubst, vt)
+import FOL (fvl, IsAtomWithApply, IsTerm, lsubst, vt)
 import Lit (IsLiteral)
 import Prop (JustLiteral)
 import Tableaux (deepen)
@@ -26,7 +26,7 @@ import Test.HUnit
 
 renamerule :: forall lit atom predicate v term function.
               (IsLiteral lit atom, JustLiteral lit, Ord lit,
-               IsAtom atom predicate term,
+               IsAtomWithApply atom predicate term,
                IsTerm term v function) =>
               Int -> (Set lit, lit) -> ((Set lit, lit), Int)
 renamerule k (asm,c) =
