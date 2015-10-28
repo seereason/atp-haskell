@@ -23,6 +23,7 @@ module Prop
     , zipPropositional
     , fixityPropositional
     , prettyPropositional
+    , showPropositional
     -- * Formula marker types and restricted formula classes
     , Literal
     , Propositional
@@ -202,6 +203,24 @@ prettyPropositional fm0 =
             tf = pPrint
             at a = pPrint a
 
+-- | For clarity, show methods fully parenthesize
+showPropositional :: (IsPropositional pf atom, JustPropositional pf, Show atom) => pf -> String
+showPropositional fm0 =
+    go rootFixity Unary fm0
+    where
+      go parentFixity side fm =
+          parenthesize' (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") parentFixity fix side $ foldPropositional co ne tf at fm
+          where
+            fix = fixity fm
+            ne f = "(.~.) (" <> go fix Unary f ++ ")" -- parenthesization of prefix operators is sketchy
+            co f (:&:) g = go fix LHS f <> " .&. " <> go fix RHS g
+            co f (:|:) g = go fix LHS f <> " .|. " <> go fix RHS g
+            co f (:=>:) g = go fix LHS f <> " .=>. " <> go fix RHS g
+            co f (:<=>:) g = go fix LHS f <> " .<=>. " <> go fix RHS g
+            tf = show
+            at = show
+      parenthesize' parens braces _ _ _ fm = parenthesize parens braces leafFixity rootFixity Unary fm
+
 onatomsPropositional :: (IsPropositional pf atom, JustPropositional pf) => (atom -> pf) -> pf -> pf
 onatomsPropositional f fm =
     foldPropositional co ne tf at fm
@@ -344,7 +363,7 @@ data PFormula atom
     | Or (PFormula atom) (PFormula atom)
     | Imp (PFormula atom) (PFormula atom)
     | Iff (PFormula atom) (PFormula atom)
-    deriving (Eq, Ord, Read, Show, Data, Typeable)
+    deriving (Eq, Ord, Read, Data, Typeable)
 
 instance HasBoolean (PFormula atom) where
     asBool T = Just True
@@ -383,6 +402,10 @@ instance Show (Marked Expr atom) => Show (Marked Expr (PFormula atom)) where
     show (Mark (Or f g)) = "(" ++ show (markExpr f) ++ ") .|. (" ++ show (markExpr g) ++ ")"
     show (Mark (Imp f g)) = "(" ++ show (markExpr f) ++ ") .=>. (" ++ show (markExpr g) ++ ")"
     show (Mark (Iff f g)) = "(" ++ show (markExpr f) ++ ") .<=>. (" ++ show (markExpr g) ++ ")"
+
+-- Build a Haskell expression for this formula
+instance (IsPropositional (PFormula atom) atom, Show atom) => Show (PFormula atom) where
+    show = showPropositional
 
 instance (HasFixity atom, Ord atom, Pretty atom) => HasFixity (PFormula atom) where
     fixity = fixityPropositional

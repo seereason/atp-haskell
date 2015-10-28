@@ -90,7 +90,7 @@ import Lib (Marked(Mark, unMark'), setAny, tryApplyD, undefine, (|->))
 import Lit (foldLiteral, IsLiteral)
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Expr, Fixity(Fixity), HasFixity(fixity),
-               parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
+               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 import Prop (foldPropositional, IsPropositional, JustLiteral, JustPropositional)
 import Text.PrettyPrint (parens, braces, brackets, punctuate, comma, fcat, hsep, space)
 #ifndef NOTESTS
@@ -554,12 +554,13 @@ prettyQuantified fm0 =
             tf = pPrint
             at = pPrint
 
+-- | For clarity, show methods fully parenthesize
 showQuantified :: (IsQuantified formula atom v, HasFixity formula, Show atom, Ord atom) => formula -> String
 showQuantified fm0 =
     go rootFixity Unary fm0
     where
       go parentFixity side fm =
-          parenthesize (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") parentFixity fix side $ foldQuantified qu co ne tf at fm
+          parenthesize' (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") parentFixity fix side $ foldQuantified qu co ne tf at fm
           where
             fix = fixity fm
             qu (:!:) x p = "for_all " ++ show x <> " " <> go fix RHS p
@@ -571,6 +572,7 @@ showQuantified fm0 =
             co f (:<=>:) g = go fix LHS f <> " .<=>. " <> go fix RHS g
             tf = show
             at = show
+      parenthesize' parens braces _ _ _ fm = parenthesize parens braces leafFixity rootFixity Unary fm
 
 #ifndef NOTESTS
 data Formula v atom
