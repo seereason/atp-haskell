@@ -27,7 +27,6 @@ module FOL
     -- * Predicates
     , IsPredicate{-(prettyPredicateApplication, prettyPredicateEquate)-}, prettyApply, prettyEquate
     -- * Atoms
-    -- , IsAtomWithApply(overterms, onterms)
     , HasApply(applyPredicate, foldPredicate', overterms, onterms), foldPredicate, JustApply
     , overtermsApply, ontermsApply, showApply
     -- * Atoms supporting Equate
@@ -282,12 +281,6 @@ class (Eq predicate, Ord predicate, Show predicate, IsString predicate, Pretty p
 -- ATOM (Atomic Formula) --
 ---------------------------
 
-{-
-class (IsAtom atom, IsPredicate predicate, Ord term, Pretty term) => IsAtomWithApply atom predicate term | atom -> predicate term where
-    overterms :: (term -> r -> r) -> r -> atom -> r
-    onterms :: (term -> term) -> atom -> atom
--}
-
 class (IsAtom atom, IsPredicate predicate, Ord term, Pretty term) => HasApply atom predicate term | atom -> predicate term where
     applyPredicate :: predicate -> [term] -> atom
     foldPredicate' :: (atom -> r) -> (predicate -> [term] -> r) -> atom -> r --- rename FoldAtom
@@ -312,7 +305,7 @@ overtermsApply f r0 = foldPredicate (\_ ts -> foldr f r0 ts)
 ontermsApply :: (HasApply atom predicate term, JustApply atom) => (term -> term) -> atom -> atom
 ontermsApply f = foldPredicate (\p ts -> applyPredicate p (map f ts))
 
--- | Implementation of 'funcs' for 'IsAtomWithApply' types
+-- | Implementation of 'funcs' for 'HasApply' types
 atomFuncs :: (HasApply atom predicate term, HasFunctions term function) => atom -> Set (function, Arity)
 atomFuncs = overterms (\term s -> Set.union (funcs term) s) mempty
 
@@ -330,9 +323,6 @@ zipPredicates f atom1 atom2 =
 
 showApply :: (Show predicate, Show term) => predicate -> [term] -> String
 showApply p ts = show (text "pApp " <> parens (text (show p)) <> brackets (fcat (punctuate (comma <> space) (map (text . show) ts))))
-
--- showApply :: (HasApply atom predicate term, Show term) => (atom -> String) -> atom -> String
--- showApply d = foldPredicate' d (\p ts -> show (text "pApp " <> parens (text (show p)) <> brackets (fcat (punctuate (comma <> space) (map (text . show) ts)))))
 
 -- | Atoms that support equality must have HasApplyAndEquals instance
 class HasApply atom predicate term => HasApplyAndEquate atom predicate term | atom -> predicate term where
