@@ -122,30 +122,24 @@ equalitize fm =
 -- Example.
 -- -------------------------------------------------------------------------
 
-test01 :: Test
-test01 = TestCase $ assertEqual "function_congruence" expected input
+testEqual01 :: Test
+testEqual01 = TestCase $ assertEqual "function_congruence" expected input
     where input = List.map function_congruence [(fromString "f", 3 :: Int), (fromString "+",2)]
           expected :: [Set.Set MyFormula]
           expected = [Set.fromList
-                      [(∀) x1
-                       ((∀) x2
-                        ((∀) x3
-                         ((∀) y1
-                          ((∀) y2
-                           ((∀) y3 ((((vt x1) .=. (vt y1)) ∧ (((vt x2) .=. (vt y2)) ∧ ((vt x3) .=. (vt y3)))) ⇒
-                                          ((fApp (fromString "f") [vt x1,vt x2,vt x3]) .=. (fApp (fromString "f") [vt y1,vt y2,vt y3]))))))))],
+                      [(∀) "x1"
+                       ((∀) "x2"
+                        ((∀) "x3"
+                         ((∀) "y1"
+                          ((∀) "y2"
+                           ((∀) "y3" ((("x1" .=. "y1") ∧ (("x2" .=. "y2") ∧ ("x3" .=. "y3"))) ⇒
+                                          ((fApp (fromString "f") ["x1","x2","x3"]) .=. (fApp (fromString "f") ["y1","y2","y3"]))))))))],
                       Set.fromList
-                      [(∀) x1
-                       ((∀) x2
-                        ((∀) y1
-                         ((∀) y2 ((((vt x1) .=. (vt y1)) ∧ ((vt x2) .=. (vt y2))) ⇒
-                                        ((fApp (fromString "+") [vt x1,vt x2]) .=. (fApp (fromString "+") [vt y1,vt y2]))))))]]
-          x1 = fromString "x1"
-          x2 = fromString "x2"
-          x3 = fromString "x3"
-          y1 = fromString "y1"
-          y2 = fromString "y2"
-          y3 = fromString "y3"
+                      [(∀) "x1"
+                       ((∀) "x2"
+                        ((∀) "y1"
+                         ((∀) "y2" ((("x1" .=. "y1") ∧ ("x2" .=. "y2")) ⇒
+                                        ((fApp (fromString "+") ["x1","x2"]) .=. (fApp (fromString "+") ["y1","y2"]))))))]]
 
 -- -------------------------------------------------------------------------
 -- A simple example (see EWD1266a and the application to Morley's theorem).
@@ -164,9 +158,9 @@ ewd = equalitize fm :: MyFormula
       x = vt "x"
       y = vt "y"
 
-test02 :: Test
-test02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expectedProof) input
-    where input = (ewd, runSkolem (meson (Just (Depth 10)) ewd))
+testEqual02 :: Test
+testEqual02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expectedProof) input
+    where input = (ewd, runSkolem (meson (Just (Depth 17)) ewd))
           fx = pApp "f" [x]
           gx = pApp "g" [x]
           fy = pApp "f" [y]
@@ -199,117 +193,168 @@ test02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expectedProof
                                                     (fromString "_4",fApp (toSkolem "x") [])],0,5),Depth 6)]
 
 -- | Wishnu Prasetya's example (even nicer with an "exists unique" primitive).
+
+{- let wishnu = equalitize
+    <<(exists x. x = f(g(x)) /\ forall x'. x' = f(g(x')) ==> x = x') <=>
+      (exists y. y = g(f(y)) /\ forall y'. y' = g(f(y')) ==> y = y')>>;;
+-}
+
+instance IsString MyTerm where
+    fromString s = vt (fromString s)
+
+instance IsString ([MyTerm] -> MyTerm) where
+    fromString = fApp . fromString
+
 wishnu :: MyFormula
-wishnu = ((∃) ("x") ((x .=. f[g[x]]) ∧ (∀) ("x'") ((x' .=. f[g[x']]) ⇒ (x .=. x')))) .<=>.
-         ((∃) ("y") ((y .=. g[f[y]]) ∧ (∀) ("y'") ((y' .=. g[f[y']]) ⇒ (y .=. y'))))
+wishnu = ((∃)"x" (("x" .=. f[g["x"]]) ∧ (∀)"x'" (("x'" .=. f[g["x'"]]) ⇒ ("x" .=. "x'")))) .<=>.
+         ((∃)"y" (("y" .=. g[f["y"]]) ∧ (∀)"y'" (("y'" .=. g[f["y'"]]) ⇒ ("y" .=. "y'"))))
     where
-      x = vt "x"
-      y = vt "y"
-      x' = vt "x'"
-      y' = vt "y"
       f terms = fApp (fromString "f") terms
       g terms = fApp (fromString "g") terms
 
-test03 :: Test
-test03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (p. 241)" (expected, expectedProof) input
-    where -- It should finish with Depth 16, but that takes a long time.
-          input = (equalitize wishnu, runSkolem (meson (Just (Depth 30)) wishnu))
-          x = vt "x" :: MyTerm
-          x1 = vt "x1"
-          y = vt "y"
-          y1 = vt "y1"
-          z = vt "z"
-          x' = vt "x'"
-          y' = vt "y"
-          f terms = fApp (fromString "f") terms
-          g terms = fApp (fromString "g") terms
+testEqual03 :: Test
+testEqual03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (p. 241)" (expected, expectedProof) input
+    where -- It should finish with Depth 16, but that takes a long time.  850 seconds.  2.18 seconds under ocaml.  :-(
+          input = (equalitize wishnu, runSkolem (meson (Just (Depth 30)) (equalitize wishnu)))
           expected :: MyFormula
-          expected =
-                     ((∀) "x" (x .=. x)) .&.
-                     ((∀) "x" . (∀) "y" . (∀) "z" $ (x .=. y .&. x .=. z .=>. y .=. z)) .&.
-                     ((∀) "x1" . (∀) "y1" $ (x1 .=. y1 .=>. f[x1] .=. f[y1])) .&.
-                     ((∀) "x1" . (∀) "y1" $ (x1 .=. y1 .=>. g[x1] .=. g[y1])) .=>.
-                     (((∃) "x" $ x .=. f[g[x]] .&. ((∀) "x'" $ (x' .=. f[g[x']] .=>. x .=. x'))) .<=>.
-                      ((∃) "y" $ y .=. g[f[y]] .&. ((∀) "y'" $ (y' .=. g[f[y']] .=>. y .=. y'))))
+          expected = ((∀) "x" ("x" .=. "x")) .&.
+                     ((∀) "x" . (∀) "y" . (∀) "z" $ ("x" .=. "y" .&. "x" .=. "z" .=>. "y" .=. "z")) .&.
+                     ((∀) "x1" . (∀) "y1" $ ("x1" .=. "y1" .=>. f["x1"] .=. f["y1"])) .&.
+                     ((∀) "x1" . (∀) "y1" $ ("x1" .=. "y1" .=>. g["x1"] .=. g["y1"])) .=>.
+                     (((∃) "x" $ "x" .=. f[g["x"]] .&. ((∀) "x'" $ ("x'" .=. f[g["x'"]] .=>. "x" .=. "x'"))) .<=>.
+                      ((∃) "y" $ "y" .=. g[f["y"]] .&. ((∀) "y'" $ ("y'" .=. g[f["y'"]] .=>. "y" .=. "y'"))))
           expectedProof =
-              Set.fromList [Failure ["Not sure what this should be"]]
+              Set.fromList [Success ((Map.fromList
+                                               [("_0",fApp (Fn "f") [vt ("_1")]),
+                                                ("_1",fApp (Skolem ("y")) []),
+                                                ("_10",fApp (Skolem ("y")) []),
+                                                ("_11",fApp (Skolem ("y")) []),
+                                                ("_12",fApp (Fn "g") [vt ("_13")]),
+                                                ("_13",fApp (Skolem ("x'")) [vt ("_15")]),
+                                                ("_14",fApp (Fn "f") [vt ("_12")]),
+                                                ("_15",fApp (Fn "f") [vt ("_16")]),
+                                                ("_16",fApp (Skolem ("y")) []),
+                                                ("_17",fApp (Fn "g") [vt ("_15")]),
+                                                ("_18",fApp (Skolem ("x'")) [vt ("_21")]),
+                                                ("_19",fApp (Fn "f") [vt ("_6")]),
+                                                ("_2",fApp (Fn "g") [vt ("_0")]),
+                                                ("_20",fApp (Skolem ("x'")) [vt ("_0")]),
+                                                ("_21",fApp (Fn "f") [vt ("_16")]),
+                                                ("_22",fApp (Skolem ("y")) []),
+                                                ("_23",fApp (Fn "g") [vt ("_21")]),
+                                                ("_24",fApp (Skolem ("x'")) [vt ("_21")]),
+                                                ("_3",fApp (Fn "f") [vt ("_6")]),
+                                                ("_4",fApp (Fn "f") [vt ("_1")]),
+                                                ("_5",fApp (Skolem ("x'")) [vt ("_0")]),
+                                                ("_6",vt ("_9")),
+                                                ("_7",fApp (Skolem ("y")) []),
+                                                ("_8",vt ("_11")),
+                                                ("_9",vt ("_12"))],
+                                      0,25),
+                                     Depth 16),
+                            Success ((Map.fromList
+                                               [("_0",fApp (Fn "g") [vt ("_1")]),
+                                                ("_1",fApp (Skolem ("x")) []),
+                                                ("_10",fApp (Skolem ("x")) []),
+                                                ("_11",fApp (Skolem ("x")) []),
+                                                ("_12",fApp (Fn "f") [vt ("_13")]),
+                                                ("_13",fApp (Skolem ("y'")) [vt ("_15")]),
+                                                ("_14",fApp (Fn "g") [vt ("_12")]),
+                                                ("_15",fApp (Fn "g") [vt ("_16")]),
+                                                ("_16",fApp (Skolem ("x")) []),
+                                                ("_17",fApp (Fn "f") [vt ("_15")]),
+                                                ("_18",fApp (Skolem ("y'")) [vt ("_21")]),
+                                                ("_19",fApp (Fn "g") [vt ("_6")]),
+                                                ("_2",fApp (Fn "f") [vt ("_0")]),
+                                                ("_20",fApp (Skolem ("y'")) [vt ("_0")]),
+                                                ("_21",fApp (Fn "g") [vt ("_16")]),
+                                                ("_22",fApp (Skolem ("x")) []),
+                                                ("_23",fApp (Fn "f") [vt ("_21")]),
+                                                ("_24",fApp (Skolem ("y'")) [vt ("_21")]),
+                                                ("_3",fApp (Fn "g") [vt ("_6")]),
+                                                ("_4",fApp (Fn "g") [vt ("_1")]),
+                                                ("_5",fApp (Skolem ("y'")) [vt ("_0")]),
+                                                ("_6",vt ("_9")),
+                                                ("_7",fApp (Skolem ("x")) []),
+                                                ("_8",vt ("_11")),
+                                                ("_9",vt ("_12"))],
+                                      0,25),
+                                     Depth 16)]
 {-
               Set.fromList [Success ((Map.fromList [("_0",vt "_1")],0,2 :: Map String MyTerm),1),
                             Success ((Map.fromList [("_0",vt "_1"),("_1",fApp "f" [fApp "g" [vt "_0"]])],0,2),1),
                             Success ((Map.fromList [("_0",vt "_1"),("_1",fApp "g" [fApp "f" [vt "_0"]])],0,2),1),
                             Success ((Map.fromList [("_0",vt "_1"),("_2",fApp (fromSkolem 2) [vt "_0"])],0,3),1),
                             Success ((Map.fromList [("_0",vt "_2"),("_1",vt "_2")],0,3),1)] -}
+          f terms = fApp (fromString "f") terms
+          g terms = fApp (fromString "g") terms
 
 -- -------------------------------------------------------------------------
 -- More challenging equational problems. (Size 18, 61814 seconds.)
 -- -------------------------------------------------------------------------
 
-test04 :: Test
-test04 = TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expectedProof) input
+testEqual04 :: Test
+testEqual04 = TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expectedProof) input
     where
       input = (equalitize fm, runSkolem (meson (Just (Depth 20)) . equalitize $ fm))
       fm :: MyFormula
-      fm = ((∀) "x" . (∀) "y" . (∀) "z") ((*) [x', (*) [y', z']] .=. (*) [((*) [x', y']), z']) ∧
-           (∀) "x" ((*) [one, x'] .=. x') ∧
-           (∀) "x" ((*) [i [x'], x'] .=. one) ⇒
-           (∀) "x" ((*) [x', i [x']] .=. one)
-      x' = vt "x" :: MyTerm
-      y' = vt "y" :: MyTerm
-      z' = vt "z" :: MyTerm
+      fm = ((∀) "x" . (∀) "y" . (∀) "z") ((*) ["x'", (*) ["y'", "z'"]] .=. (*) [((*) ["x'", "y'"]), "z'"]) ∧
+           (∀) "x" ((*) [one, "x'"] .=. "x'") ∧
+           (∀) "x" ((*) [i ["x'"], "x'"] .=. one) ⇒
+           (∀) "x" ((*) ["x'", i ["x'"]] .=. one)
       (*) = fApp (fromString "*")
       i = fApp (fromString "i")
       one = fApp (fromString "1") []
       expected :: MyFormula
       expected =
-          ((∀) "x" ((vt "x") .=. (vt "x")) .&.
-           ((∀) "x" ((∀) "y" ((∀) "z" ((((vt "x") .=. (vt "y")) .&. ((vt "x") .=. (vt "z"))) .=>. ((vt "y") .=. (vt "z"))))) .&.
-            ((∀) "x1" ((∀) "x2" ((∀) "y1" ((∀) "y2" ((((vt "x1") .=. (vt "y1")) .&. ((vt "x2") .=. (vt "y2"))) .=>.
-                                                                     ((fApp "*" [vt "x1",vt "x2"]) .=. (fApp "*" [vt "y1",vt "y2"])))))) .&.
-             (∀) "x1" ((∀) "y1" (((vt "x1") .=. (vt "y1")) .=>. ((fApp "i" [vt "x1"]) .=. (fApp "i" [vt "y1"]))))))) .=>.
-          ((((∀) "x" ((∀) "y" ((∀) "z" ((fApp "*" [vt "x",fApp "*" [vt "y",vt "z"]]) .=. (fApp "*" [fApp "*" [vt "x",vt "y"],vt "z"])))) .&.
-             (∀) "x" ((fApp "*" [fApp "1" [],vt "x"]) .=. (vt "x"))) .&.
-            (∀) "x" ((fApp "*" [fApp "i" [vt "x"],vt "x"]) .=. (fApp "1" []))) .=>.
-           (∀) "x" ((fApp "*" [vt "x",fApp "i" [vt "x"]]) .=. (fApp "1" [])))
+          ((∀) "x" ("x" .=. "x") .&.
+           ((∀) "x" ((∀) "y" ((∀) "z" ((("x" .=. "y") .&. ("x" .=. "z")) .=>. ("y" .=. "z")))) .&.
+            ((∀) "x1" ((∀) "x2" ((∀) "y1" ((∀) "y2" ((("x1" .=. "y1") .&. ("x2" .=. "y2")) .=>.
+                                                                     ((fApp "*" ["x1","x2"]) .=. (fApp "*" ["y1","y2"])))))) .&.
+             (∀) "x1" ((∀) "y1" (("x1" .=. "y1") .=>. ((fApp "i" ["x1"]) .=. (fApp "i" ["y1"]))))))) .=>.
+          ((((∀) "x" ((∀) "y" ((∀) "z" ((fApp "*" ["x",fApp "*" ["y","z"]]) .=. (fApp "*" [fApp "*" ["x","y"],"z"])))) .&.
+             (∀) "x" ((fApp "*" [fApp "1" [],"x"]) .=. "x")) .&.
+            (∀) "x" ((fApp "*" [fApp "i" ["x"],"x"]) .=. (fApp "1" []))) .=>.
+           (∀) "x" ((fApp "*" ["x",fApp "i" ["x"]]) .=. (fApp "1" [])))
       expectedProof :: Set.Set (Failing ((Map V MyTerm, Int, Int), Depth))
       expectedProof =
           Set.fromList
                  [Success ((Map.fromList
-                                   [( "_0",  (*) [one, vt' "_3"]),
+                                   [( "_0",  (*) [one, "_3"]),
                                     ( "_1",  (*) [fApp (toSkolem "x") [],i [fApp (toSkolem "x") []]]),
                                     ( "_2",  one),
                                     ( "_3",  (*) [fApp (toSkolem "x") [],i [fApp (toSkolem "x") []]]),
-                                    ( "_4",  vt' "_8"),
-                                    ( "_5",  (*) [one, vt' "_3"]),
+                                    ( "_4",  "_8"),
+                                    ( "_5",  (*) [one, "_3"]),
                                     ( "_6",  one),
-                                    ( "_7",  vt' "_11"),
-                                    ( "_8",  vt' "_12"),
-                                    ( "_9",  (*) [one, vt' "_3"]),
-                                    ("_10", (*) [vt' "_13",(*) [vt' "_14", vt' "_15"]]),
-                                    ("_11", (*) [(*) [vt' "_13", vt' "_14"], vt' "_15"]),
-                                    ("_12", (*) [vt' "_19", vt' "_18"]),
-                                    ("_13", vt' "_16"),
-                                    ("_14", vt' "_21"),
-                                    ("_15", (*) [vt' "_22", vt' "_23"]),
-                                    ("_16", vt' "_20"),
-                                    ("_17", (*) [vt' "_14", vt' "_15"]),
-                                    ("_18", (*) [(*) [vt' "_21", vt' "_22"], vt' "_23"]),
-                                    ("_19", vt' "_20"),
-                                    ("_20", i [vt' "_28"]),
-                                    ("_21", vt' "_28"),
+                                    ( "_7",  "_11"),
+                                    ( "_8",  "_12"),
+                                    ( "_9",  (*) [one, "_3"]),
+                                    ("_10", (*) ["_13",(*) ["_14", "_15"]]),
+                                    ("_11", (*) [(*) ["_13", "_14"], "_15"]),
+                                    ("_12", (*) ["_19", "_18"]),
+                                    ("_13", "_16"),
+                                    ("_14", "_21"),
+                                    ("_15", (*) ["_22", "_23"]),
+                                    ("_16", "_20"),
+                                    ("_17", (*) ["_14", "_15"]),
+                                    ("_18", (*) [(*) ["_21", "_22"], "_23"]),
+                                    ("_19", "_20"),
+                                    ("_20", i ["_28"]),
+                                    ("_21", "_28"),
                                     ("_22", fApp (toSkolem "x") []),
                                     ("_23", i [fApp (toSkolem "x") []]),
-                                    ("_24", (*) [vt' "_13", vt' "_14"]),
-                                    ("_25", (*) [vt' "_22", vt' "_23"]),
+                                    ("_24", (*) ["_13", "_14"]),
+                                    ("_25", (*) ["_22", "_23"]),
                                     ("_26", (*) [fApp (toSkolem "x") [],i [fApp (toSkolem "x") []]]),
                                     ("_27", one),
-                                    ("_28", vt' "_30"),
-                                    ("_29", (*) [vt' "_22", vt' "_23"]),
-                                    ("_30", (*) [(*) [vt' "_21", vt' "_22"], vt' "_23"])],
+                                    ("_28", "_30"),
+                                    ("_29", (*) ["_22", "_23"]),
+                                    ("_30", (*) [(*) ["_21", "_22"], "_23"])],
                             0,31),Depth 13)]
-      vt' = vt . fromString
 
 testEqual :: Test
-testEqual = TestLabel "Equal" (TestList [test01, test02 {-, test03, test04-}])
+testEqual = TestLabel "Equal" (TestList [testEqual01, testEqual02, testEqual03, testEqual04])
 
 #endif
 
