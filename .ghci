@@ -3,5 +3,6 @@
 :set -XOverloadedStrings
 :set -XFlexibleContexts
 :set -XFlexibleInstances
+:set -XQuasiQuotes
 :set prompt "λ "
 :load ATP

@@ -25,7 +25,7 @@ flag tests-and-instances
   Default: True
 
 Library
-  Build-Depends: applicative-extras, base, containers, hashable, HUnit, mtl, pretty >= 1.1.2, syb, template-haskell
+  Build-Depends: applicative-extras, base, containers, hashable, HUnit, mtl, parsec, pretty >= 1.1.2, syb, template-haskell
   GHC-options: -Wall -O2
   if !flag(tests-and-instances)
     CPP-Options: -DNOTESTS
@@ -44,6 +44,7 @@ Library
     -- Stal
     -- BDD
     FOL
+    Parser
     Skolem
     Herbrand
     Unif

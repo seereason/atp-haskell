@@ -9,6 +9,7 @@ module ATP
     , module DP
     , module FOL
     , module Skolem
+    , module Parser
     , module Herbrand
     , module Unif
     , module Tableaux
@@ -28,6 +29,7 @@ import DefCNF
 import DP
 import FOL
 import Skolem
+import Parser
 import Herbrand
 import Unif
 import Tableaux hiding (K)

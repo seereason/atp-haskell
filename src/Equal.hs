@@ -1,3 +1,4 @@
+{-# LANGUAGE QuasiQuotes #-}
 -- | First order logic with equality.
 --
 -- Copyright (co) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
@@ -22,6 +23,7 @@ import Formulas ((∧), (⇒), IsFormula(atomic), atom_union)
 import FOL ((.=.), HasFunctions(funcs), HasApply(applyPredicate), HasApplyAndEquate(foldEquate),
             IsQuantified(..), (∀), IsTerm(..))
 import Lib ((∅))
+import Parser (atp)
 import Prelude hiding ((*))
 #ifndef NOTESTS
 import FOL ((∃), pApp)
@@ -202,11 +204,8 @@ instance IsString ([MyTerm] -> MyTerm) where
     fromString = fApp . fromString
 
 wishnu :: MyFormula
-wishnu = ((∃)"x" (("x" .=. f[g["x"]]) ∧ (∀)"x'" (("x'" .=. f[g["x'"]]) ⇒ ("x" .=. "x'")))) .<=>.
-         ((∃)"y" (("y" .=. g[f["y"]]) ∧ (∀)"y'" (("y'" .=. g[f["y'"]]) ⇒ ("y" .=. "y'"))))
-    where
-      f terms = fApp (fromString "f") terms
-      g terms = fApp (fromString "g") terms
+wishnu = [atp| (∃ x. ((x = f(g(x))) ∧ ∀ x'. ((x' = f(g(x'))) ⇒ (x = x')))) ⇔
+               (∃ y. ((y = g(f(y))) ∧ ∀ y'. ((y' = g(f(y'))) ⇒ (y = y')))) |]
 
 -- This takes 0.7 seconds on my machine.
 testEqual03 :: Test
