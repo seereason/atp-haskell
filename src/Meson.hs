@@ -36,9 +36,9 @@ import Unif (Unify)
 #ifndef NOTESTS
 import Data.List as List (map)
 import Data.String (fromString)
-import FOL (exists, fApp, for_all, pApp, V, vt)
+import FOL (exists, fApp, for_all, pApp, vt)
 import Formulas ((.&.), (.|.), (.=>.))
-import Pretty (prettyShow)
+import Pretty (assertEqual', prettyShow)
 import Resolution (davis_putnam_example_formula)
 import Skolem (MyFormula, MyTerm, runSkolem, toSkolem)
 import Tableaux (K(K), tab)
@@ -79,52 +79,33 @@ END_INTERACTIVE;;
 -- -------------------------------------------------------------------------
 
 test01 :: Test
-test01 = TestLabel "Meson 1" $ TestCase $ assertEqual "meson dp example (p. 220)" expected input
+test01 = TestLabel "Meson 1" $ TestCase $ assertEqual' "meson dp example (p. 220)" expected input
     where input = runSkolem (meson (Just (Depth 10)) (davis_putnam_example_formula :: MyFormula))
-          expected :: Set (Failing ((Map V MyTerm, Int, Int), Depth))
-          expected = Set.singleton (
-                                    -- Success ((Map.empty, 0, 0), 8)
-                                    Success ((Map.fromList [("_0",vt' "_6"),
-                                                            ("_1",vt' "_2"),
-                                                            ("_10",fApp (toSkolem "z") [vt' "_6",vt' "_7"]),
-                                                            ("_11",fApp (toSkolem "z") [vt' "_6",vt' "_7"]),
-                                                            ("_12",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
-                                                            ("_13",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
-                                                            ("_14",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
-                                                            ("_15",fApp (toSkolem "z") [vt' "_12",vt' "_13"]),
-                                                            ("_16",fApp (toSkolem "z") [vt' "_12",vt' "_13"]),
-                                                            ("_17",fApp (toSkolem "z") [vt' "_12",vt' "_13"]),
-                                                            ("_3",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
-                                                            ("_4",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
-                                                            ("_5",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
-                                                            ("_7",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
-                                                            ("_8",fApp (toSkolem "z") [vt' "_0",vt' "_1"]),
-                                                            ("_9",fApp (toSkolem "z") [vt' "_6",vt' "_7"])],0,18), Depth 8)
-                                   )
-          vt' = vt . fromString
+          expected :: Set (Failing Depth)
+          expected = Set.singleton (Success (Depth 8))
 
 test02 :: Test
 test02 =
     TestLabel "Meson 2" $
-    TestList [TestCase (assertEqual "meson dp example, step 1 (p. 220)"
-                                    (prettyShow (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
-                                                                                  (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z]))))))))
-                                    (prettyShow davis_putnam_example_formula)),
-              TestCase (assertEqual "meson dp example, step 2 (p. 220)"
-                                    (prettyShow (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
-                                                                                  (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z]))))))))
-                                    (prettyShow (generalize davis_putnam_example_formula))),
-              TestCase (assertEqual "meson dp example, step 3 (p. 220)"
-                                    (prettyShow ((.~.)(exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
-                                                                                        (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z]))))))) :: MyFormula))
-                                    (prettyShow ((.~.) (generalize davis_putnam_example_formula)))),
-              TestCase (assertEqual "meson dp example, step 4 (p. 220)"
-                                    (prettyShow (for_all "x" . for_all "y" $
+    TestList [TestCase (assertEqual' "meson dp example, step 1 (p. 220)"
+                                    (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
+                                                                                  (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z])))))))
+                                    davis_putnam_example_formula),
+              TestCase (assertEqual' "meson dp example, step 2 (p. 220)"
+                                    (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
+                                                                                  (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z])))))))
+                                    (generalize davis_putnam_example_formula)),
+              TestCase (assertEqual' "meson dp example, step 3 (p. 220)"
+                                    ((.~.)(exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
+                                                                                        (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z]))))))) :: MyFormula)
+                                    ((.~.) (generalize davis_putnam_example_formula))),
+              TestCase (assertEqual' "meson dp example, step 4 (p. 220)"
+                                    (for_all "x" . for_all "y" $
                                              f[x,y] .&.
                                              ((.~.)(f[y, sk1[x, y]]) .|. ((.~.)(f[sk1[x,y], sk1[x, y]]))) .|.
                                              (f[x,y] .&. g[x,y]) .&.
-                                             (((.~.)(g[x,sk1[x,y]])) .|. ((.~.)(g[sk1[x,y], sk1[x,y]])))))
-                                    (prettyShow (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula))) :: MyFormula))),
+                                             (((.~.)(g[x,sk1[x,y]])) .|. ((.~.)(g[sk1[x,y], sk1[x,y]]))))
+                                    (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula))) :: MyFormula)),
               TestCase (assertEqual "meson dp example, step 5 (p. 220)"
                                     (Set.map (Set.map prettyShow)
                                      (Set.fromList
@@ -232,9 +213,9 @@ mexpand1 rules ancestors g cont (env,n,k) =
 
 puremeson1 :: forall fof atom predicate term v f.
              (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof
-             ) => Maybe Depth -> fof -> Failing ((Map v term, Int, Int), Depth)
+             ) => Maybe Depth -> fof -> Failing Depth
 puremeson1 maxdl fm =
-    deepen f (Depth 0) maxdl
+    snd <$> deepen f (Depth 0) maxdl
     where
       f :: Depth -> Failing (Map v term, Int, Int)
       f n = mexpand1 rules (Set.empty :: Set (Marked Literal fof)) false return (Map.empty, fromEnum n, 0)
@@ -244,7 +225,7 @@ puremeson1 maxdl fm =
 meson1 :: forall m fof atom predicate term f v.
           (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof,
            HasSkolem f v, Monad m
-          ) => Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
+          ) => Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
 meson1 maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
     return . Set.map (puremeson1 maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
@@ -341,9 +322,9 @@ setSplitAt n s = go n (mempty, s)
 
 puremeson2 :: forall fof atom predicate term v f.
              (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof
-             ) => Maybe Depth -> fof -> Failing ((Map v term, Int, Int), Depth)
+             ) => Maybe Depth -> fof -> Failing Depth
 puremeson2 maxdl fm =
-    deepen f (Depth 0) maxdl
+    snd <$> deepen f (Depth 0) maxdl
     where
       f :: Depth -> Failing (Map v term, Int, Int)
       f n = mexpand2 rules (Set.empty :: Set (Marked Literal fof)) false return (Map.empty, fromEnum n, 0)
@@ -353,13 +334,13 @@ puremeson2 maxdl fm =
 meson2 :: forall m fof atom predicate term f v.
           (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof,
            HasSkolem f v, Monad m
-          ) => Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
+          ) => Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
 meson2 maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
     return . Set.map (puremeson2 maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 meson :: (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof, HasSkolem f v, Monad m) =>
-         Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
+         Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
 meson = meson2
 
 #ifndef NOTESTS

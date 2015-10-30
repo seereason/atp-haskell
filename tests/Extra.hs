@@ -3,12 +3,11 @@ module Extra where
 
 import Control.Applicative.Error (Failing(Failure, Success))
 import Data.List as List (map)
-import Data.Map as Map (empty, fromList)
-import Data.Set as Set (fromList, map, minView, null, Set, singleton)
+import Data.Map as Map (empty)
+import Data.Set as Set (fromList, minView, null, Set, singleton)
 import Data.String (fromString)
 import FOL (vt, fApp, (.=.), pApp, for_all, exists)
 import Formulas
-import Lib (failing)
 import Meson (meson)
 import Pretty (prettyShow)
 import Prop hiding (nnf)
@@ -74,11 +73,7 @@ test06 =
                                ([False,True],False),
                                ([True,False],True),
                                ([True,True],False)] :: TruthTable MyAtom,
-                           Set.fromList [Success ((Map.fromList [("_0",vt "_1"),
-                                                                 ("_1",fApp (toSkolem "x")[])],
-                                                   0,
-                                                   2),
-                                                  Depth 1)])
+                           Set.fromList [Success (Depth 1)])
                            (sk, table, runSkolem (meson Nothing fm))
 
 asAtom :: forall formula atom. IsFormula formula atom => formula -> atom
@@ -88,7 +83,7 @@ asAtom fm = case Set.minView (atom_union singleton fm :: Set atom) of
 
 mesonTest :: MyFormula -> Set (Failing Depth) -> Test
 mesonTest fm expected =
-    let me = Set.map (failing Failure (Success . snd)) (runSkolem (meson (Just (Depth 1000)) fm)) in
+    let me = runSkolem (meson (Just (Depth 1000)) fm) in
     TestCase $ assertEqual ("MESON test: " ++ prettyShow fm) expected me
 
 fms :: [(MyFormula, Set (Failing Depth))]
