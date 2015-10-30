@@ -11,7 +11,9 @@
 {-# OPTIONS_GHC -Wall #-}
 
 module Meson
-    ( meson
+    ( meson1
+    , meson2
+    , meson
 #ifndef NOTESTS
     , testMeson
 #endif
@@ -197,7 +199,7 @@ contrapositives cls =
 -- The core of MESON: ancestor unification or Prolog-style extension.
 -- -------------------------------------------------------------------------
 
-mexpand :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
+mexpand1 :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
             HasApply atom predicate term,
             IsTerm term v function,
             Unify (atom, atom) v term) =>
@@ -205,8 +207,9 @@ mexpand :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
         -> Set lit
         -> lit
         -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
-        -> (Map v term, Int, Int) -> Failing (Map v term, Int, Int)
-mexpand rules ancestors g cont (env,n,k) =
+        -> (Map v term, Int, Int)
+        -> Failing (Map v term, Int, Int)
+mexpand1 rules ancestors g cont (env,n,k) =
     if fromEnum n < 0
     then Failure ["Too deep"]
     else case settryfind doAncestor ancestors of
@@ -218,82 +221,146 @@ mexpand rules ancestors g cont (env,n,k) =
              cont (mp, n, k)
       doRule rule =
           do mp <- execStateT (unify_literals (g, c)) env
-             mexpand' (mp, fromEnum n - Set.size asm, k')
+             mexpand1' (mp, fromEnum n - Set.size asm, k')
           where
-            mexpand' = Set.fold (mexpand rules (Set.insert g ancestors)) cont asm
+            mexpand1' = Set.fold (mexpand1 rules (Set.insert g ancestors)) cont asm
             ((asm, c), k') = renamerule k rule
 
 -- -------------------------------------------------------------------------
 -- Full MESON procedure.
 -- -------------------------------------------------------------------------
 
-puremeson :: forall fof atom predicate term v f.
+puremeson1 :: forall fof atom predicate term v f.
              (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof
              ) => Maybe Depth -> fof -> Failing ((Map v term, Int, Int), Depth)
-puremeson maxdl fm =
+puremeson1 maxdl fm =
     deepen f (Depth 0) maxdl
     where
       f :: Depth -> Failing (Map v term, Int, Int)
-      f n = mexpand rules (Set.empty :: Set (Marked Literal fof)) false return (Map.empty, fromEnum n, 0)
+      f n = mexpand1 rules (Set.empty :: Set (Marked Literal fof)) false return (Map.empty, fromEnum n, 0)
       rules = Set.fold (Set.union . contrapositives) Set.empty cls
       (cls :: Set (Set (Marked Literal fof))) = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
 
-meson :: forall m fof atom predicate term f v.
-         (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof,
-          HasSkolem f v, Monad m
-         ) => Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
-meson maxdl fm =
+meson1 :: forall m fof atom predicate term f v.
+          (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof,
+           HasSkolem f v, Monad m
+          ) => Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
+meson1 maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
-    return . Set.map (puremeson maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
+    return . Set.map (puremeson1 maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
-{-
 -- -------------------------------------------------------------------------
 -- With repetition checking and divide-and-conquer search.
 -- -------------------------------------------------------------------------
 
-let rec equal env fm1 fm2 =
-  try unify_literals env (fm1,fm2) == env with Failure _ -> false;;
+equal :: (IsLiteral lit atom, HasApply atom predicate term, Unify (atom, atom) v term, IsTerm term v function) =>
+         Map v term -> lit -> lit -> Bool
+equal env fm1 fm2 =
+    case execStateT (unify_literals (fm1,fm2)) env of
+      Success env' | env == env' -> True
+      _ -> False
 
-let expand2 expfn goals1 n1 goals2 n2 n3 cont env k =
-   expfn goals1 (fun (e1,r1,k1) ->
-        expfn goals2 (fun (e2,r2,k2) ->
-                        if n2 + r1 <= n3 + r2 then failwith "pair"
-                        else cont(e2,r2,k2))
-              (e1,n2+r1,k1))
-        (env,n1,k);;
+expand2 :: (Set lit ->
+            ((Map v term, Int, Int) -> Failing (Map v term, Int, Int)) ->
+            (Map v term, Int, Int) -> Failing (Map v term, Int, Int))
+        -> Set lit
+        -> Int
+        -> Set lit
+        -> Int
+        -> Int
+        -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
+        -> Map v term
+        -> Int
+        -> Failing (Map v term, Int, Int)
+expand2 expfn goals1 n1 goals2 n2 n3 cont env k =
+    expfn goals1 (\(e1,r1,k1) ->
+                      expfn goals2 (\(e2,r2,k2) ->
+                                        if n2 + n1 <= n3 + r2 then Failure ["pair"] else cont (e2,r2,k2))
+                                   (e1,n2+r1,k1))
+                 (env,n1,k)
 
-let rec mexpand rules ancestors g cont (env,n,k) =
-  if n < 0 then failwith "Too deep"
-  else if exists (equal env g) ancestors then failwith "repetition" else
-  try tryfind (fun a -> cont (unify_literals env (g,negate a),n,k))
-              ancestors
-  with Failure _ -> tryfind
-    (fun r -> let (asm,c),k' = renamerule k r in
-              mexpands rules (g::ancestors) asm cont
-                       (unify_literals env (g,c),n-length asm,k'))
-    rules
+mexpand2 :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
+            HasApply atom predicate term,
+            IsTerm term v function,
+            Unify (atom, atom) v term) =>
+           Set (Set lit, lit)
+        -> Set lit
+        -> lit
+        -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
+        -> (Map v term, Int, Int)
+        -> Failing (Map v term, Int, Int)
+mexpand2 rules ancestors g cont (env,n,k) =
+    if fromEnum n < 0
+    then Failure ["Too deep"]
+    else if any (equal env g) ancestors
+         then Failure ["repetition"]
+         else case settryfind doAncestor ancestors of
+                Success a -> Success a
+                Failure _ -> settryfind doRule rules
+    where
+      doAncestor a =
+          do mp <- execStateT (unify_literals (g, ((.~.) a))) env
+             cont (mp, n, k)
+      doRule rule =
+          do mp <- execStateT (unify_literals (g, c)) env
+             mexpand2' (mp, fromEnum n - Set.size asm, k')
+          where
+            mexpand2' = mexpands rules (Set.insert g ancestors) asm cont
+            ((asm, c), k') = renamerule k rule
 
-and mexpands rules ancestors gs cont (env,n,k) =
-  if n < 0 then failwith "Too deep" else
-  let m = length gs in
-  if m <= 1 then itlist (mexpand rules ancestors) gs cont (env,n,k) else
-  let n1 = n / 2 in
-  let n2 = n - n1 in
-  let goals1,goals2 = chop_list (m / 2) gs in
-  let expfn = expand2 (mexpands rules ancestors) in
-  try expfn goals1 n1 goals2 n2 (-1) cont env k
-  with Failure _ -> expfn goals2 n1 goals1 n2 n1 cont env k;;
+mexpands :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
+             HasApply atom predicate term, Unify (atom, atom) v term,
+             IsTerm term v function) =>
+            Set (Set lit, lit)
+         -> Set lit
+         -> Set lit
+         -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
+         -> (Map v term, Int, Int)
+         -> Failing (Map v term, Int, Int)
+mexpands rules ancestors gs cont (env,n,k) =
+    if fromEnum n < 0
+    then Failure ["Too deep"]
+    else let m = Set.size gs in
+         if m <= 1
+         then Set.foldr (mexpand2 rules ancestors) cont gs (env,n,k)
+         else let n1 = n `div` 2
+                  n2 = n - n1 in
+              let (goals1, goals2) = setSplitAt (m `div` 2) gs in
+              let expfn = expand2 (mexpands rules ancestors) in
+              case expfn goals1 n1 goals2 n2 (-1) cont env k of
+                Success r -> Success r
+                Failure _ -> expfn goals2 n1 goals1 n2 n1 cont env k
 
-let puremeson fm =
-  let cls = simpcnf(specialize(pnf fm)) in
-  let rules = itlist ((@) ** contrapositives) cls [] in
-  deepen (fun n ->
-     mexpand rules [] False (fun x -> x) (undefined,n,0); n) 0;;
+setSplitAt :: Ord a => Int -> Set a -> (Set a, Set a)
+setSplitAt n s = go n (mempty, s)
+    where
+      go 0 (s1, s2) = (s1, s2)
+      go i (s1, s2) = case Set.minView s2 of
+                         Nothing -> (s1, s2)
+                         Just (x, s2') -> go (i - 1) (Set.insert x s1, s2')
 
-let meson fm =
-  let fm1 = askolemize(Not(generalize fm)) in
-  map (puremeson ** list_conj) (simpdnf fm1);;
--}
+puremeson2 :: forall fof atom predicate term v f.
+             (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof
+             ) => Maybe Depth -> fof -> Failing ((Map v term, Int, Int), Depth)
+puremeson2 maxdl fm =
+    deepen f (Depth 0) maxdl
+    where
+      f :: Depth -> Failing (Map v term, Int, Int)
+      f n = mexpand2 rules (Set.empty :: Set (Marked Literal fof)) false return (Map.empty, fromEnum n, 0)
+      rules = Set.fold (Set.union . contrapositives) Set.empty cls
+      (cls :: Set (Set (Marked Literal fof))) = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
+
+meson2 :: forall m fof atom predicate term f v.
+          (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof,
+           HasSkolem f v, Monad m
+          ) => Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
+meson2 maxdl fm =
+    askolemize ((.~.)(generalize fm)) >>=
+    return . Set.map (puremeson2 maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
+
+meson :: (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof, HasSkolem f v, Monad m) =>
+         Maybe Depth -> fof -> SkolemT m (Set (Failing ((Map v term, Int, Int), Depth)))
+meson = meson2
 
 #ifndef NOTESTS
 {-
