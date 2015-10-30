@@ -4,9 +4,11 @@
 -- formula's propositional variables ('IsFormula'.)
 
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Formulas
     ( -- * True and False
@@ -19,7 +21,8 @@ module Formulas
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
     , BinOp(..), binop
     -- * Formulas
-    , IsFormula(atomic, overatoms, onatoms)
+    , IsAtom
+    , IsFormula(AtomOf, atomic, overatoms, onatoms)
     , atom_union
     ) where
 
@@ -163,16 +166,20 @@ binop f1 (:=>:) f2 = f1 .=>. f2
 binop f1 (:&:) f2 = f1 .&. f2
 binop f1 (:|:) f2 = f1 .|. f2
 
+-- | Basic properties of an atomic formula
+class (Ord atom, Show atom, HasFixity atom, Pretty atom) => IsAtom atom
+
 -- | Class associating a formula type with its atom (atomic formula) type.
-class (Pretty formula, HasFixity formula, Eq atom, Ord atom, Pretty atom, HasFixity atom, Show atom)
-    => IsFormula formula atom | formula -> atom where
-    atomic :: atom -> formula
+class (Pretty formula, HasFixity formula, IsAtom (AtomOf formula)) => IsFormula formula where
+    type AtomOf formula
+    -- ^ AtomOf is a function that maps the formula type to the associated atom type
+    atomic :: AtomOf formula -> formula
     -- ^ Build a formula from an atom.
-    overatoms :: (atom -> r -> r) -> formula -> r -> r
+    overatoms :: (AtomOf formula -> r -> r) -> formula -> r -> r
     -- ^ Formula analog of iterator 'foldr'.
-    onatoms :: (atom -> formula) -> formula -> formula
+    onatoms :: (AtomOf formula -> formula) -> formula -> formula
     -- ^ Apply a function to the atoms, otherwise keeping structure.
 
 -- | Special case of a union of the results of a function over the atoms.
-atom_union :: (IsFormula formula atom, Ord r) => (atom -> Set r) -> formula -> Set r
+atom_union :: (IsFormula formula, Ord r) => (AtomOf formula -> Set r) -> formula -> Set r
 atom_union f fm = overatoms (\h t -> Set.union (f h) t) fm Set.empty

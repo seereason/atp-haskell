@@ -47,7 +47,7 @@ import Data.Map as Map (singleton)
 import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union)
 import FOL (exists, fApp, for_all, fv, IsFirstOrder, IsQuantified(foldQuantified),
             quant, Quant((:?:), (:!:)), subst, variant, vt)
-import Formulas (BinOp ((:&:), (:|:), (:=>:), (:<=>:)), (.~.), (.&.), (.|.), (.=>.), (.<=>.), negate, false, true, atomic)
+import Formulas ((.~.), (.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)), IsFormula(AtomOf), negate, false, true, atomic)
 import Lib (setAny, distrib)
 import Prelude hiding (negate)
 import Prop (convertToPropositional, foldPropositional', IsPropositional, JustPropositional, psimplify1, trivial)
@@ -106,7 +106,7 @@ test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ prettyShow fm) expected
 nnf :: IsFirstOrder formula atom predicate term v function => formula -> formula
 nnf = nnf1 . simplify
 
-nnf1 :: IsQuantified formula atom v => formula -> formula
+nnf1 :: IsQuantified formula => formula -> formula
 nnf1 fm =
     foldQuantified qu co ne (\_ -> fm) (\_ -> fm) fm
     where
@@ -318,7 +318,7 @@ askolemize = skolem . nnf . simplify
 -- will have already turned all the existential quantifiers into
 -- skolem functions.  For this reason we can safely convert to any
 -- instance of IsPropositional.
-specialize :: (IsQuantified fof atom1 v, IsPropositional pf atom2, JustPropositional pf) => (atom1 -> atom2) -> fof -> pf
+specialize :: (IsQuantified fof, IsPropositional pf, JustPropositional pf) => (AtomOf fof -> AtomOf pf) -> fof -> pf
 specialize ca fm =
     convertToPropositional (error "specialize failure") ca (specialize' fm)
     where
@@ -330,9 +330,9 @@ specialize ca fm =
 -- are gone we can convert to any instance of IsPropositional.
 skolemize :: (IsFirstOrder formula atom predicate term v function,
               HasSkolem function v,
-              IsPropositional pf atom2, JustPropositional pf,
+              IsPropositional pf, JustPropositional pf,
               Monad m) =>
-             (atom -> atom2) -> formula -> StateT SkolemState m pf
+             (AtomOf formula -> AtomOf pf) -> formula -> StateT SkolemState m pf
 skolemize ca fm = (specialize ca . pnf) <$> askolemize fm
 
 #ifndef NOTESTS
@@ -399,7 +399,7 @@ simpdnf' fm =
       -- t1 x = trace ("simpdnf' (" ++ prettyShow x) x
       -- t2 x = trace ("simpdnf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
 
-purednf' :: (IsQuantified fof atom v, Ord fof) => fof -> Set (Set fof)
+purednf' :: (IsQuantified fof, Ord fof) => fof -> Set (Set fof)
 purednf' fm =
     {-t4 $-}
     foldPropositional' ho co (\_ -> lf fm) (\_ -> lf fm) (\_ -> lf fm) ({-t3-} fm)

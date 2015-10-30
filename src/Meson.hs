@@ -23,8 +23,8 @@ import Control.Monad.State (execStateT)
 import Data.Map as Map
 import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (generalize, HasApply, IsFirstOrder, IsTerm)
-import Formulas ((.~.), false, negative)
+import FOL (generalize, HasApply, IsFirstOrder, IsQuantified(VarOf), IsTerm)
+import Formulas ((.~.), false, IsFormula(AtomOf), negative)
 import Lib (Marked)
 import Lit (IsLiteral)
 import Prolog (PrologRule(Prolog), renamerule)
@@ -171,7 +171,7 @@ END_INTERACTIVE;;
 -- Generation of contrapositives.
 -- -------------------------------------------------------------------------
 
-contrapositives :: (IsLiteral lit atom, Ord lit) => Set lit -> Set (PrologRule lit)
+contrapositives :: (IsLiteral lit, Ord lit) => Set lit -> Set (PrologRule lit)
 contrapositives cls =
     if setAll negative cls then Set.insert (Prolog (Set.map (.~.) cls) false) base else base
     where base = Set.map (\ c -> (Prolog (Set.map (.~.) (Set.delete c cls)) c)) cls
@@ -180,16 +180,16 @@ contrapositives cls =
 -- The core of MESON: ancestor unification or Prolog-style extension.
 -- -------------------------------------------------------------------------
 
-mexpand1 :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-            HasApply atom predicate term,
-            IsTerm term v function,
-            Unify (atom, atom) v term) =>
+mexpand1 :: (IsLiteral lit, JustLiteral lit, Ord lit,
+            HasApply (AtomOf lit) predicate term,
+            IsTerm term (VarOf lit) function,
+            Unify (AtomOf lit, AtomOf lit) (VarOf lit) term) =>
            Set (PrologRule lit)
         -> Set lit
         -> lit
-        -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
-        -> (Map v term, Int, Int)
-        -> Failing (Map v term, Int, Int)
+        -> ((Map (VarOf lit) term, Int, Int) -> Failing (Map (VarOf lit) term, Int, Int))
+        -> (Map (VarOf lit) term, Int, Int)
+        -> Failing (Map (VarOf lit) term, Int, Int)
 mexpand1 rules ancestors g cont (env,n,k) =
     if fromEnum n < 0
     then Failure ["Too deep"]
@@ -234,25 +234,25 @@ meson1 maxdl fm =
 -- With repetition checking and divide-and-conquer search.
 -- -------------------------------------------------------------------------
 
-equal :: (IsLiteral lit atom, HasApply atom predicate term, Unify (atom, atom) v term, IsTerm term v function) =>
-         Map v term -> lit -> lit -> Bool
+equal :: (IsLiteral lit, HasApply (AtomOf lit) predicate term, Unify ((AtomOf lit), (AtomOf lit)) (VarOf lit) term, IsTerm term (VarOf lit) function) =>
+         Map (VarOf lit) term -> lit -> lit -> Bool
 equal env fm1 fm2 =
     case execStateT (unify_literals (fm1,fm2)) env of
       Success env' | env == env' -> True
       _ -> False
 
 expand2 :: (Set lit ->
-            ((Map v term, Int, Int) -> Failing (Map v term, Int, Int)) ->
-            (Map v term, Int, Int) -> Failing (Map v term, Int, Int))
+            ((Map (VarOf lit) term, Int, Int) -> Failing (Map (VarOf lit) term, Int, Int)) ->
+            (Map (VarOf lit) term, Int, Int) -> Failing (Map (VarOf lit) term, Int, Int))
         -> Set lit
         -> Int
         -> Set lit
         -> Int
         -> Int
-        -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
-        -> Map v term
+        -> ((Map (VarOf lit) term, Int, Int) -> Failing (Map (VarOf lit) term, Int, Int))
+        -> Map (VarOf lit) term
         -> Int
-        -> Failing (Map v term, Int, Int)
+        -> Failing (Map (VarOf lit) term, Int, Int)
 expand2 expfn goals1 n1 goals2 n2 n3 cont env k =
     expfn goals1 (\(e1,r1,k1) ->
                       expfn goals2 (\(e2,r2,k2) ->
@@ -260,16 +260,16 @@ expand2 expfn goals1 n1 goals2 n2 n3 cont env k =
                                    (e1,n2+r1,k1))
                  (env,n1,k)
 
-mexpand2 :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-            HasApply atom predicate term,
-            IsTerm term v function,
-            Unify (atom, atom) v term) =>
+mexpand2 :: (IsLiteral lit, JustLiteral lit, Ord lit,
+            HasApply (AtomOf lit) predicate term,
+            IsTerm term (VarOf lit) function,
+            Unify ((AtomOf lit), (AtomOf lit)) (VarOf lit) term) =>
            Set (PrologRule lit)
         -> Set lit
         -> lit
-        -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
-        -> (Map v term, Int, Int)
-        -> Failing (Map v term, Int, Int)
+        -> ((Map (VarOf lit) term, Int, Int) -> Failing (Map (VarOf lit) term, Int, Int))
+        -> (Map (VarOf lit) term, Int, Int)
+        -> Failing (Map (VarOf lit) term, Int, Int)
 mexpand2 rules ancestors g cont (env,n,k) =
     if fromEnum n < 0
     then Failure ["Too deep"]
@@ -289,15 +289,15 @@ mexpand2 rules ancestors g cont (env,n,k) =
             mexpand2' = mexpands rules (Set.insert g ancestors) asm cont
             (Prolog asm c, k') = renamerule k rule
 
-mexpands :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
-             HasApply atom predicate term, Unify (atom, atom) v term,
-             IsTerm term v function) =>
+mexpands :: (IsLiteral lit, JustLiteral lit, Ord lit,
+             HasApply (AtomOf lit) predicate term, Unify ((AtomOf lit), (AtomOf lit)) (VarOf lit) term,
+             IsTerm term (VarOf lit) function) =>
             Set (PrologRule lit)
          -> Set lit
          -> Set lit
-         -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
-         -> (Map v term, Int, Int)
-         -> Failing (Map v term, Int, Int)
+         -> ((Map (VarOf lit) term, Int, Int) -> Failing (Map (VarOf lit) term, Int, Int))
+         -> (Map (VarOf lit) term, Int, Int)
+         -> Failing (Map (VarOf lit) term, Int, Int)
 mexpands rules ancestors gs cont (env,n,k) =
     if fromEnum n < 0
     then Failure ["Too deep"]

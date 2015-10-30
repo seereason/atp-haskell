@@ -12,6 +12,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -38,7 +39,7 @@ module FOL
     , isEquate, (.=.), showEquate, showApplyAndEquate
     -- * Quantified Formulas
     , Quant((:!:), (:?:))
-    , IsQuantified(quant, foldQuantified), for_all, exists, (∀), (∃)
+    , IsQuantified(VarOf, quant, foldQuantified), for_all, exists, (∀), (∃)
     , quantifiedFuncs
     , propositionalFuncs
     , showQuantified
@@ -491,11 +492,11 @@ instance HasFixity (FOLEQ predicate term) where
 --------------
 
 -- | Build a formula from a predicate and a list of terms.
-pApp :: (IsFormula formula atom, HasApply atom predicate term) => predicate -> [term] -> formula
+pApp :: (IsFormula formula, HasApply (AtomOf formula) predicate term) => predicate -> [term] -> formula
 pApp p args = atomic (applyPredicate p args)
 
 -- | Build an equality formula from two terms.
-(.=.) :: (IsFormula formula atom, HasApplyAndEquate atom predicate term) => term -> term -> formula
+(.=.) :: (IsFormula formula, HasApplyAndEquate (AtomOf formula) predicate term) => term -> term -> formula
 a .=. b = atomic (equate a b)
 
 infix 5 .=. -- , .!=., ≡, ≢
@@ -507,26 +508,28 @@ data Quant
     deriving (Eq, Ord, Data, Typeable, Show)
 
 -- | Class of quantified formulas.
-class (IsPropositional formula atom, IsVariable v) => IsQuantified formula atom v | formula -> v where
-    quant :: Quant -> v -> formula -> formula
-    foldQuantified :: (Quant -> v -> formula -> r)
+class (IsPropositional formula, IsVariable (VarOf formula)) => IsQuantified formula where
+    type (VarOf formula) -- A type function mapping formula to the associated variable
+    quant :: Quant -> VarOf formula -> formula -> formula
+    foldQuantified :: (Quant -> VarOf formula -> formula -> r)
                    -> (formula -> BinOp -> formula-> r)
                    -> (formula -> r)
                    -> (Bool -> r)
-                   -> (atom -> r)
+                   -> (AtomOf formula -> r)
                    -> formula -> r
 
 -- | Combine IsQuantified, HasApply, IsTerm
-class (IsQuantified formula atom v,
-       HasApply atom predicate term,
-       IsTerm term v function,
+class (IsQuantified formula,
+       HasApply (AtomOf formula) predicate term,
+       IsTerm term (VarOf formula) function,
        HasFunctions formula function,
-       Show v, Pretty formula
+       Pretty formula,
+       atom ~ AtomOf formula,
+       v ~ VarOf formula
       ) => IsFirstOrder formula atom predicate term v function
 
-instance (IsQuantified formula atom v,
-          IsPropositional (Marked mk formula) atom
-         ) => IsQuantified (Marked mk formula) atom v where
+instance (IsQuantified formula, IsPropositional (Marked mk formula)) => IsQuantified (Marked mk formula) where
+    type VarOf (Marked mk formula) = VarOf formula
     quant q v x = Mark $ quant q v (unMark' x)
     foldQuantified qu co ne tf at f = foldQuantified qu' co' ne' tf at (unMark' f)
         where qu' op v f' = qu op v (Mark f')
@@ -536,30 +539,30 @@ instance (IsQuantified formula atom v,
 instance IsFirstOrder formula atom predicate term v function => IsFirstOrder (Marked mk formula) atom predicate term v function
 
 -- | Implementation of funcs for quantified formulas.
-quantifiedFuncs :: forall formula atom predicate term v function.
-                   (IsQuantified formula atom v, Ord function,
-                    HasApply atom predicate term,
-                    HasFunctions atom function,
-                    IsTerm term v function
+quantifiedFuncs :: forall formula function predicate term.
+                   (IsQuantified formula, Ord function,
+                    HasApply (AtomOf formula) predicate term,
+                    HasFunctions (AtomOf formula) function,
+                    IsTerm term (VarOf formula) function
                    ) => formula -> Set (function, Arity)
 quantifiedFuncs = foldQuantified qu co ne tf at
     where qu _ _ fm = quantifiedFuncs fm
           ne fm = quantifiedFuncs fm
           co lhs _ rhs = union (quantifiedFuncs lhs) (quantifiedFuncs rhs)
           tf _ = Set.empty
-          at = funcs
+          at = (funcs :: AtomOf formula -> Set (function, Arity))
 
-propositionalFuncs :: forall formula atom function.
-                   (IsPropositional formula atom,
+propositionalFuncs :: forall formula function.
+                   (IsPropositional formula,
                     JustPropositional formula,
-                    HasFunctions atom function) => formula -> Set (function, Arity)
+                    HasFunctions (AtomOf formula) function) => formula -> Set (function, Arity)
 propositionalFuncs = foldPropositional co ne tf at
     where ne fm = propositionalFuncs fm
           co lhs _ rhs = union (propositionalFuncs lhs) (propositionalFuncs rhs)
           tf _ = Set.empty
           at = funcs
 
-fixityQuantified :: (IsQuantified formula atom v, HasFixity atom) => formula -> Fixity
+fixityQuantified :: forall formula. IsQuantified formula => formula -> Fixity
 fixityQuantified fm =
     foldQuantified qu co ne tf at fm
     where
@@ -570,9 +573,9 @@ fixityQuantified fm =
       co _ (:=>:) _ = Fixity 2 InfixR
       co _ (:<=>:) _ = Fixity 1 InfixA
       tf _ = Fixity 10 InfixN
-      at = fixity
+      at = (fixity :: AtomOf formula -> Fixity)
 
-prettyQuantified :: (IsQuantified formula atom v, HasFixity formula) => formula -> Doc
+prettyQuantified :: forall formula. IsQuantified formula => formula -> Doc
 prettyQuantified fm0 =
     go rootFixity Unary fm0
     where
@@ -588,10 +591,10 @@ prettyQuantified fm0 =
             co f (:=>:) g = go fix LHS f <> text "⇒" <> go fix RHS g
             co f (:<=>:) g = go fix LHS f <> text "⇔" <> go fix RHS g
             tf = pPrint
-            at = pPrint
+            at = (pPrint :: AtomOf formula -> Doc)
 
 -- | For clarity, show methods fully parenthesize
-showQuantified :: (IsQuantified formula atom v, HasFixity formula, Show atom, Ord atom) => formula -> String
+showQuantified :: forall formula. (IsQuantified formula, HasFixity formula, Show (AtomOf formula), Ord (AtomOf formula)) => formula -> String
 showQuantified fm0 =
     go rootFixity Unary fm0
     where
@@ -607,7 +610,7 @@ showQuantified fm0 =
             co f (:=>:) g = go fix LHS f <> " .=>. " <> go fix RHS g
             co f (:<=>:) g = go fix LHS f <> " .<=>. " <> go fix RHS g
             tf = show
-            at = show
+            at = (show :: AtomOf formula -> String)
       parenthesize' _ _ _ fm = parenthesize (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") leafFixity rootFixity Unary fm
 
 #ifndef NOTESTS
@@ -666,29 +669,14 @@ instance IsCombinable (Formula v atom) where
           Iff a b -> a `iff` b
           _ -> other fm
 
-instance (HasApply atom predicate term, IsTerm term v function)
-    => IsQuantified (Formula v atom) atom v where
-    quant (:!:) = Forall
-    quant (:?:) = Exists
-    foldQuantified qu _co _ne _tf _at (Forall v fm) = qu (:!:) v fm
-    foldQuantified qu _co _ne _tf _at (Exists v fm) = qu (:?:) v fm
-    foldQuantified _qu co ne tf at fm = foldPropositional' (\_ -> error "IsQuantified Formula") co ne tf at fm
-
--- Build a Haskell expression for this formula
-instance (IsQuantified (Formula v atom) atom v, Show atom) => Show (Formula v atom) where
-    show = showQuantified
-
--- Precedence information for Formula
-instance (IsQuantified (Formula v atom) atom v) => HasFixity (Formula v atom) where
-    fixity = fixityQuantified
-
 -- The IsFormula instance for Formula
-instance (HasApply atom predicate term, IsTerm term v function, Ord v) => IsFormula (Formula v atom) atom where
+instance (HasApply atom predicate term, IsTerm term v function, Ord v) => IsFormula (Formula v atom) where
+    type AtomOf (Formula v atom) = atom
     atomic = Atom
     overatoms = overatomsQuantified
     onatoms = onatomsQuantified
 
-instance (HasApply atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) atom where
+instance (IsFormula (Formula v atom), HasApply atom predicate term, IsTerm term v function) => IsPropositional (Formula v atom) where
     foldPropositional' ho co ne tf at fm =
         case fm of
           And p q -> co p (:&:) q
@@ -697,7 +685,24 @@ instance (HasApply atom predicate term, IsTerm term v function) => IsProposition
           Iff p q -> co p (:<=>:) q
           _ -> foldLiteral' ho ne tf at fm
 
-instance (HasApply atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) atom where
+instance forall atom v. (IsPropositional (Formula v atom), IsVariable v, IsAtom atom) => IsQuantified (Formula v atom) where
+    type VarOf (Formula v atom) = v
+    quant (:!:) = Forall
+    quant (:?:) = Exists
+    foldQuantified qu _co _ne _tf _at (Forall v fm) = qu (:!:) v fm
+    foldQuantified qu _co _ne _tf _at (Exists v fm) = qu (:?:) v fm
+    foldQuantified _qu co ne tf at fm =
+        foldPropositional' (\_ -> error "IsQuantified Formula") co ne tf at fm
+
+-- Build a Haskell expression for this formula
+instance IsQuantified (Formula v atom) => Show (Formula v atom) where
+    show = showQuantified
+
+-- Precedence information for Formula
+instance IsQuantified (Formula v atom) => HasFixity (Formula v atom) where
+    fixity = fixityQuantified
+
+instance (HasApply atom predicate term, IsTerm term v function) => IsLiteral (Formula v atom) where
     foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
@@ -708,12 +713,12 @@ instance (HasApply atom predicate term, IsTerm term v function) => IsLiteral (Fo
 #endif
 
 -- | Combine two formulas if they are similar.
-zipQuantified :: IsQuantified formula atom v =>
-                 (Quant -> v -> formula -> Quant -> v -> formula -> Maybe r)
+zipQuantified :: IsQuantified formula =>
+                 (Quant -> VarOf formula -> formula -> Quant -> VarOf formula -> formula -> Maybe r)
               -> (formula -> BinOp -> formula -> formula -> BinOp -> formula -> Maybe r)
               -> (formula -> formula -> Maybe r)
               -> (Bool -> Bool -> Maybe r)
-              -> (atom -> atom -> Maybe r)
+              -> ((AtomOf formula) -> (AtomOf formula) -> Maybe r)
               -> formula -> formula -> Maybe r
 zipQuantified qu co ne tf at fm1 fm2 =
     foldQuantified qu' co' ne' tf' at' fm1
@@ -726,15 +731,15 @@ zipQuantified qu co ne tf at fm1 fm2 =
 
 -- | Convert any instance of IsQuantified to any other by
 -- specifying the result type.
-convertQuantified :: forall f1 a1 v1 f2 a2 v2.
-                     (IsQuantified f1 a1 v1, IsQuantified f2 a2 v2) =>
-                     (a1 -> a2) -> (v1 -> v2) -> f1 -> f2
+convertQuantified :: forall f1 f2.
+                     (IsQuantified f1, IsQuantified f2) =>
+                     (AtomOf f1 -> AtomOf f2) -> (VarOf f1 -> VarOf f2) -> f1 -> f2
 convertQuantified ca cv f1 =
     foldQuantified qu co ne tf at f1
     where
-      qu :: Quant -> v1 -> f1 -> f2
-      qu (:!:) x p = for_all (cv x) (convertQuantified ca cv p :: f2)
-      qu (:?:) x p = exists (cv x) (convertQuantified ca cv p :: f2)
+      qu :: Quant -> VarOf f1 -> f1 -> f2
+      qu (:!:) x p = for_all (cv x :: VarOf f2) (convertQuantified ca cv p :: f2)
+      qu (:?:) x p = exists (cv x :: VarOf f2) (convertQuantified ca cv p :: f2)
       co p (:&:) q = convertQuantified ca cv p .&. convertQuantified ca cv q
       co p (:|:) q = convertQuantified ca cv p .|. convertQuantified ca cv q
       co p (:=>:) q = convertQuantified ca cv p .=>. convertQuantified ca cv q
@@ -742,21 +747,21 @@ convertQuantified ca cv f1 =
       ne p = (.~.) (convertQuantified ca cv p)
       tf :: Bool -> f2
       tf = fromBool
-      at :: a1 -> f2
+      at :: AtomOf f1 -> f2
       at = atomic . ca
 
-for_all :: IsQuantified formula atom v => v -> formula -> formula
+for_all :: IsQuantified formula => VarOf formula -> formula -> formula
 for_all = quant (:!:)
-exists :: IsQuantified formula atom v => v -> formula -> formula
+exists :: IsQuantified formula => VarOf formula -> formula -> formula
 exists = quant (:?:)
 
 -- Irrelevant, because these are always used as prefix operators, never as infix.
 infixr 9 ∀, ∃
 
 -- | ∀ can't be a function when -XUnicodeSyntax is enabled.
-(∀) :: IsQuantified formula atom v => v -> formula -> formula
+(∀) :: IsQuantified formula => VarOf formula -> formula -> formula
 (∀) = for_all
-(∃) :: IsQuantified formula atom v => v -> formula -> formula
+(∃) :: IsQuantified formula => VarOf formula -> formula -> formula
 (∃) = exists
 
 #ifndef NOTESTS
@@ -764,16 +769,20 @@ infixr 9 ∀, ∃
 type MyTerm1 = Term FName V -- MyTerm1 has no Skolem functions
 type MyAtom1 = FOL Predicate MyTerm1
 type MyAtom2 = FOLEQ Predicate MyTerm1
-type MyFormula1 = Formula V MyAtom2
+type MyFormula1 = Formula V MyAtom1
+type MyFormula2 = Formula V MyAtom2
 
-instance IsFirstOrder MyFormula1 MyAtom2 Predicate MyTerm1 V FName
+instance IsFirstOrder MyFormula1 MyAtom1 Predicate MyTerm1 V FName
+instance IsFirstOrder MyFormula2 MyAtom2 Predicate MyTerm1 V FName
+
+instance JustApply MyAtom2
 #endif
 
 -- | Special case of applying a subfunction to the top *terms*.
-onformula :: (IsFormula formula r, HasApply r predicate term) => (term -> term) -> formula -> formula
+onformula :: (IsFormula formula, HasApply (AtomOf formula) predicate term) => (term -> term) -> formula -> formula
 onformula f = onatoms (atomic . onterms f)
 
-onatomsQuantified :: IsQuantified formula atom v => (atom -> formula) -> formula -> formula
+onatomsQuantified :: IsQuantified formula => (AtomOf formula -> formula) -> formula -> formula
 onatomsQuantified f fm =
     foldQuantified qu co ne tf at fm
     where
@@ -783,7 +792,7 @@ onatomsQuantified f fm =
       tf flag = fromBool flag
       at x = f x
 
-overatomsQuantified :: IsQuantified fof atom v => (atom -> r -> r) -> fof -> r -> r
+overatomsQuantified :: IsQuantified fof => (AtomOf fof -> r -> r) -> fof -> r -> r
 overatomsQuantified f fof r0 =
     foldQuantified qu co ne (const r0) (flip f r0) fof
     where
@@ -950,10 +959,11 @@ class FiniteInterpretation a function predicate v dom where
     holds :: Interp function predicate dom -> Map v dom -> a -> Bool
 
 -- | Implementation of holds for IsQuantified formulas.
-holdsQuantified :: (IsQuantified formula atom v,
-                    FiniteInterpretation atom function predicate v dom,
-                    FiniteInterpretation formula function predicate v dom) =>
-                   Interp function predicate dom -> Map v dom -> formula -> Bool
+holdsQuantified :: forall formula function predicate dom.
+                   (IsQuantified formula,
+                    FiniteInterpretation (AtomOf formula) function predicate (VarOf formula) dom,
+                    FiniteInterpretation formula function predicate (VarOf formula) dom) =>
+                   Interp function predicate dom -> Map (VarOf formula) dom -> formula -> Bool
 holdsQuantified m v fm =
     foldQuantified qu co ne tf at fm
     where
@@ -965,13 +975,13 @@ holdsQuantified m v fm =
       co p (:=>:) q = not (holds m v p) || (holds m v q)
       co p (:<=>:) q = (holds m v p) == (holds m v q)
       tf x = x
-      at x = holds m v x
+      at = (holds m v :: AtomOf formula -> Bool)
 
 -- | Implementation of holds for IsPropositional formulas.
-holdsPropositional :: (IsPropositional pf atom, JustPropositional pf,
-                       FiniteInterpretation atom function predicate v dom,
-                       FiniteInterpretation pf function predicate v dom) =>
-                      Interp function predicate dom -> Map v dom -> pf -> Bool
+holdsPropositional :: (IsPropositional pf, JustPropositional pf,
+                       FiniteInterpretation (AtomOf pf) function predicate (VarOf pf) dom,
+                       FiniteInterpretation pf function predicate (VarOf pf) dom) =>
+                      Interp function predicate dom -> Map (VarOf pf) dom -> pf -> Bool
 holdsPropositional m v fm =
     foldPropositional co ne tf at fm
     where
@@ -984,10 +994,10 @@ holdsPropositional m v fm =
       at x = holds m v x
 
 -- | Implementation of holds for IsLiteral formulas.
-holdsLiteral :: (IsLiteral lit atom, JustLiteral lit,
-                 FiniteInterpretation atom function predicate v dom,
-                 FiniteInterpretation lit function predicate v dom) =>
-                Interp function predicate dom -> Map v dom -> lit -> Bool
+holdsLiteral :: (IsLiteral lit, JustLiteral lit,
+                 FiniteInterpretation (AtomOf lit) function predicate (VarOf lit) dom,
+                 FiniteInterpretation lit function predicate (VarOf lit) dom) =>
+                Interp function predicate dom -> Map (VarOf lit) dom -> lit -> Bool
 holdsLiteral m v fm =
     foldLiteral ne tf at fm
     where
@@ -1010,8 +1020,7 @@ termval m v tm =
              (\f args -> funcApply m f (map (termval m v) args)) tm
 
 -- | Examples of particular interpretations.
-bool_interp :: (IsFunction function, Show function, Show predicate) =>
-               Interp function predicate Bool
+bool_interp :: Interp FName Predicate Bool
 bool_interp =
     Interp [False, True] func pred (==)
     where
@@ -1022,8 +1031,7 @@ bool_interp =
       func f _ = error ("bool_interp - uninterpreted function: " ++ show f)
       pred p _ = error ("bool_interp - uninterpreted predicate: " ++ show p)
 
-mod_interp :: (IsFunction function, Show function, Show predicate) =>
-              Int -> Interp function predicate Int
+mod_interp :: Int -> Interp FName Predicate Int
 mod_interp n =
     Interp [0..(n-1)] func pred (==)
     where
@@ -1052,48 +1060,44 @@ END_INTERACTIVE;;
 -}
 
 #ifndef NOTESTS
-instance (IsQuantified MyFormula1 MyAtom2 v,
-          HasApplyAndEquate MyAtom2 predicate MyTerm1,
-          IsTerm MyTerm1 v function, Eq dom
-         ) => FiniteInterpretation MyFormula1 function predicate v dom where
+instance Eq dom => FiniteInterpretation MyFormula2 FName Predicate V dom where
     holds = holdsQuantified
-instance (Eq dom, IsTerm MyTerm1 v function, HasApplyAndEquate MyAtom2 predicate MyTerm1
-         ) => FiniteInterpretation MyAtom2 function predicate v dom where
+instance Eq dom => FiniteInterpretation MyAtom2 FName Predicate V dom where
     holds = holdsAtomEq
 
 test01 :: Test
 test01 = TestCase $ assertEqual "holds bool test (p. 126)" expected input
-    where input = holds bool_interp Map.empty (for_all "x" (vt "x" .=. fApp "False" [] .|. vt "x" .=. fApp "True" []) :: MyFormula1)
+    where input = holds bool_interp (Map.empty :: Map V Bool) (for_all "x" (vt "x" .=. fApp "False" [] .|. vt "x" .=. fApp "True" []) :: MyFormula2)
           expected = True
 test02 :: Test
 test02 = TestCase $ assertEqual "holds mod test 1 (p. 126)" expected input
-    where input =  holds (mod_interp 2) Map.empty (for_all "x" (vt "x" .=. (fApp "0" []) .|. vt "x" .=. (fApp "1" [])) :: MyFormula1)
+    where input =  holds (mod_interp 2) (Map.empty :: Map V Int) (for_all "x" (vt "x" .=. (fApp "0" []) .|. vt "x" .=. (fApp "1" [])) :: MyFormula2)
           expected = True
 test03 :: Test
 test03 = TestCase $ assertEqual "holds mod test 2 (p. 126)" expected input
-    where input =  holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .|. vt "x" .=. fApp "1" []) :: MyFormula1)
+    where input =  holds (mod_interp 3) (Map.empty :: Map V Int) (for_all "x" (vt "x" .=. fApp "0" [] .|. vt "x" .=. fApp "1" []) :: MyFormula2)
           expected = False
 
 test04 :: Test
 test04 = TestCase $ assertEqual "holds mod test 3 (p. 126)" expected input
-    where input = filter (\ n -> holds (mod_interp n) Map.empty fm) [1..45]
-                  where fm = for_all "x" ((.~.) (vt "x" .=. fApp "0" []) .=>. exists "y" (fApp "*" [vt "x", vt "y"] .=. fApp "1" [])) :: MyFormula1
+    where input = filter (\ n -> holds (mod_interp n) (Map.empty :: Map V Int) fm) [1..45]
+                  where fm = for_all "x" ((.~.) (vt "x" .=. fApp "0" []) .=>. exists "y" (fApp "*" [vt "x", vt "y"] .=. fApp "1" [])) :: MyFormula2
           expected = [1,2,3,5,7,11,13,17,19,23,29,31,37,41,43]
 
 test05 :: Test
 test05 = TestCase $ assertEqual "holds mod test 4 (p. 129)" expected input
-    where input = holds (mod_interp 3) Map.empty ((for_all "x" (vt "x" .=. fApp "0" [])) .=>. fApp "1" [] .=. fApp "0" [] :: MyFormula1)
+    where input = holds (mod_interp 3) (Map.empty :: Map V Int) ((for_all "x" (vt "x" .=. fApp "0" [])) .=>. fApp "1" [] .=. fApp "0" [] :: MyFormula2)
           expected = True
 test06 :: Test
 test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
-    where input = holds (mod_interp 3) Map.empty (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: MyFormula1)
+    where input = holds (mod_interp 3) (Map.empty :: Map V Int) (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: MyFormula2)
           expected = False
 #endif
 
 -- Free variables in terms and formulas.
 
 -- | Find the free variables in a formula.
-fv :: (IsFirstOrder formula atom predicate term v function) => formula -> Set v
+fv :: (IsFirstOrder formula (AtomOf formula) predicate term (VarOf formula) function) => formula -> Set (VarOf formula)
 fv fm =
     foldQuantified qu co ne tf at fm
     where
@@ -1103,25 +1107,25 @@ fv fm =
       tf _ = Set.empty
       at = fva
 
-fvp :: (IsPropositional formula atom,
+fvp :: (IsPropositional formula,
         JustPropositional formula,
-        HasApply atom predicate term,
-        IsTerm term v function,
-        IsVariable v) => formula -> Set v
+        HasApply (AtomOf formula) predicate term,
+        IsTerm term (VarOf formula) function
+       ) => formula -> Set (VarOf formula)
 fvp fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
 
-fvl :: (IsLiteral formula atom,
+fvl :: (IsLiteral formula,
         JustLiteral formula,
-        IsTerm term v f,
-        HasApply atom predicate term,
-        IsVariable v) => formula -> Set v
+        IsTerm term (VarOf formula) f,
+        HasApply (AtomOf formula) predicate term
+       ) => formula -> Set (VarOf formula)
 fvl fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
 
 fva :: (HasApply atom predicate term, IsTerm term v function) => atom -> Set v
 fva = overterms (\t s -> Set.union (fvt t) s) mempty
 
 -- | Find the variables in a formula.
-var :: IsFirstOrder formula atom predicate term v function => formula -> Set v
+var :: IsFirstOrder formula (AtomOf formula) predicate term (VarOf formula) function => formula -> Set (VarOf formula)
 var fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
 
 -- | Find the variables in a 'Term'.
@@ -1129,7 +1133,7 @@ fvt :: IsTerm term v function => term -> Set v
 fvt tm = foldTerm singleton (\_ args -> unions (map fvt args)) tm
 
 -- | Universal closure of a formula.
-generalize :: IsFirstOrder formula atom predicate term v function => formula -> formula
+generalize :: IsFirstOrder formula (AtomOf formula) predicate term (VarOf formula) function => formula -> formula
 generalize fm = Set.fold for_all fm (fv fm)
 
 #ifndef NOTESTS
@@ -1148,8 +1152,8 @@ test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
 #endif
 
 -- | Substitution in formulas, with variable renaming.
-subst :: IsFirstOrder formula atom predicate term v function =>
-         Map v term -> formula -> formula
+subst :: IsFirstOrder formula (AtomOf formula) predicate term (VarOf formula) function =>
+         Map (VarOf formula) term -> formula -> formula
 subst subfn fm =
     foldQuantified qu co ne tf at fm
     where
@@ -1172,8 +1176,8 @@ tsubst sfn tm =
              tm
 
 -- | Substitution within a Literal
-lsubst :: (IsLiteral lit atom, HasApply atom predicate term, IsTerm term v function) =>
-         Map v term -> lit -> lit
+lsubst :: (IsLiteral lit, HasApply (AtomOf lit) predicate term, IsTerm term (VarOf lit) function) =>
+         Map (VarOf lit) term -> lit -> lit
 lsubst subfn fm =
     foldLiteral ne fromBool at fm
     where
@@ -1185,10 +1189,10 @@ asubst :: (HasApply atom predicate term, IsTerm term v function) => Map v term -
 asubst sfn a = onterms (tsubst sfn) a
 
 -- | Substitution within quantifiers
-substq :: IsFirstOrder formula atom predicate term v function =>
-          Map v term
-       -> (v -> formula -> formula)
-       -> v
+substq :: IsFirstOrder formula (AtomOf formula) predicate term (VarOf formula) function =>
+          Map (VarOf formula) term
+       -> (VarOf formula -> formula -> formula)
+       -> VarOf formula
        -> formula
        -> formula
 substq subfn qu x p =
@@ -1203,8 +1207,8 @@ substq subfn qu x p =
 test10 :: Test
 test10 =
     let [x, x', y] = [vt "x", vt "x'", vt "y"]
-        fm = for_all "x" ((x .=. y)) :: MyFormula1
-        expected = for_all "x'" (x' .=. x) :: MyFormula1 in
+        fm = for_all "x" ((x .=. y)) :: MyFormula2
+        expected = for_all "x'" (x' .=. x) :: MyFormula2 in
     TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow fm ++ " (p. 134)")
                            expected
                            (subst (Map.fromList [("y", x)]) fm)
@@ -1212,8 +1216,8 @@ test10 =
 test11 :: Test
 test11 =
     let [x, x', x'', y] = [vt "x", vt "x'", vt "x''", vt "y"]
-        fm = (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))) :: MyFormula1
-        expected = for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: MyFormula1 in
+        fm = (for_all "x" (for_all "x'" ((x .=. y) .=>. (x .=. x')))) :: MyFormula2
+        expected = for_all "x'" (for_all "x''" ((x' .=. x) .=>. ((x' .=. x'')))) :: MyFormula2 in
     TestCase $ assertEqual ("subst (\"y\" |=> Var \"x\") " ++ prettyShow fm ++ " (p. 134)")
                            expected
                            (subst (Map.fromList [("y", x)]) fm)

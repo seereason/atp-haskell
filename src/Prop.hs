@@ -13,6 +13,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Prop
@@ -85,11 +86,12 @@ import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, intersection, isProperSubsetOf, map,
                         minView, partition, Set, singleton, toAscList, union)
 import Formulas (atom_union, binop,
-                 HasBoolean(fromBool, asBool), true, false,
-                 IsNegatable(naiveNegate, foldNegation'), (.~.), negate, positive,
-                 IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination),
                  BinOp((:&:), (:|:), (:=>:), (:<=>:)),
-                 IsFormula(atomic, overatoms, onatoms))
+                 HasBoolean(fromBool, asBool), true, false,
+                 IsAtom,
+                 IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination),
+                 IsFormula(AtomOf, atomic, overatoms, onatoms),
+                 IsNegatable(naiveNegate, foldNegation'), (.~.), negate, positive)
 import Lib (distrib, fpf, Marked(..), setAny)
 import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral)
 import Prelude hiding (negate, null)
@@ -106,9 +108,6 @@ import Pretty (leafFixity)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 #endif
 
--- | Basic properties of an atomic formula
-class (Ord atom, Show atom, HasFixity atom, Pretty atom) => IsAtom atom
-
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
 -- there will generally by a type or a type parameter corresponding to
@@ -117,7 +116,7 @@ class (Ord atom, Show atom, HasFixity atom, Pretty atom) => IsAtom atom
 -- raise errors in the implementation if a non-atomic formula somehow
 -- appears where an atomic formula is expected (i.e. as an argument to
 -- atomic or to the third argument of foldPropositional.)
-class (IsLiteral formula atom, IsCombinable formula) => IsPropositional formula atom where
+class (IsLiteral formula, IsCombinable formula) => IsPropositional formula where
     -- | Build an atomic formula from the atom type.
     -- | A fold function that distributes different sorts of formula
     -- to its parameter functions, one to handle binary operators, one
@@ -127,24 +126,24 @@ class (IsLiteral formula atom, IsCombinable formula) => IsPropositional formula 
                        -> (formula -> BinOp -> formula -> r)
                        -> (formula -> r)
                        -> (Bool -> r)
-                       -> (atom -> r)
+                       -> (AtomOf formula -> r)
                        -> formula -> r
 
-foldPropositional :: (IsPropositional pf atom, JustPropositional pf) =>
+foldPropositional :: (IsPropositional pf, JustPropositional pf) =>
                      (pf -> BinOp -> pf -> r)
                   -> (pf -> r)
                   -> (Bool -> r)
-                  -> (atom -> r)
+                  -> (AtomOf pf -> r)
                   -> pf -> r
 foldPropositional = foldPropositional' (error "JustPropositional failure")
 
 -- | Combine two formulas if they are similar.
-zipPropositional :: (IsPropositional pf1 atom1, JustPropositional pf1,
-                     IsPropositional pf2 atom2, JustPropositional pf2) =>
+zipPropositional :: (IsPropositional pf1, JustPropositional pf1,
+                     IsPropositional pf2, JustPropositional pf2) =>
                     (pf1 -> BinOp -> pf1 -> pf2 -> BinOp -> pf2 -> Maybe r)
                  -> (pf1 -> pf2 -> Maybe r)
                  -> (Bool -> Bool -> Maybe r)
-                 -> (atom1 -> atom2 -> Maybe r)
+                 -> (AtomOf pf1 -> AtomOf pf2 -> Maybe r)
                  -> pf1 -> pf2 -> Maybe r
 zipPropositional co ne tf at fm1 fm2 =
     foldPropositional co' ne' tf' at' fm1
@@ -155,7 +154,7 @@ zipPropositional co ne tf at fm1 fm2 =
       at' a1 = foldPropositional (\_ _ _ -> Nothing) (\_ -> Nothing) (\_ -> Nothing)     (at a1)     fm2
 
 -- | Convert any instance of JustPropositional to any IsPropositional formula.
-convertPropositional :: (IsPropositional pf1 a1, JustPropositional pf1, IsPropositional pf2 a2) => (a1 -> a2) -> pf1 -> pf2
+convertPropositional :: (IsPropositional pf1, JustPropositional pf1, IsPropositional pf2) => (AtomOf pf1 -> AtomOf pf2) -> pf1 -> pf2
 convertPropositional ca pf =
     foldPropositional co ne tf (atomic . ca) pf
     where
@@ -167,8 +166,8 @@ convertPropositional ca pf =
       tf = fromBool
 
 -- | Convert any instance of IsPropositional to a JustPropositional formula.
-convertToPropositional :: (IsPropositional formula atom1, IsPropositional pf atom2, JustPropositional pf) =>
-                          (formula -> pf) -> (atom1 -> atom2) -> formula -> pf
+convertToPropositional :: (IsPropositional formula, IsPropositional pf, JustPropositional pf) =>
+                          (formula -> pf) -> (AtomOf formula -> AtomOf pf) -> formula -> pf
 convertToPropositional ho ca fm =
     foldPropositional' ho co ne tf (atomic . ca) fm
     where
@@ -179,7 +178,7 @@ convertToPropositional ho ca fm =
       ne p = (.~.) (convertToPropositional ho ca p)
       tf = fromBool
 
-fixityPropositional :: (IsPropositional pf atom, JustPropositional pf) => pf -> Fixity
+fixityPropositional :: (IsPropositional pf, JustPropositional pf) => pf -> Fixity
 fixityPropositional fm =
     foldPropositional co ne tf at fm
     where
@@ -191,7 +190,7 @@ fixityPropositional fm =
       tf _ = Fixity 10 InfixN
       at = fixity
 
-prettyPropositional :: (IsPropositional pf atom, JustPropositional pf) => pf -> Doc
+prettyPropositional :: (IsPropositional pf, JustPropositional pf) => pf -> Doc
 prettyPropositional fm0 =
     go rootFixity Unary fm0
     where
@@ -208,7 +207,7 @@ prettyPropositional fm0 =
             at a = pPrint a
 
 -- | For clarity, show methods fully parenthesize
-showPropositional :: (IsPropositional pf atom, JustPropositional pf, Show atom) => pf -> String
+showPropositional :: (IsPropositional pf, JustPropositional pf {-, Show (AtomOf pf)-}) => pf -> String
 showPropositional fm0 =
     go rootFixity Unary fm0
     where
@@ -225,7 +224,7 @@ showPropositional fm0 =
             at = show
       parenthesize' _ _ _ fm = parenthesize (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") leafFixity rootFixity Unary fm
 
-onatomsPropositional :: (IsPropositional pf atom, JustPropositional pf) => (atom -> pf) -> pf -> pf
+onatomsPropositional :: (IsPropositional pf, JustPropositional pf) => (AtomOf pf -> pf) -> pf -> pf
 onatomsPropositional f fm =
     foldPropositional co ne tf at fm
     where
@@ -234,7 +233,7 @@ onatomsPropositional f fm =
       tf flag = fromBool flag
       at x = f x
 
-overatomsPropositional :: (IsPropositional pf atom, JustPropositional pf) => (atom -> r -> r) -> pf -> r -> r
+overatomsPropositional :: (IsPropositional pf, JustPropositional pf) => (AtomOf pf -> r -> r) -> pf -> r -> r
 overatomsPropositional f fof r0 =
     foldPropositional co ne (const r0) (flip f r0) fof
     where
@@ -248,7 +247,8 @@ overatomsPropositional f fof r0 =
 instance HasFixity formula => HasFixity (Marked mk formula) where
     fixity (Mark x) = fixity x
 
-instance IsFormula formula atom => IsFormula (Marked mk formula) atom where
+instance IsFormula formula => IsFormula (Marked mk formula) where
+    type AtomOf (Marked mk formula) = AtomOf formula
     atomic = Mark . atomic
     overatoms at (Mark fm) = overatoms at fm
     onatoms at (Mark fm) = Mark (onatoms (unMark' . at) fm)
@@ -261,7 +261,7 @@ instance IsNegatable formula => IsNegatable (Marked mk formula) where
     naiveNegate (Mark x) = Mark (naiveNegate x)
     foldNegation' ne ot (Mark x) = foldNegation' (ne . Mark) (ot . Mark) x
 
-instance (IsLiteral formula atom, IsNegatable formula) => IsLiteral (Marked mk formula) atom where
+instance (IsLiteral formula, IsNegatable formula) => IsLiteral (Marked mk formula) where
     foldLiteral' ho ne tf at (Mark x) = foldLiteral' (ho . Mark) (ne . Mark) tf at x
 
 instance IsCombinable formula => IsCombinable (Marked mk formula) where
@@ -280,7 +280,7 @@ instance IsCombinable formula => IsCombinable (Marked mk formula) where
 instance Pretty formula => Pretty (Marked mk formula) where
     pPrint = pPrint . unMark'
 
-instance IsPropositional formula atom => IsPropositional (Marked mk formula) atom where
+instance IsPropositional formula => IsPropositional (Marked mk formula) where
     foldPropositional' ho co ne tf at (Mark x) = foldPropositional' (ho . Mark) co' (ne . Mark) tf at x
         where
           co' lhs op rhs = co (Mark lhs) op (Mark rhs)
@@ -325,16 +325,16 @@ instance JustLiteral (Marked Literal formula)
 instance JustPropositional (Marked Propositional formula)
 instance JustPropositional (Marked Literal formula)
 
-markLiteral :: IsLiteral lit atom => lit -> Marked Literal lit
+markLiteral :: IsLiteral lit => lit -> Marked Literal lit
 markLiteral = Mark
 
-unmarkLiteral :: IsLiteral pf atom => Marked Literal pf -> pf
+unmarkLiteral :: IsLiteral pf => Marked Literal pf -> pf
 unmarkLiteral = unMark'
 
-markPropositional :: IsPropositional lit atom => lit -> Marked Propositional lit
+markPropositional :: IsPropositional lit => lit -> Marked Propositional lit
 markPropositional fm = convertToPropositional (error "markPropositional") id fm
 
-unmarkPropositional :: IsPropositional pf atom => Marked Propositional pf -> pf
+unmarkPropositional :: IsPropositional pf => Marked Propositional pf -> pf
 unmarkPropositional fm = convertPropositional id fm
 
 #ifndef NOTESTS
@@ -416,18 +416,19 @@ instance Show (Marked Expr atom) => Show (Marked Expr (PFormula atom)) where
     show (Mark (Iff f g)) = "(" ++ show (markExpr f) ++ ") .<=>. (" ++ show (markExpr g) ++ ")"
 
 -- Build a Haskell expression for this formula
-instance (IsPropositional (PFormula atom) atom, Show atom) => Show (PFormula atom) where
+instance (IsPropositional (PFormula atom), Show atom) => Show (PFormula atom) where
     show = showPropositional
 
 instance IsAtom atom => HasFixity (PFormula atom) where
     fixity = fixityPropositional
 
-instance IsAtom atom => IsFormula (PFormula atom) atom where
+instance IsAtom atom => IsFormula (PFormula atom) where
+    type AtomOf (PFormula atom) = atom
     atomic = Atom
     overatoms = overatomsPropositional
     onatoms = onatomsPropositional
 
-instance IsAtom atom => IsPropositional (PFormula atom) atom where
+instance IsAtom atom => IsPropositional (PFormula atom) where
     foldPropositional' _ co ne tf at fm =
         case fm of
           Imp p q -> co p (:=>:) q
@@ -436,7 +437,7 @@ instance IsAtom atom => IsPropositional (PFormula atom) atom where
           Or p q -> co p (:|:) q
           _ -> foldLiteral' (error "IsPropositional PFormula") ne tf at fm
 
-instance IsAtom atom => IsLiteral (PFormula atom) atom where
+instance IsAtom atom => IsLiteral (PFormula atom) where
     foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
@@ -453,7 +454,7 @@ data TruthTable a = TruthTable [a] [TruthTableRow] deriving (Eq, Show)
 type TruthTableRow = ([Bool], Bool)
 
 -- | Code to print out truth tables.
-truthTable :: (IsPropositional pf atom, JustPropositional pf, Ord atom) => pf -> TruthTable atom
+truthTable :: (IsPropositional pf, JustPropositional pf {-, Ord AtomOf pf-}) => pf -> TruthTable (AtomOf pf)
 truthTable fm =
     TruthTable atl (onallvaluations (<>) mkRow (const False) ats)
     where
@@ -593,11 +594,11 @@ test09 = TestCase $
 #endif
 
 -- | Recognizing tautologies.
-tautology :: (IsPropositional pf atom, JustPropositional pf, Ord atom) => pf -> Bool
+tautology :: (IsPropositional pf, JustPropositional pf{-, Ord (AtomOf pf)-}) => pf -> Bool
 tautology fm = onallvaluations (&&) (eval fm) (\_s -> False) (atoms fm)
 
 -- | Interpretation of formulas.
-eval :: (IsPropositional pf atom, JustPropositional pf) => pf -> (atom -> Bool) -> Bool
+eval :: (IsPropositional pf, JustPropositional pf) => pf -> (AtomOf pf -> Bool) -> Bool
 eval fm v =
     foldPropositional co ne tf at fm
     where
@@ -618,7 +619,7 @@ onallvaluations cmb subfn v ats =
           cmb (onallvaluations cmb subfn (v' False) ps) (onallvaluations cmb subfn (v' True) ps)
 
 -- | Return the set of propositional variables in a formula.
-atoms :: IsFormula formula atom => formula -> Set atom
+atoms :: IsFormula formula => formula -> Set (AtomOf formula)
 atoms fm = atom_union singleton fm
 
 #ifndef NOTESTS
@@ -635,13 +636,13 @@ test13 = TestCase $ assertEqual "tautology 4 (p. 41)" True (tautology $ (p .|. q
 #endif
 
 -- | Related concepts.
-unsatisfiable :: (IsPropositional pf atom, JustPropositional pf) => pf -> Bool
+unsatisfiable :: (IsPropositional pf, JustPropositional pf) => pf -> Bool
 unsatisfiable = tautology . (.~.)
-satisfiable :: (IsPropositional pf atom, JustPropositional pf)  => pf -> Bool
+satisfiable :: (IsPropositional pf , JustPropositional pf)  => pf -> Bool
 satisfiable = not . unsatisfiable
 
 -- | Substitution operation.
-psubst :: IsPropositional formula atom => Map atom formula -> formula -> formula
+psubst :: IsPropositional formula => Map (AtomOf formula) formula -> formula -> formula
 psubst subfn fm = onatoms (\ p -> maybe (atomic p) id (fpf subfn p)) fm
 
 #ifndef NOTESTS
@@ -702,7 +703,7 @@ test21 = TestCase $ assertEqual "Equivalences (p. 47)" expected input
 #endif
 
 -- | Dualization.
-dual :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
+dual :: (IsPropositional pf, JustPropositional pf) => pf -> pf
 dual fm =
     foldPropositional co ne tf (\_ -> fm) fm
     where
@@ -722,7 +723,7 @@ test22 = TestCase $ assertEqual "Dual (p. 49)" expected input
 #endif
 
 -- | Routine simplification.
-psimplify :: IsPropositional formula atom => formula -> formula
+psimplify :: IsPropositional formula => formula -> formula
 psimplify fm =
     foldPropositional' ho co ne tf at fm
     where
@@ -735,7 +736,7 @@ psimplify fm =
       tf _ = fm
       at _ = fm
 
-psimplify1 :: IsPropositional formula atom => formula -> formula
+psimplify1 :: IsPropositional formula => formula -> formula
 psimplify1 fm =
     foldPropositional' (\_ -> fm) simplifyCombine simplifyNegate (\_ -> fm) (\_ -> fm) fm
     where
@@ -784,10 +785,10 @@ test24 = TestCase $ assertEqual "psimplify 2 (p. 51)" expected input
 
 -- | Negation normal form.
 
-nnf :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
+nnf :: (IsPropositional pf, JustPropositional pf) => pf -> pf
 nnf = nnf1 . psimplify
 
-nnf1 :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
+nnf1 :: (IsPropositional pf, JustPropositional pf) => pf -> pf
 nnf1 fm = foldPropositional nnfCombine nnfNegate fromBool (\_ -> fm) fm
     where
       -- nnfCombine :: (IsPropositional formula atom) => formula -> Combination formula -> formula
@@ -831,11 +832,11 @@ test26 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           s = Atom (P "s")
 #endif
 
-nenf :: IsPropositional formula atom => formula -> formula
+nenf :: IsPropositional formula => formula -> formula
 nenf = nenf' . psimplify
 
 -- | Simple negation-pushing when we don't care to distinguish occurrences.
-nenf' :: IsPropositional formula atom => formula -> formula
+nenf' :: IsPropositional formula => formula -> formula
 nenf' fm =
     foldPropositional' (\_ -> fm) co ne (\_ -> fm) (\_ -> fm) fm
     where
@@ -871,14 +872,14 @@ test28 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           q' = Atom (P "q'")
 #endif
 
-dnfSet :: (IsPropositional pf atom, JustPropositional pf, Ord pf) => pf -> pf
+dnfSet :: (IsPropositional pf, JustPropositional pf, Ord pf) => pf -> pf
 dnfSet fm =
     list_disj (List.map (mk_lits (Set.map atomic pvs)) satvals)
     where
       satvals = allsatvaluations (eval fm) (\_s -> False) pvs
       pvs = atoms fm
 
-mk_lits :: (IsPropositional pf atom, JustPropositional pf, Ord pf) => Set pf -> (atom -> Bool) -> pf
+mk_lits :: (IsPropositional pf, JustPropositional pf, Ord pf) => Set pf -> (AtomOf pf -> Bool) -> pf
 mk_lits pvs v = list_conj (Set.map (\ p -> if eval p v then p else (.~.) p) pvs)
 
 allsatvaluations :: Ord atom => ((atom -> Bool) -> Bool) -> (atom -> Bool) -> Set atom -> [atom -> Bool]
@@ -899,13 +900,13 @@ list_disj l = foldl1 (.|.) l
 
 #ifndef NOTESTS
 -- This is only used in the test below, its easier to match lists than sets.
-dnfList :: (IsPropositional pf atom, JustPropositional pf) => pf -> pf
+dnfList :: (IsPropositional pf, JustPropositional pf) => pf -> pf
 dnfList fm =
     list_disj (List.map (mk_lits' (List.map atomic (Set.toAscList pvs))) satvals)
      where
        satvals = allsatvaluations (eval fm) (\_s -> False) pvs
        pvs = atoms fm
-       mk_lits' :: (IsPropositional pf atom, JustPropositional pf) => [pf] -> (atom -> Bool) -> pf
+       mk_lits' :: (IsPropositional pf, JustPropositional pf) => [pf] -> (AtomOf pf -> Bool) -> pf
        mk_lits' pvs' v = list_conj (List.map (\ p -> if eval p v then p else (.~.) p) pvs')
 
 -- Examples.
@@ -967,7 +968,7 @@ test30 = TestCase $ assertEqual "dnf 2 (p. 56)" expected input
 #endif
 
 -- | DNF via distribution.
-distrib1 :: IsPropositional formula atom => formula -> formula
+distrib1 :: IsPropositional formula => formula -> formula
 distrib1 fm =
     foldCombination (\_ _ -> fm) lhs (\_ _ -> fm) (\_ _ -> fm) (\_ -> fm) fm
     where
@@ -994,7 +995,7 @@ distrib1 fm =
     _ -> fm
 -}
 
-rawdnf :: IsPropositional formula atom => formula -> formula
+rawdnf :: IsPropositional formula => formula -> formula
 rawdnf fm =
     foldPropositional' (\_ -> fm) co (\_ -> fm) (\_ -> fm) (\_ -> fm) fm
     where
@@ -1024,8 +1025,8 @@ test31 = TestCase $ assertEqual "rawdnf (p. 58)" (prettyShow expected) (prettySh
           (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
 #endif
 
-purednf :: (IsPropositional pf atom, JustPropositional pf,
-            IsLiteral lit atom2, JustLiteral lit, Ord lit) => (atom -> atom2) -> pf -> Set (Set lit)
+purednf :: (IsPropositional pf, JustPropositional pf,
+            IsLiteral lit, JustLiteral lit, Ord lit) => (AtomOf pf -> AtomOf lit) -> pf -> Set (Set lit)
 purednf ca fm =
     foldPropositional co (\_ -> l2f fm) (\_ -> l2f fm) (\_ -> l2f fm) fm
     where
@@ -1071,9 +1072,9 @@ test33 = TestCase $ assertEqual "trivial" expected input
 #endif
 
 -- | With subsumption checking, done very naively (quadratic).
-simpdnf :: (IsPropositional pf atom, JustPropositional pf,
-            IsLiteral lit atom2, JustLiteral lit, Ord lit
-           ) => (atom -> atom2) -> pf -> Set (Set lit)
+simpdnf :: (IsPropositional pf, JustPropositional pf,
+            IsLiteral lit, JustLiteral lit, Ord lit
+           ) => (AtomOf pf -> AtomOf lit) -> pf -> Set (Set lit)
 simpdnf ca fm =
     foldPropositional (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
@@ -1083,7 +1084,7 @@ simpdnf ca fm =
            Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
 
 -- | Mapping back to a formula.
-dnf :: (IsPropositional pf atom, JustPropositional pf, Eq pf, Ord pf) => pf -> pf
+dnf :: (IsPropositional pf, JustPropositional pf, Eq pf, Ord pf) => pf -> pf
 dnf fm = (list_disj . Set.toAscList . Set.map list_conj . Set.map (Set.map unmarkLiteral) . simpdnf id) fm
 
 #ifndef NOTESTS
@@ -1097,12 +1098,12 @@ test34 = TestCase $ assertEqual "dnf (p. 56)" expected input
 #endif
 
 -- | Conjunctive normal form (CNF) by essentially the same code. (p. 60)
-purecnf :: (IsPropositional pf atom, JustPropositional pf,
-            IsLiteral lit atom2, JustLiteral lit, Ord lit) => (atom -> atom2) -> pf -> Set (Set lit)
+purecnf :: (IsPropositional pf, JustPropositional pf,
+            IsLiteral lit, JustLiteral lit, Ord lit) => (AtomOf pf -> AtomOf lit) -> pf -> Set (Set lit)
 purecnf ca fm = Set.map (Set.map negate) (purednf ca (nnf ((.~.) fm)))
 
-simpcnf :: (IsPropositional pf atom, JustPropositional pf,
-            IsLiteral lit atom2, JustLiteral lit, Ord lit) => (atom -> atom2) -> pf -> Set (Set lit)
+simpcnf :: (IsPropositional pf, JustPropositional pf,
+            IsLiteral lit, JustLiteral lit, Ord lit) => (AtomOf pf -> AtomOf lit) -> pf -> Set (Set lit)
 simpcnf ca fm =
     foldPropositional (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
@@ -1120,10 +1121,10 @@ instance (IsLiteral lit atom, JustLiteral lit) => IsPropositional (Set (Set lit)
           Just (s, ss) -> co
 -}
 
-cnf_ :: (IsPropositional pf atom, Ord pf, IsLiteral lit atom2, JustLiteral lit) => (atom2 -> atom) -> Set (Set lit) -> pf
+cnf_ :: (IsPropositional pf, Ord pf, IsLiteral lit, JustLiteral lit) => (AtomOf lit -> AtomOf pf) -> Set (Set lit) -> pf
 cnf_ ca = list_conj . Set.map (list_disj . Set.map (convertLiteral ca))
 
-cnf' :: (IsPropositional pf atom, JustPropositional pf, Ord pf) => pf -> pf
+cnf' :: (IsPropositional pf, JustPropositional pf, Ord pf) => pf -> pf
 cnf' fm = (list_conj . Set.map list_disj . Set.map (Set.map unmarkLiteral) . simpcnf id) fm
 
 #ifndef NOTESTS

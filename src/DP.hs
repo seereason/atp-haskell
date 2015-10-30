@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module DP
     ( dp,   dpsat,   dptaut
@@ -21,7 +22,7 @@ import Data.Map as Map (empty, Map)
 import Data.Set as Set (delete, difference, empty, filter, findMin, fold, insert, intersection, map, member,
                         minView, null, partition, Set, singleton, size, union)
 import DefCNF (NumAtom(ai, ma), defcnfs)
-import Formulas (IsNegatable, (.~.), negative, positive, negate, negated)
+import Formulas (IsFormula(AtomOf), IsNegatable, (.~.), negative, positive, negate, negated)
 import Lib (Failing(Success, Failure), allpairs, minimize, maximize, defined, (|->), setmapfilter)
 import Prelude hiding (negate, pure)
 import Prop (trivial, IsPropositional, JustPropositional)
@@ -97,11 +98,11 @@ resolution_rule clauses =
       Nothing -> Failure ["resolution_rule"]
 
 -- | Davis-Putnam satisfiability tester.
-dpsat :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) => pf -> Failing Bool
+dpsat :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Failing Bool
 dpsat fm = (dp . defcnfs) fm
 
 -- | Davis-Putnam tautology checker.
-dptaut :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) => pf -> Failing Bool
+dptaut :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Failing Bool
 dptaut fm = not <$> dpsat (negate fm)
 
 #ifndef NOTESTS
@@ -139,11 +140,11 @@ posneg_count cls l =
       n = Set.size(Set.filter (Set.member (negate l)) cls) in
   m + n
 
-dpllsat :: (IsPropositional pf (Knows Integer), JustPropositional pf, Ord pf) =>
+dpllsat :: (IsPropositional pf, AtomOf pf ~ Knows Integer, JustPropositional pf, Ord pf) =>
            pf -> Failing Bool
 dpllsat fm = (dpll . defcnfs) fm
 
-dplltaut :: (IsPropositional pf (Knows Integer), JustPropositional pf, Ord pf) =>
+dplltaut :: (IsPropositional pf, AtomOf pf ~ Knows Integer, JustPropositional pf, Ord pf) =>
             pf -> Failing Bool
 dplltaut fm = not <$> (dpllsat . negate) fm
 
@@ -154,8 +155,7 @@ test02 = TestCase (assertEqual "dplltaut(prime 11)" (Success True) (dplltaut (pr
 #endif
 
 -- | Iterative implementation with explicit trail instead of recursion.
-dpli :: forall atom pf. (IsPropositional pf atom, Ord pf) =>
-        Set (pf, TrailMix) -> Set (Set pf) -> Failing Bool
+dpli :: forall pf. (IsPropositional pf, Ord pf) => Set (pf, TrailMix) -> Set (Set pf) -> Failing Bool
 dpli trail cls =
   let (cls', trail') = unit_propagate (cls, trail) in
   if Set.member Set.empty cls' then
@@ -206,11 +206,11 @@ backtrack trail =
     Just ((_p,Deduced), tt) -> backtrack tt
     _ -> trail
 
-dplisat :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) =>
+dplisat :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) =>
            pf -> Failing Bool
 dplisat fm = (dpli Set.empty . defcnfs) fm
 
-dplitaut :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) =>
+dplitaut :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) =>
             pf -> Failing Bool
 dplitaut fm = not <$> (dplisat . negate) fm
 
@@ -242,11 +242,11 @@ backjump cls p trail =
         if Set.member Set.empty cls' then backjump cls p tt else trail
     _ -> trail
 
-dplbsat :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) =>
+dplbsat :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) =>
            pf -> Failing Bool
 dplbsat fm = (dplb Set.empty . defcnfs) fm
 
-dplbtaut :: (IsPropositional pf atom, JustPropositional pf, Ord pf, NumAtom atom) =>
+dplbtaut :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) =>
             pf -> Failing Bool
 dplbtaut fm = not <$> (dplbsat . negate) fm
 

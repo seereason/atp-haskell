@@ -12,8 +12,9 @@ import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
-import FOL (fvl, HasApply, IsTerm, lsubst, vt)
+import FOL (fvl, HasApply, IsQuantified(VarOf), IsTerm, lsubst, vt)
 import Lit (IsLiteral)
+import Formulas (IsFormula(AtomOf))
 import Prop (JustLiteral)
 import Tableaux (deepen)
 #ifndef NOTESTS
@@ -26,15 +27,15 @@ data PrologRule lit = Prolog (Set lit) lit deriving (Eq, Ord)
 -- Rename a rule.
 -- -------------------------------------------------------------------------
 
-renamerule :: forall lit atom predicate v term function.
-              (IsLiteral lit atom, JustLiteral lit, Ord lit,
-               HasApply atom predicate term,
-               IsTerm term v function) =>
+renamerule :: forall lit predicate term function.
+              (IsLiteral lit, JustLiteral lit, Ord lit,
+               HasApply (AtomOf lit) predicate term,
+               IsTerm term (VarOf lit) function) =>
               Int -> PrologRule lit -> (PrologRule lit, Int)
 renamerule k (Prolog asm c) =
     (Prolog (Set.map inst asm) (inst c), k + Set.size fvs)
     where
-      fvs = Set.fold (Set.union . fvl) (Set.empty :: Set v) (Set.insert c asm)
+      fvs = Set.fold (Set.union . fvl) (Set.empty :: Set (VarOf lit)) (Set.insert c asm)
       vvs = Map.fromList (List.map (\(v, i) -> (v, vt (fromString ("_" ++ show i)))) (zip (Set.toList fvs) [k..]))
       inst = lsubst vvs
 

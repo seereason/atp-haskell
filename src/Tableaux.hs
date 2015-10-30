@@ -34,7 +34,7 @@ import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace (trace)
 import FOL (asubst, exists, foldQuantified, for_all, fv, generalize, HasApply,
-            HasApply, HasApplyAndEquate, JustApply, IsFirstOrder, IsTerm,
+            HasApply, HasApplyAndEquate, JustApply, IsFirstOrder, IsQuantified(VarOf), IsTerm,
             pApp, Predicate, Quant((:!:)), subst, V, vt, zipPredicates, zipPredicatesEq)
 import Formulas
 import Lib
@@ -52,11 +52,11 @@ import Test.HUnit hiding (State)
 #endif
 
 -- | Unify literals (just pretend the toplevel relation is a function).
-unify_literals :: forall lit atom term predicate v function.
-                  (IsLiteral lit atom,
-                   HasApply atom predicate term, Unify (atom, atom) v term,
-                   IsTerm term v function) =>
-                  (lit, lit) -> StateT (Map v term) Failing ()
+unify_literals :: forall lit term predicate function.
+                  (IsLiteral lit,
+                   HasApply (AtomOf lit) predicate term, Unify (AtomOf lit, AtomOf lit) (VarOf lit) term,
+                   IsTerm term (VarOf lit) function) =>
+                  (lit, lit) -> StateT (Map (VarOf lit) term) Failing ()
 unify_literals (f1, f2) =
     maybe err id (zipLiterals' ho ne tf at f1 f2)
     where
@@ -81,17 +81,17 @@ unify_atoms_eq (a1, a2) =
                                                    a1 a2)
 
 -- | Unify complementary literals.
-unify_complements :: (IsLiteral lit atom,
-                      HasApply atom predicate term, Unify (atom, atom) v term,
-                      IsTerm term v function) =>
-                     lit -> lit -> StateT (Map v term) Failing ()
+unify_complements :: (IsLiteral lit,
+                      HasApply (AtomOf lit) predicate term, Unify (AtomOf lit, AtomOf lit) (VarOf lit) term,
+                      IsTerm term (VarOf lit) function) =>
+                     lit -> lit -> StateT (Map (VarOf lit) term) Failing ()
 unify_complements p q = unify_literals (p, ((.~.) q))
 
 -- | Unify and refute a set of disjuncts.
-unify_refute :: (IsLiteral lit atom, Ord lit,
-                 HasApply atom predicate term, Unify (atom, atom) v term,
-                 IsTerm term v function) =>
-                Set (Set lit) -> Map v term -> Failing (Map v term)
+unify_refute :: (IsLiteral lit, Ord lit,
+                 HasApply (AtomOf lit) predicate term, Unify (AtomOf lit, AtomOf lit) (VarOf lit) term,
+                 IsTerm term (VarOf lit) function) =>
+                Set (Set lit) -> Map (VarOf lit) term -> Failing (Map (VarOf lit) term)
 unify_refute djs env =
     case Set.minView djs of
       Nothing -> Success env
@@ -102,10 +102,10 @@ unify_refute djs env =
             (pos,neg) = Set.partition positive d
 
 -- | Hence a Prawitz-like procedure (using unification on DNF).
-prawitz_loop :: (IsLiteral lit atom, Ord lit,
-                 HasApply atom predicate term, Unify (atom, atom) v term,
-                 IsTerm term v function) =>
-                Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
+prawitz_loop :: (IsLiteral lit, Ord lit,
+                 HasApply (AtomOf lit) predicate term, Unify (AtomOf lit, AtomOf lit) (VarOf lit) term,
+                 IsTerm term (VarOf lit) function) =>
+                Set (Set lit) -> [VarOf lit] -> Set (Set lit) -> Int -> (Map (VarOf lit) term, Int)
 prawitz_loop djs0 fvs djs n =
     let inst = Map.fromList (zip fvs (List.map newvar [1..])) in
     let djs1 = distrib (Set.map (Set.map (onatoms (atomic . asubst inst))) djs0) djs in

@@ -76,8 +76,8 @@ test06 =
                            Set.fromList [Success (Depth 1)])
                            (sk, table, runSkolem (meson Nothing fm))
 
-asAtom :: forall formula atom. IsFormula formula atom => formula -> atom
-asAtom fm = case Set.minView (atom_union singleton fm :: Set atom) of
+asAtom :: forall formula. IsFormula formula => formula -> AtomOf formula
+asAtom fm = case Set.minView (atom_union singleton fm :: Set (AtomOf formula)) of
               Just (a, s) | Set.null s -> a
               _ -> error "asAtom"
 

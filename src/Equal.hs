@@ -19,7 +19,7 @@ module Equal
 import Data.List as List (foldr, map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
-import Formulas ((∧), (⇒), IsFormula(atomic), atom_union)
+import Formulas ((∧), (⇒), IsFormula(AtomOf, atomic), atom_union)
 import FOL ((.=.), HasFunctions(funcs), HasApply(applyPredicate), HasApplyAndEquate(foldEquate),
             IsQuantified(..), (∀), IsTerm(..))
 import Lib ((∅))
@@ -56,20 +56,20 @@ import Test.HUnit
 
 -- | The set of predicates in a formula.
 -- predicates :: (IsQuantified formula atom v, IsAtomWithEquate atom p term, Ord atom, Ord p) => formula -> Set atom
-predicates :: IsFormula formula r => formula -> Set r
+predicates :: IsFormula formula => formula -> Set (AtomOf formula)
 predicates fm = atom_union Set.singleton fm
 
 -- | Code to generate equate axioms for functions.
-function_congruence :: forall fof atom term v p f.
-                       (IsQuantified fof atom v, HasApplyAndEquate atom p term, IsTerm term v f, Ord fof) =>
+function_congruence :: forall fof term p f.
+                       (IsQuantified fof, HasApplyAndEquate (AtomOf fof) p term, IsTerm term (VarOf fof) f, Ord fof) =>
                        (f, Int) -> Set fof
 function_congruence (_,0) = (∅)
 function_congruence (f,n) =
     Set.singleton (List.foldr (∀) (ant ⇒ con) (argnames_x ++ argnames_y))
     where
-      argnames_x :: [v]
+      argnames_x :: [VarOf fof]
       argnames_x = List.map (\ m -> fromString ("x" ++ show m)) [1..n]
-      argnames_y :: [v]
+      argnames_y :: [VarOf fof]
       argnames_y = List.map (\ m -> fromString ("y" ++ show m)) [1..n]
       args_x = List.map vt argnames_x
       args_y = List.map vt argnames_y
@@ -77,8 +77,8 @@ function_congruence (f,n) =
       con = fApp f args_x .=. fApp f args_y
 
 -- | And for predicates.
-predicate_congruence :: (IsQuantified fof atom v, HasApplyAndEquate atom p term, IsTerm term v f, Ord p) =>
-                        atom -> Set fof
+predicate_congruence :: (IsQuantified fof, HasApplyAndEquate (AtomOf fof) p term, IsTerm term (VarOf fof) f, Ord p) =>
+                        AtomOf fof -> Set fof
 predicate_congruence =
     foldEquate (\_ _ -> Set.empty) (\p ts -> ap p (length ts))
     where
@@ -93,7 +93,7 @@ predicate_congruence =
             con = atomic (applyPredicate p args_x) ⇒ atomic (applyPredicate p args_y)
 
 -- | Hence implement logic with equate just by adding equate "axioms".
-equivalence_axioms :: forall fof atom term v p f. (IsQuantified fof atom v, HasApplyAndEquate atom p term, IsTerm term v f, Ord fof) => Set fof
+equivalence_axioms :: forall fof term p f. (IsQuantified fof, HasApplyAndEquate (AtomOf fof) p term, IsTerm term (VarOf fof) f, Ord fof) => Set fof
 equivalence_axioms =
     Set.fromList
     [(∀) "x" (x .=. x),
@@ -106,8 +106,8 @@ equivalence_axioms =
       z :: term
       z = vt (fromString "z")
 
-equalitize :: forall formula atom term v p f.
-              (IsQuantified formula atom v, IsFormula formula atom, HasApplyAndEquate atom p term, HasFunctions formula f, HasFunctions term f, Ord p, Show p, IsTerm term v f, Ord formula, Ord atom, Ord f) =>
+equalitize :: forall formula term p f.
+              (IsQuantified formula, HasApplyAndEquate (AtomOf formula) p term, HasFunctions formula f, HasFunctions term f, Ord p, Show p, IsTerm term (VarOf formula) f, Ord formula, Ord (AtomOf formula), Ord f) =>
               formula -> formula
 equalitize fm =
     if Set.null eqPreds then fm else foldr1 (∧) axioms ⇒ fm
@@ -192,20 +192,14 @@ testEqual02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expected
 
 -- | Wishnu Prasetya's example (even nicer with an "exists unique" primitive).
 
-{- let wishnu = equalitize
-    <<(exists x. x = f(g(x)) /\ forall x'. x' = f(g(x')) ==> x = x') <=>
-      (exists y. y = g(f(y)) /\ forall y'. y' = g(f(y')) ==> y = y')>>;;
--}
-
 instance IsString MyTerm where
     fromString s = vt (fromString s)
 
 instance IsString ([MyTerm] -> MyTerm) where
     fromString = fApp . fromString
 
-wishnu :: MyFormula
-wishnu = [atp| (∃ x. ((x = f(g(x))) ∧ ∀ x'. ((x' = f(g(x'))) ⇒ (x = x')))) ⇔
-               (∃ y. ((y = g(f(y))) ∧ ∀ y'. ((y' = g(f(y'))) ⇒ (y = y')))) |]
+wishnu = equalitize [atp| (∃ x. ((x = f(g(x))) ∧ ∀ x'. ((x' = f(g(x'))) ⇒ (x = x')))) ⇔
+                          (∃ y. ((y = g(f(y))) ∧ ∀ y'. ((y' = g(f(y'))) ⇒ (y = y')))) |]
 
 -- This takes 0.7 seconds on my machine.
 testEqual03 :: Test
