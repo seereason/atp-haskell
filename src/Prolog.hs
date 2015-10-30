@@ -20,6 +20,8 @@ import Tableaux (deepen)
 import Test.HUnit
 #endif
 
+data PrologRule lit = Prolog (Set lit) lit deriving (Eq, Ord)
+
 -- -------------------------------------------------------------------------
 -- Rename a rule.
 -- -------------------------------------------------------------------------
@@ -28,9 +30,9 @@ renamerule :: forall lit atom predicate v term function.
               (IsLiteral lit atom, JustLiteral lit, Ord lit,
                HasApply atom predicate term,
                IsTerm term v function) =>
-              Int -> (Set lit, lit) -> ((Set lit, lit), Int)
-renamerule k (asm,c) =
-    ((Set.map inst asm, inst c), k + Set.size fvs)
+              Int -> PrologRule lit -> (PrologRule lit, Int)
+renamerule k (Prolog asm c) =
+    (Prolog (Set.map inst asm) (inst c), k + Set.size fvs)
     where
       fvs = Set.fold (Set.union . fvl) (Set.empty :: Set v) (Set.insert c asm)
       vvs = Map.fromList (List.map (\(v, i) -> (v, vt (fromString ("_" ++ show i)))) (zip (Set.toList fvs) [k..]))

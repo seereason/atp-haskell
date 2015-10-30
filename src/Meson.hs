@@ -27,7 +27,7 @@ import FOL (generalize, HasApply, IsFirstOrder, IsTerm)
 import Formulas ((.~.), false, negative)
 import Lib (Marked)
 import Lit (IsLiteral)
-import Prolog (renamerule)
+import Prolog (PrologRule(Prolog), renamerule)
 import Prop (JustLiteral, list_conj, Literal, Propositional, simpcnf)
 import Skolem (askolemize, HasSkolem, pnf, SkolemT, simpdnf', specialize)
 import Tableaux (Depth(Depth), deepen, unify_literals)
@@ -171,10 +171,10 @@ END_INTERACTIVE;;
 -- Generation of contrapositives.
 -- -------------------------------------------------------------------------
 
-contrapositives :: (IsLiteral lit atom, Ord lit) => Set lit -> Set (Set lit, lit)
+contrapositives :: (IsLiteral lit atom, Ord lit) => Set lit -> Set (PrologRule lit)
 contrapositives cls =
-    if setAll negative cls then Set.insert (Set.map (.~.) cls,false) base else base
-    where base = Set.map (\ c -> (Set.map (.~.) (Set.delete c cls), c)) cls
+    if setAll negative cls then Set.insert (Prolog (Set.map (.~.) cls) false) base else base
+    where base = Set.map (\ c -> (Prolog (Set.map (.~.) (Set.delete c cls)) c)) cls
 
 -- -------------------------------------------------------------------------
 -- The core of MESON: ancestor unification or Prolog-style extension.
@@ -184,7 +184,7 @@ mexpand1 :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
             HasApply atom predicate term,
             IsTerm term v function,
             Unify (atom, atom) v term) =>
-           Set (Set lit, lit)
+           Set (PrologRule lit)
         -> Set lit
         -> lit
         -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
@@ -205,7 +205,7 @@ mexpand1 rules ancestors g cont (env,n,k) =
              mexpand1' (mp, fromEnum n - Set.size asm, k')
           where
             mexpand1' = Set.fold (mexpand1 rules (Set.insert g ancestors)) cont asm
-            ((asm, c), k') = renamerule k rule
+            (Prolog asm c, k') = renamerule k rule
 
 -- -------------------------------------------------------------------------
 -- Full MESON procedure.
@@ -264,7 +264,7 @@ mexpand2 :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
             HasApply atom predicate term,
             IsTerm term v function,
             Unify (atom, atom) v term) =>
-           Set (Set lit, lit)
+           Set (PrologRule lit)
         -> Set lit
         -> lit
         -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
@@ -287,12 +287,12 @@ mexpand2 rules ancestors g cont (env,n,k) =
              mexpand2' (mp, fromEnum n - Set.size asm, k')
           where
             mexpand2' = mexpands rules (Set.insert g ancestors) asm cont
-            ((asm, c), k') = renamerule k rule
+            (Prolog asm c, k') = renamerule k rule
 
 mexpands :: (IsLiteral lit atom, JustLiteral lit, Ord lit,
              HasApply atom predicate term, Unify (atom, atom) v term,
              IsTerm term v function) =>
-            Set (Set lit, lit)
+            Set (PrologRule lit)
          -> Set lit
          -> Set lit
          -> ((Map v term, Int, Int) -> Failing (Map v term, Int, Int))
