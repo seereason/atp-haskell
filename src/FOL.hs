@@ -10,7 +10,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -22,9 +21,8 @@ module FOL
     -- * Functions
     , IsFunction
     , Arity
-    , HasFunctions(funcs)
     -- * Terms
-    , IsTerm(TVarOf, FunOf, vt, fApp, foldTerm), zipTerms, termFuncs, convertTerm, prettyTerm, showTerm
+    , IsTerm(TVarOf, FunOf, vt, fApp, foldTerm), zipTerms, funcs, convertTerm, prettyTerm, showTerm
     -- * Predicates
     , IsPredicate{-(prettyPredicateApplication, prettyPredicateEquate)-}, prettyApply, prettyEquate
     -- * Atoms
@@ -35,7 +33,7 @@ module FOL
     , overtermsEq, ontermsEq
     , convertPredicate, convertPredicateEq
     , zipPredicates, zipPredicatesEq
-    , pApp, atomFuncs
+    , pApp, atomFuncs, functions
     , isEquate, (.=.), showEquate, showApplyAndEquate
     -- * Quantified Formulas
     , Quant((:!:), (:?:))
@@ -99,7 +97,7 @@ import Data.Map as Map (empty, fromList)
 import Data.Set as Set (fromList)
 import Formulas (IsNegatable(..))
 import Lit (foldLiteral')
-import Prop (foldPropositional', PFormula)
+import Prop (foldPropositional')
 import Test.HUnit
 #endif
 
@@ -159,13 +157,6 @@ class (IsString function, Ord function, Pretty function, Show function) => IsFun
 
 type Arity = Int
 
--- | Class of objects for which we can find a set of (function, arity) pairs.
-class (IsFunction function, Ord function) => HasFunctions t function where
-    funcs :: t -> Set (function, Arity)
-
-instance HasFunctions t function => HasFunctions (Marked mk t) function where
-    funcs = funcs . unMark'
-
 #ifndef NOTESTS
 -- | A simple type to use as the function parameter of Term, FOL, etc.
 -- The only reason to use this instead of String is to get nicer
@@ -211,9 +202,6 @@ zipTerms v ap t1 t2 =
       v' v1 =      foldTerm     (v v1)   (\_ _ -> Nothing) t2
       ap' p1 ts1 = foldTerm (\_ -> Nothing) (\p2 ts2 -> if length ts1 == length ts2 then ap p1 ts1 p2 ts2 else Nothing)   t2
 
-termFuncs :: (IsTerm term, v ~ TVarOf term, function ~ FunOf term) => term -> Set (function, Arity)
-termFuncs = foldTerm (\_ -> Set.empty) (\f ts -> Set.singleton (f, length ts))
-
 -- | Convert between two instances of IsTerm
 convertTerm :: (IsTerm term1, v1 ~ TVarOf term1, f1 ~ FunOf term1,
                 IsTerm term2, v2 ~ TVarOf term2, f2 ~ FunOf term2) => (v1 -> v2) -> (f1 -> f2) -> term1 -> term2
@@ -226,12 +214,6 @@ prettyFunctionApply :: (function ~ FunOf term,
                         IsTerm term) => function -> [term] -> Doc
 prettyFunctionApply f [] = pPrint f
 prettyFunctionApply f ts = pPrint f <> space <> brackets (hsep (punctuate comma (map prettyTerm ts)))
-
-{-
-showTerm :: (IsTerm term v function, Show function, Show v) => term -> String
-showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> show (prettyApply (text ("fApp (" ++ show fn ++ ")")) (text " ") (map (text . showTerm) ts)))
--- showTerm = foldTerm (\v -> "vt " ++ show v) (\ fn ts -> "fApp (" ++ show fn ++ ") [" ++ intercalate ", " (map showTerm ts) ++ "]")
--}
 
 showTerm :: (v ~ TVarOf term, function ~ FunOf term,
              IsTerm term, Pretty v, Pretty function) => term -> String
@@ -247,14 +229,6 @@ data Term function v
     | FApply function [Term function v]
     deriving (Eq, Ord, Data, Typeable, Show)
 
-{-
-instance (IsVariable v, Show v, IsFunction function, Show function) => Show (Marked Expr (Term function v)) where
-    show = showTerm . unMark'
--}
-
-instance (IsFunction function, IsVariable v) => HasFunctions (Term function v) function where
-    funcs = termFuncs
-
 instance (IsFunction function, IsVariable v) => IsTerm (Term function v) where
     type TVarOf (Term function v) = v
     type FunOf (Term function v) = function
@@ -264,6 +238,9 @@ instance (IsFunction function, IsVariable v) => IsTerm (Term function v) where
         case t of
           Var v -> vf v
           FApply f ts -> fn f ts
+
+funcs :: (IsTerm term, function ~ FunOf term) => term -> Set (function, Arity)
+funcs = foldTerm (\_ -> Set.empty) (\f ts -> Set.singleton (f, length ts))
 
 instance (IsTerm (Term function v)) => Pretty (Term function v) where
     pPrint = prettyTerm
@@ -298,6 +275,13 @@ class (IsAtom atom, IsPredicate (PredOf atom), IsTerm (TermOf atom), Ord (TermOf
     overterms :: ((TermOf atom) -> r -> r) -> r -> atom -> r
     onterms :: ((TermOf atom) -> (TermOf atom)) -> atom -> atom
 
+atomFuncs :: (term ~ TermOf atom, function ~ FunOf term, HasApply atom) => atom -> Set (function, Arity)
+atomFuncs = overterms (Set.union . funcs) mempty
+
+functions :: (atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
+                 IsFormula formula, HasApply atom, Ord function) => formula -> Set (function, Arity)
+functions fm = overatoms (Set.union . atomFuncs) fm mempty
+
 -- | Atoms that have apply but do not support equate
 class JustApply atom
 
@@ -316,10 +300,6 @@ overtermsApply f r0 = foldPredicate (\_ ts -> foldr f r0 ts)
 -- | Implementation of 'onterms' for 'HasApply' types.
 ontermsApply :: (HasApply atom, JustApply atom) => ((TermOf atom) -> (TermOf atom)) -> atom -> atom
 ontermsApply f = foldPredicate (\p ts -> applyPredicate p (map f ts))
-
--- | Implementation of 'funcs' for 'HasApply' types
-atomFuncs :: (HasApply atom, HasFunctions (TermOf atom) function) => atom -> Set (function, Arity)
-atomFuncs = overterms (\term s -> Set.union (funcs term) s) mempty
 
 -- | Zip two atoms if they are similar
 zipPredicates :: (HasApply atom, JustApply atom) =>
@@ -340,7 +320,6 @@ showApply p ts = show (text "pApp " <> parens (text (show p)) <> brackets (fcat 
 class HasApply atom => HasApplyAndEquate atom where
     equate :: TermOf atom -> TermOf atom -> atom
     foldEquate :: (TermOf atom -> TermOf atom -> r) -> (PredOf atom -> [TermOf atom] -> r) -> atom -> r
-    -- prettyEquate :: forall term. Pretty term => predicate -> term -> term -> Doc
 
 overtermsEq :: HasApplyAndEquate atom => (TermOf atom -> r -> r) -> r -> atom -> r
 overtermsEq f r0 = foldEquate (\t1 t2 -> f t2 (f t1 r0)) (\_ ts -> foldr f r0 ts)
@@ -489,12 +468,6 @@ instance (IsPredicate predicate, IsTerm term) => HasApplyAndEquate (FOLEQ predic
     foldEquate eq _ (Equals lhs rhs) = eq lhs rhs
     foldEquate _ ap (AP p ts) = ap p ts
 
-instance (HasApply (FOL predicate term), HasFunctions term function) => HasFunctions (FOL predicate term) function where
-    funcs = atomFuncs
-
-instance (HasApply (FOLEQ predicate term), HasFunctions term function) => HasFunctions (FOLEQ predicate term) function where
-    funcs = atomFuncs
-
 instance HasFixity (FOL predicate term) where
     fixity _ = Fixity 6 InfixN
 
@@ -537,7 +510,6 @@ class (IsPropositional formula, IsVariable (VarOf formula)) => IsQuantified form
 class (IsQuantified formula,
        HasApply (AtomOf formula),
        IsTerm (TermOf (AtomOf formula)),
-       HasFunctions formula (FunOf (TermOf (AtomOf formula))),
        Pretty formula
       ) => IsFirstOrder formula
 
@@ -554,25 +526,25 @@ instance IsFirstOrder formula => IsFirstOrder (Marked mk formula)
 -- | Implementation of funcs for quantified formulas.
 quantifiedFuncs :: forall formula atom term function.
                    (atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
-                    IsQuantified formula, HasApply atom,
-                    HasFunctions atom function
+                    IsQuantified formula, HasApply atom
                    ) => formula -> Set (function, Arity)
 quantifiedFuncs = foldQuantified qu co ne tf at
     where qu _ _ fm = quantifiedFuncs fm
           ne fm = quantifiedFuncs fm
           co lhs _ rhs = union (quantifiedFuncs lhs) (quantifiedFuncs rhs)
           tf _ = Set.empty
-          at = (funcs :: AtomOf formula -> Set (function, Arity))
+          at = overterms (Set.union . funcs) mempty
+          -- at = (funcs :: AtomOf formula -> Set (function, Arity))
 
-propositionalFuncs :: forall formula function.
-                   (IsPropositional formula,
-                    JustPropositional formula,
-                    HasFunctions (AtomOf formula) function) => formula -> Set (function, Arity)
+propositionalFuncs :: forall formula atom term function.
+                   (atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
+                    IsPropositional formula, JustPropositional formula, HasApply atom, Ord function
+                   ) => formula -> Set (function, Arity)
 propositionalFuncs = foldPropositional co ne tf at
     where ne fm = propositionalFuncs fm
           co lhs _ rhs = union (propositionalFuncs lhs) (propositionalFuncs rhs)
           tf _ = Set.empty
-          at = funcs
+          at = overterms (Set.union . funcs) mempty
 
 fixityQuantified :: forall formula. IsQuantified formula => formula -> Fixity
 fixityQuantified fm =
@@ -638,17 +610,6 @@ data Formula v atom
     | Forall v (Formula v atom)
     | Exists v (Formula v atom)
     deriving (Eq, Ord, Data, Typeable, Read)
-
-instance (term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term,
-          HasFunctions atom function, HasApply atom, IsTerm term)
-    => HasFunctions (Formula v atom) function where
-    funcs = quantifiedFuncs
-
-instance (HasFunctions atom function,
-          HasApply atom,
-          IsTerm (TermOf atom))
-    => HasFunctions (PFormula atom) function where
-    funcs = propositionalFuncs
 
 instance (term ~ TermOf atom, v ~ TVarOf term,
           HasApply atom,

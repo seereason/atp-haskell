@@ -26,6 +26,7 @@ module Skolem
     , SkolemT
     , runSkolemT
     , HasSkolem(toSkolem, fromSkolem)
+    , skolems
     , askolemize
     , skolemize
     , specialize
@@ -44,8 +45,9 @@ import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT)
 import Data.List as List (map)
 import Data.Map as Map (singleton)
+import Data.Maybe (isJust)
 import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union)
-import FOL (exists, fApp, for_all, fv, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf, foldQuantified),
+import FOL (exists, fApp, for_all, functions, fv, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf, foldQuantified),
             IsTerm(TVarOf, FunOf), quant, Quant((:?:), (:!:)), subst, variant, vt)
 import Formulas ((.~.), (.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)), IsFormula(AtomOf), negate, false, true, atomic)
 import Lib (setAny, distrib)
@@ -277,6 +279,11 @@ runSkolemT action = (runStateT action) newSkolemState >>= return . fst
 class HasSkolem function v | function -> v where
     toSkolem :: v -> function
     fromSkolem :: function -> Maybe v
+
+-- | Extract the skolem functions from a formula.
+skolems :: (atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term,
+            HasSkolem function v, HasApply atom, Ord function) => IsFormula formula => formula -> Set function
+skolems = Set.filter (isJust . fromSkolem) . Set.map fst . functions
 
 -- | Core Skolemization function.
 --

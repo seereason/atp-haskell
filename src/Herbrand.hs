@@ -8,6 +8,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -20,7 +21,7 @@ import Data.String (IsString(..))
 import Debug.Trace
 
 import DP (dpll)
-import FOL (Arity, HasFunctions(funcs), HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
+import FOL (Arity, functions, funcs, HasApply(TermOf, PredOf), HasApply(overterms), IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
             fApp, lsubst, fv, generalize)
 import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib, Marked)
@@ -31,6 +32,7 @@ import Skolem (HasSkolem, runSkolem, skolemize)
 #ifndef NOTESTS
 import FOL (exists, for_all, pApp, V, vt)
 import Formulas ((.=>.), (.&.), (.|.))
+import Parser(atp)
 import Pretty (prettyShow)
 import Skolem (MyFormula, MyTerm)
 import Test.HUnit hiding (tried)
@@ -41,10 +43,9 @@ pholds :: (IsPropositional pf, JustPropositional pf) => (AtomOf pf -> Bool) -> p
 pholds d fm = eval fm d
 
 -- | Get the constants for Herbrand base, adding nullary one if necessary.
-herbfuns :: HasFunctions fof function =>
-            fof -> (Set (function, Arity), Set (function, Arity))
+herbfuns :: (atom ~ AtomOf fof, term ~ TermOf atom, function ~ FunOf term, IsFormula fof, HasApply atom, Ord function) => fof -> (Set (function, Arity), Set (function, Arity))
 herbfuns fm =
-  let (cns,fns) = Set.partition (\ (_,ar) -> ar == 0) (funcs fm) in
+  let (cns,fns) = Set.partition (\ (_,ar) -> ar == 0) (functions fm) in
   if Set.null cns then (Set.singleton (fromString "c",0),fns) else (cns,fns)
 
 -- | Enumeration of ground terms and m-tuples, ordered by total fns.
@@ -68,8 +69,7 @@ herbloop :: forall lit atom function v term.
             (atom ~ AtomOf lit, v ~ VarOf lit, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
              IsLiteral lit,
              HasApply atom,
-             IsTerm term,
-             HasFunctions lit function) =>
+             IsTerm term) =>
             (Set (Set lit) -> (lit -> lit) -> Set (Set lit) -> Set (Set lit))
          -> (Set (Set lit) -> Failing Bool)
          -> Set (Set lit)
@@ -101,8 +101,7 @@ herbloop mfn tfn fl0 cntms fns fvs n fl tried tuples =
 gilmore_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term, function ~ FunOf term,
                  IsLiteral lit, Ord lit,
                  HasApply atom,
-                 IsTerm term,
-                 HasFunctions lit function) =>
+                 IsTerm term) =>
                 Set (Set lit)
              -> Set term
              -> Set (function, Int)
@@ -120,7 +119,6 @@ gilmore_loop =
 gilmore :: forall fof atom term v function.
            (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
             IsFirstOrder fof, Ord fof,
-            HasFunctions fof function,
             HasSkolem function v) =>
            fof -> Failing Int
 gilmore fm =
@@ -134,7 +132,7 @@ gilmore fm =
 -- | First example and a little tracing.
 test01 :: Test
 test01 =
-    let fm = exists "x" (for_all "y" (pApp "p" [vt "x"] .=>. pApp "p" [vt "y"])) :: MyFormula
+    let fm = [atp| exists x. forall y. p(x) ==> p(y) |]
         expected = Success 2
     in
     TestCase (assertString (case gilmore fm of
@@ -201,7 +199,6 @@ dp_mfn cjs0 ifn cjs = Set.union (Set.map (Set.map ifn) cjs0) cjs
 dp_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf lit, v ~ TVarOf term,
             IsLiteral lit, Ord lit,
             HasApply atom,
-            HasFunctions lit function,
             IsTerm term) =>
            Set (Set lit)
         -> Set term
@@ -239,7 +236,6 @@ END_INTERACTIVE;;
 davisputnam' :: forall formula atom predicate term v function.
                 (atom ~ AtomOf formula, predicate ~ PredOf atom, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf formula, v ~ TVarOf term,
                  IsFirstOrder formula, Ord formula,
-                 HasFunctions formula function,
                  HasSkolem function v) =>
                 formula -> formula -> formula -> Failing Int
 davisputnam' _ _ fm =
@@ -256,8 +252,7 @@ davisputnam' _ _ fm =
 dp_refine_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term, function ~ FunOf term,
                    IsLiteral lit, Ord lit,
                    IsTerm term,
-                   HasApply atom,
-                   HasFunctions lit function) =>
+                   HasApply atom) =>
                   Set (Set lit)
                -> Set term
                -> Set (function, Int)

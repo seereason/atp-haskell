@@ -21,7 +21,7 @@ import Data.List as List (foldr, map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
 import Formulas ((∧), (⇒), IsFormula(AtomOf, atomic), atom_union)
-import FOL ((.=.), HasFunctions(funcs), HasApply(TermOf, PredOf, applyPredicate), HasApplyAndEquate(foldEquate),
+import FOL ((.=.), functions, HasApply(TermOf, PredOf, applyPredicate), HasApplyAndEquate(foldEquate),
             IsQuantified(..), (∀), IsTerm(..))
 import Lib ((∅))
 import Parser (atp)
@@ -114,15 +114,14 @@ equivalence_axioms =
 equalitize :: forall formula atom term v function.
               (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
                IsQuantified formula, HasApplyAndEquate atom,
-               HasFunctions formula function,
-               HasFunctions term function, IsTerm term, Ord formula, Ord atom) =>
+               IsTerm term, Ord formula, Ord atom) =>
               formula -> formula
 equalitize fm =
     if Set.null eqPreds then fm else foldr1 (∧) axioms ⇒ fm
     where
       axioms = Set.fold (Set.union . function_congruence)
                         (Set.fold (Set.union . predicate_congruence) equivalence_axioms otherPreds)
-                        (funcs fm)
+                        (functions fm)
       (eqPreds, otherPreds) = Set.partition (foldEquate (\_ _ -> True) (\_ _ -> False)) (predicates fm)
 
 #ifndef NOTESTS
@@ -258,14 +257,6 @@ testEqual :: Test
 testEqual = TestLabel "Equal" (TestList [testEqual01, testEqual02, testEqual03, testEqual04])
 
 #endif
-
-{-
-functions' :: (IsFormula formula atom, Ord f) => (atom -> Set (f, Int)) -> formula -> Set (f, Arity)
-functions' fa fm = overatoms (\ a s -> Set.union s (fa a)) fm Set.empty
-
-funcsAtomEq :: (IsAtomWithEquate atom p term, HasFunctions term f, IsTerm term v f, Ord f) => atom -> Set (f, Arity)
-funcsAtomEq = foldEquate (\ _ ts -> Set.unions (List.map funcs ts)) (\ t1 t2 -> Set.union (funcs t1) (funcs t2))
--}
 
 -- -------------------------------------------------------------------------
 -- Other variants not mentioned in book.
