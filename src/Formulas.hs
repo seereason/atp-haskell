@@ -29,6 +29,7 @@ module Formulas
 import Data.Data (Data)
 import Data.Set as Set (Set, empty, union)
 import Data.Typeable (Typeable)
+import Lib (Marked(Mark, unMark'))
 import Prelude hiding (negate)
 import Pretty (Doc, HasFixity, Pretty, text)
 
@@ -183,3 +184,39 @@ class (Pretty formula, HasFixity formula, IsAtom (AtomOf formula)) => IsFormula 
 -- | Special case of a union of the results of a function over the atoms.
 atom_union :: (IsFormula formula, Ord r) => (AtomOf formula -> Set r) -> formula -> Set r
 atom_union f fm = overatoms (\h t -> Set.union (f h) t) fm Set.empty
+{-
+-- | Make sure associative operators are grouped left to right, use this
+-- to make more equality tests succeed.
+leftAssociate :: IsCombinable formula => formula -> formula
+canonical fm =
+    foldCombination dj cj imp iff other (canonical1 fm)
+    where
+      dj p q = foldCombination dj' (canonical p) (canonical q)
+-}
+
+instance IsFormula formula => IsFormula (Marked mk formula) where
+    type AtomOf (Marked mk formula) = AtomOf formula
+    atomic = Mark . atomic
+    overatoms at (Mark fm) = overatoms at fm
+    onatoms at (Mark fm) = Mark (onatoms (unMark' . at) fm)
+
+instance HasBoolean formula => HasBoolean (Marked mk formula) where
+    asBool (Mark x) = asBool x
+    fromBool x = Mark (fromBool x)
+
+instance IsNegatable formula => IsNegatable (Marked mk formula) where
+    naiveNegate (Mark x) = Mark (naiveNegate x)
+    foldNegation' ne ot (Mark x) = foldNegation' (ne . Mark) (ot . Mark) x
+
+instance IsCombinable formula => IsCombinable (Marked mk formula) where
+    (Mark a) .|. (Mark b) = Mark (a .|. b)
+    (Mark a) .&. (Mark b) = Mark (a .&. b)
+    (Mark a) .=>. (Mark b) = Mark (a .=>. b)
+    (Mark a) .<=>. (Mark b) = Mark (a .<=>. b)
+    foldCombination dj cj imp iff other fm =
+        foldCombination (\a b -> dj a b)
+                        (\a b -> cj a b)
+                        (\a b -> imp a b)
+                        (\a b -> iff a b)
+                        (\a -> other a)
+                        fm

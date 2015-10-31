@@ -126,9 +126,9 @@ forallQuantifier = quantifier "∀" Forall <|> quantifier "forall" Forall
 
 quantifier :: forall s u m. Stream s m Char => [Char] -> (V -> MyFormula -> MyFormula) -> ParsecT s u m MyFormula
 quantifier name op = do
-   m_reserved name
+   m_reservedOp name
    is <- map V <$> many1 m_identifier
-   m_symbol "."
+   _ <- m_symbol "."
    fm <- folparser
    return (foldr op fm is)
 

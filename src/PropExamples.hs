@@ -46,10 +46,10 @@ ramsey s t n =
 
 data Knows a = K String a (Maybe a) deriving (Eq, Ord, Show)
 
-instance Pretty (Knows Integer) where
+instance (Num a, Show a) => Pretty (Knows a) where
     pPrint (K s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
 
-instance HasFixity (Knows Integer) where
+instance Num a => HasFixity (Knows a) where
     fixity = const leafFixity
 
 instance IsAtom (Knows Integer)

@@ -52,12 +52,12 @@ class (IsFormula lit, IsNegatable lit, HasBoolean lit) => IsLiteral lit where
                  -> (AtomOf lit -> r) -- ^ Called for atomic formulas
                  -> lit -> r
 
-foldLiteral :: IsLiteral lit => (lit -> r) -> (Bool -> r) -> (AtomOf lit -> r) -> lit -> r
+foldLiteral :: JustLiteral lit => (lit -> r) -> (Bool -> r) -> (AtomOf lit -> r) -> lit -> r
 foldLiteral = foldLiteral' (error "JustLiteral failure")
 
 -- | Class that indicates that a formula type *only* contains 'IsLiteral'
 -- features - no combinations or quantifiers.
-class JustLiteral formula
+class IsLiteral formula => JustLiteral formula
 
 -- | Combine two literals (internal version).
 zipLiterals' :: (IsLiteral lit1, IsLiteral lit2) =>
@@ -75,7 +75,7 @@ zipLiterals' ho neg tf at fm1 fm2 =
       at' a1 = foldLiteral' (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
 
 -- | Combine two literals.
-zipLiterals :: (IsLiteral lit1, JustLiteral lit1, IsLiteral lit2, JustLiteral lit2) =>
+zipLiterals :: (JustLiteral lit1, JustLiteral lit2) =>
                (lit1 -> lit2 -> Maybe r)
             -> (Bool -> Bool -> Maybe r)
             -> (AtomOf lit1 -> AtomOf lit2 -> Maybe r)
@@ -88,16 +88,16 @@ zipLiterals neg tf at fm1 fm2 =
       at' a1 = foldLiteral (\ _ -> Nothing) (\ _ -> Nothing) (at a1) fm2
 
 -- | Convert a 'JustLiteral' instance to any 'IsLiteral' instance.
-convertLiteral :: (IsLiteral lit1, JustLiteral lit1, IsLiteral lit2) => (AtomOf lit1 -> AtomOf lit2) -> lit1 -> lit2
+convertLiteral :: (JustLiteral lit1, IsLiteral lit2) => (AtomOf lit1 -> AtomOf lit2) -> lit1 -> lit2
 convertLiteral ca fm = foldLiteral (\fm' -> (.~.) (convertLiteral ca fm')) fromBool (atomic . ca) fm
 
 -- | Convert any formula to a literal, passing non-IsLiteral
 -- structures to the first argument (typically a call to error.)
-convertToLiteral :: (IsLiteral formula, IsLiteral lit, JustLiteral lit
+convertToLiteral :: (IsLiteral formula, JustLiteral lit
                     ) => (formula -> lit) -> (AtomOf formula -> AtomOf lit) -> formula -> lit
 convertToLiteral ho ca fm = foldLiteral' ho (\fm' -> (.~.) (convertToLiteral ho ca fm')) fromBool (atomic . ca) fm
 
-fixityLiteral :: (IsLiteral lit, JustLiteral lit) => lit -> Fixity
+fixityLiteral :: JustLiteral lit => lit -> Fixity
 fixityLiteral fm =
     foldLiteral ne tf at fm
     where
@@ -106,7 +106,7 @@ fixityLiteral fm =
       at = fixity
 
 -- | Implementation of 'pPrint' for -- 'JustLiteral' types.
-prettyLiteral :: (IsLiteral lit, JustLiteral lit) => lit -> Doc
+prettyLiteral :: JustLiteral lit => lit -> Doc
 prettyLiteral lit =
     foldLiteral ne tf at lit
     where
@@ -114,7 +114,7 @@ prettyLiteral lit =
       tf = pPrint
       at a = pPrint a
 
-showLiteral :: (IsLiteral lit, JustLiteral lit) => lit -> String
+showLiteral :: JustLiteral lit => lit -> String
 showLiteral lit = foldLiteral ne tf at lit
     where
       ne p = "(.~.)(" ++ showLiteral p ++ ")"
@@ -122,7 +122,7 @@ showLiteral lit = foldLiteral ne tf at lit
       at = show
 
 -- | Implementation of 'onatoms' for 'JustLiteral' types.
-onatomsLiteral :: IsLiteral lit => (AtomOf lit -> lit) -> lit -> lit
+onatomsLiteral :: JustLiteral lit => (AtomOf lit -> lit) -> lit -> lit
 onatomsLiteral f fm =
     foldLiteral ne tf at fm
     where
@@ -131,7 +131,7 @@ onatomsLiteral f fm =
       at x = f x
 
 -- | implementation of 'overatoms' for 'JustLiteral' types.
-overatomsLiteral :: (IsLiteral lit, JustLiteral lit) => (AtomOf lit -> r -> r) -> lit -> r -> r
+overatomsLiteral :: JustLiteral lit => (AtomOf lit -> r -> r) -> lit -> r -> r
 overatomsLiteral f fm r0 =
         foldLiteral ne (const r0) (flip f r0) fm
         where
@@ -155,13 +155,16 @@ instance Ord formula => Ord (Marked Literal formula)where
 instance Show (Marked Expr formula) => Show (Marked Expr (Marked Literal formula)) where
     show (Mark (Mark fm)) = "markLiteral (" ++ show (markExpr fm) ++ ")"
 
-instance JustLiteral (Marked Literal formula)
+instance IsLiteral formula => JustLiteral (Marked Literal formula)
 
 markLiteral :: IsLiteral lit => lit -> Marked Literal lit
 markLiteral = Mark
 
 unmarkLiteral :: IsLiteral pf => Marked Literal pf -> pf
 unmarkLiteral = unMark'
+
+instance (IsLiteral formula, IsNegatable formula) => IsLiteral (Marked mk formula) where
+    foldLiteral' ho ne tf at (Mark x) = foldLiteral' (ho . Mark) (ne . Mark) tf at x
 
 #ifndef NOTESTS
 -- | Example of a 'JustLiteral' type.
@@ -186,7 +189,7 @@ instance (IsFormula (LFormula atom), Eq atom, Ord atom) => IsLiteral (LFormula a
           Atom a -> at a
           Not f -> ne f
 
-instance JustLiteral (LFormula atom)
+instance IsAtom atom => JustLiteral (LFormula atom)
 
 instance HasBoolean (LFormula atom) where
     asBool T = Just True
@@ -203,6 +206,6 @@ instance Ord atom => IsNegatable (LFormula atom) where
 instance IsAtom atom => HasFixity (LFormula atom) where
     fixity = fixityLiteral
 
-instance IsLiteral (LFormula atom) => Pretty (LFormula atom) where
+instance IsAtom atom => Pretty (LFormula atom) where
     pPrint = prettyLiteral
 #endif

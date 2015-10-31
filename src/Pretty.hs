@@ -32,7 +32,7 @@ import Data.Set as Set (Set, toAscList)
 import GHC.Stack
 import Language.Haskell.TH.Syntax (maxPrecedence)
 import Language.Haskell.TH.Ppr (noPrec, Precedence)
-import Lib (Marked(Mark))
+import Lib (Marked(Mark, unMark'))
 import Test.HUnit (Assertion, assertFailure)
 import Text.PrettyPrint.HughesPJClass (brackets, comma, Doc, fsep, hcat, nest, Pretty(pPrint), prettyShow, punctuate, text)
 
@@ -131,3 +131,9 @@ data Expr
 deriving instance Data Expr
 markExpr :: a -> Marked Expr a
 markExpr = Mark
+
+instance HasFixity formula => HasFixity (Marked mk formula) where
+    fixity (Mark x) = fixity x
+
+instance Pretty formula => Pretty (Marked mk formula) where
+    pPrint = pPrint . unMark'

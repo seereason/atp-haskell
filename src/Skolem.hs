@@ -65,7 +65,7 @@ import Test.HUnit
 #endif
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
-simplify :: (IsQuantified formula, HasApply atom, IsTerm term, atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term {-, atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term, IsFirstOrder formula-}) => formula -> formula
+simplify :: IsFirstOrder formula => formula -> formula
 simplify fm =
     foldQuantified qu co ne (\_ -> fm) (\_ -> fm) fm
     where
@@ -77,9 +77,7 @@ simplify fm =
       co p (:=>:) q = simplify1 (simplify p .=>. simplify q)
       co p (:<=>:) q = simplify1 (simplify p .<=>. simplify q)
 
-simplify1 :: (IsQuantified formula, HasApply atom, IsTerm term, atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term {-atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-              IsFirstOrder formula-}) =>
-             formula -> formula
+simplify1 :: IsFirstOrder formula => formula -> formula
 simplify1 fm =
     foldQuantified qu (\_ _ _ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) fm
     where
@@ -90,9 +88,6 @@ simplify1 fm =
 type MyTerm = Term Function V
 type MyAtom = FOLEQ Predicate MyTerm
 type MyFormula = Formula V MyAtom
-
---instance HasFunctions MyFormula Function where
---    funcs = quantifiedFuncs
 
 instance IsFirstOrder MyFormula
 
@@ -106,8 +101,7 @@ test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ prettyShow fm) expected
 #endif
 
 -- | Negation normal form for first order formulas
-nnf :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-        IsFirstOrder formula) => formula -> formula
+nnf :: IsFirstOrder formula => formula -> formula
 nnf = nnf1 . simplify
 
 nnf1 :: IsQuantified formula => formula -> formula

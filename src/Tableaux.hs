@@ -18,6 +18,8 @@
 
 module Tableaux
     ( unify_literals
+    , unify_atoms
+    , unify_atoms_eq
     , prawitz
     , deepen, Depth(Depth), K(K)
     , tab
@@ -68,30 +70,27 @@ unify_literals (f1, f2) =
       at a1 a2 = Just $ unify (a1, a2)
       err = fail "Can't unify literals"
 
-unify_atoms :: (term ~ TermOf atom, v ~ TVarOf term, HasApply atom, JustApply atom, IsTerm term) =>
-               (atom, atom) -> StateT (Map v (TermOf atom)) Failing ()
+unify_atoms :: (JustApply atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) =>
+               (atom, atom) -> StateT (Map v term) Failing ()
 unify_atoms (a1, a2) =
     maybe (fail "unify_atoms") id (zipPredicates (\_ tpairs -> Just (unify_terms tpairs)) a1 a2)
 
-unify_atoms_eq :: forall atom v term.
-               (term ~ TermOf atom, HasApplyAndEquate atom, IsTerm term, v ~ TVarOf term) =>
-               (atom, atom) -> StateT (Map v term) Failing ()
+unify_atoms_eq :: (HasApplyAndEquate atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) =>
+                  (atom, atom) -> StateT (Map v term) Failing ()
 unify_atoms_eq (a1, a2) =
     maybe (fail "unify_atoms") id (zipPredicatesEq (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
                                                    (\_ tpairs -> Just (unify_terms tpairs))
                                                    a1 a2)
 
 -- | Unify complementary literals.
-unify_complements :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
-                      IsLiteral lit, HasApply atom, Unify (atom, atom) v term, IsTerm term) =>
+unify_complements :: (IsLiteral lit, HasApply atom, Unify (atom, atom) v term, IsTerm term,
+                      atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term) =>
                      lit -> lit -> StateT (Map v term) Failing ()
 unify_complements p q = unify_literals (p, ((.~.) q))
 
 -- | Unify and refute a set of disjuncts.
-unify_refute :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
-                 IsLiteral lit, Ord lit,
-                 HasApply atom, Unify (atom, atom) v term,
-                 IsTerm term) =>
+unify_refute :: (IsLiteral lit, Ord lit, HasApply atom, Unify (atom, atom) v term, IsTerm term,
+                 atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
     case Set.minView djs of
@@ -103,10 +102,8 @@ unify_refute djs env =
             (pos,neg) = Set.partition positive d
 
 -- | Hence a Prawitz-like procedure (using unification on DNF).
-prawitz_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
-                 IsLiteral lit, Ord lit,
-                 HasApply atom, Unify (atom, atom) v term,
-                 IsTerm term) =>
+prawitz_loop :: (IsLiteral lit, Ord lit, HasApply atom, Unify (atom, atom) v term, IsTerm term,
+                 atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term) =>
                 Set (Set lit) -> [VarOf lit] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
     let inst = Map.fromList (zip fvs (List.map newvar [1..])) in
@@ -118,12 +115,9 @@ prawitz_loop djs0 fvs djs n =
       newvar k = vt (fromString ("_" ++ show (n * length fvs + k)))
 
 prawitz :: forall formula atom term function v.
-           (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
-            IsFirstOrder formula,
-            Ord formula,
-            Unify (atom, atom) v term,
-            HasSkolem function v
-           ) => formula -> Int
+           (IsFirstOrder formula, Ord formula, Unify (atom, atom) v term, HasSkolem function v,
+            atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term) =>
+           formula -> Int
 prawitz fm =
     snd (prawitz_loop dnf (Set.toList fvs) dnf0 0)
     where
@@ -243,40 +237,81 @@ instance Pretty Depth where
     pPrint = text . show
 
 -- | More standard tableau procedure, effectively doing DNF incrementally.  (p. 177)
+#if 1
 tableau :: forall formula atom term v function.
            (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
             IsFirstOrder formula,
             Unify (atom, atom) v term) =>
-           ([formula], [formula], Depth)
-        -> ((K, Map v term) -> RWS () () () (Failing (K, Map v term)))
-        -> (K, Map v term)
-        -> RWS () () () (Failing (K, Map v term))
-tableau (fms, lits, n) cont (k, env) =
-    case fms of
-      _ | n < Depth 0 -> return $ Failure ["no proof at this level"]
-      [] -> return $ Failure ["tableau: no proof"]
-      (fm : unexp) ->
-          foldQuantified qu co (\_ -> go fm unexp) (\_ -> go fm unexp) (\_ -> go fm unexp) fm
+           [formula] -> Depth -> RWS () () () (Failing (K, Map v term))
+tableau fms n0 =
+    go (fms, [], n0) (return . Success) (K 0, Map.empty)
+    where
+      go :: ([formula], [formula], Depth)
+         -> ((K, Map v term) -> RWS () () () (Failing (K, Map v term)))
+         -> (K, Map v term)
+         -> RWS () () () (Failing (K, Map v term))
+      go (_, _, n) _ (_, _) | n < Depth 0 = return $ Failure ["no proof at this level"]
+      go ([], _, _) _ (_, _) =  return $ Failure ["tableau: no proof"]
+      go (fm : unexp, lits, n) cont (k, env) =
+          foldQuantified qu co (\_ -> go2 fm unexp) (\_ -> go2 fm unexp) (\_ -> go2 fm unexp) fm
           where
             qu :: Quant -> v -> formula -> RWS () () () (Failing (K, Map v term))
             qu (:!:) x p =
                 let y = vt (fromString (prettyShow k))
                     p' = subst (x |=> y) p in
-                tableau ([p'] ++ unexp ++ [for_all x p],lits,pred n) cont (succ k, env)
-            qu _ _ _ = go fm unexp
+                go ([p'] ++ unexp ++ [for_all x p],lits,pred n) cont (succ k, env)
+            qu _ _ _ = go2 fm unexp
             co p (:&:) q =
-                tableau (p : q : unexp,lits,n) cont (k, env)
+                go (p : q : unexp,lits,n) cont (k, env)
             co p (:|:) q =
-                tableau (p : unexp,lits,n) (tableau (q : unexp,lits,n) cont) (k, env)
-            co _ _ _ = go fm unexp
+                go (p : unexp,lits,n) (go (q : unexp,lits,n) cont) (k, env)
+            co _ _ _ = go2 fm unexp
+
+            go2 :: formula -> [formula] -> RWS () () () (Failing (K, Map v term))
+            go2 fm' unexp' =
+                tryfindM (tryLit fm') lits >>=
+                failing (\_ -> go (unexp', fm' : lits, n) cont (k, env))
+                        (return . Success)
+            tryLit :: formula -> formula -> RWS () () () (Failing (K, Map v term))
+            tryLit fm' l = failing (return . Failure) (\env' -> cont (k, env')) (execStateT (unify_complements fm' l) env)
+#else
+tableau :: forall formula atom term v function.
+           (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
+            IsFirstOrder formula,
+            Unify (atom, atom) v term) =>
+           [formula] -> Depth -> Failing (K, Map v term)
+tableau fms n0 =
+    go (fms, [], n0) Success (K 0, Map.empty)
     where
-      go :: formula -> [formula] -> RWS () () () (Failing (K, Map v term))
-      go fm unexp =
-          tryfindM (tryLit fm) lits >>=
-          failing (\_ -> tableau (unexp, fm : lits, n) cont (k, env))
-                (return . Success)
-      tryLit :: formula -> formula -> RWS () () () (Failing (K, Map v term))
-      tryLit fm l = failing (return . Failure) (\env' -> cont (k, env')) (execStateT (unify_complements fm l) env)
+      go :: ([formula], [formula], Depth)
+         -> ((K, Map v term) -> Failing (K, Map v term))
+         -> (K, Map v term)
+         -> Failing (K, Map v term)
+      go (_, _, n) _ (_, _) | n < Depth 0 = Failure ["no proof at this level"]
+      go ([], _, _) _ (_, _) =  Failure ["tableau: no proof"]
+      go (fm : unexp, lits, n) cont (k, env) =
+          foldQuantified qu co (\_ -> go2 fm unexp) (\_ -> go2 fm unexp) (\_ -> go2 fm unexp) fm
+          where
+            qu :: Quant -> v -> formula -> Failing (K, Map v term)
+            qu (:!:) x p =
+                let y = vt (fromString (prettyShow k))
+                    p' = subst (x |=> y) p in
+                go ([p'] ++ unexp ++ [for_all x p],lits,pred n) cont (succ k, env)
+            qu _ _ _ = go2 fm unexp
+            co p (:&:) q =
+                go (p : q : unexp,lits,n) cont (k, env)
+            co p (:|:) q =
+                go (p : unexp,lits,n) (go (q : unexp,lits,n) cont) (k, env)
+            co _ _ _ = go2 fm unexp
+
+            go2 :: formula -> [formula] -> Failing (K, Map v term)
+            go2 fm' unexp =
+                case tryfind (tryLit fm') lits of
+                  Failure _ -> go (unexp, fm' : lits, n) cont (k, env)
+                  Success x -> Success x
+            tryLit :: formula -> formula -> Failing (K, Map v term)
+            tryLit fm' l = failing Failure (\env' -> cont (k, env')) (execStateT (unify_complements fm' l) env)
+#endif
 
 newtype K = K Int deriving (Eq, Ord, Show)
 
@@ -292,7 +327,11 @@ tabrefute :: (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ 
               Unify (atom, atom) v term) =>
              Maybe Depth -> [formula] -> Failing ((K, Map v term), Depth)
 tabrefute limit fms =
-    let r = deepen (\n -> (,n) <$> evalRS (tableau (fms,[],n) (return . Success) (K 0, Map.empty)) () ()) (Depth 0) limit in
+#if 1
+    let r = deepen (\n -> (,n) <$> evalRS (tableau fms n) () ()) (Depth 0) limit in
+#else
+    let r = deepen (\n -> (,n) <$> tableau fms n) (Depth 0) limit in
+#endif
     failing Failure (Success . fst) r
 
 tab :: (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
@@ -316,10 +355,10 @@ p38 =
                (exists "z" (exists "w" (p[z] .&. r[x,w] .&. r[w,z]))))))
         expected = intercalate "\n"
                      ["((K19,",
-                      "  [(K0, sKx), (K1, sKy), (K10, sKx), (K11, sKz [K13]),",
-                      "   (K12, sKw [K15]), (K13, sKx), (K14, sKy), (K15, sKx), (K16, sKy),",
-                      "   (K17, sKx), (K18, sKy), (K2, sKz [K0]), (K3, sKw [K0]),",
-                      "   (K4, sKz [K0]), (K5, sKw [K0]), (K6, sKz [K8]), (K7, sKw [K9]),",
+                      "  [(K0, sKx), (K1, sKy), (K10, sKx), (K11, sKz (K13)),",
+                      "   (K12, sKw (K15)), (K13, sKx), (K14, sKy), (K15, sKx), (K16, sKy),",
+                      "   (K17, sKx), (K18, sKy), (K2, sKz (K0)), (K3, sKw (K0)),",
+                      "   (K4, sKz (K0)), (K5, sKw (K0)), (K6, sKz (K8)), (K7, sKw (K9)),",
                       "   (K8, sKx), (K9, sKx)]),",
                       " Depth 4)"] in
     TestCase $ assertEqual "p38, p. 178" expected (failing show prettyShow (tab Nothing fm))

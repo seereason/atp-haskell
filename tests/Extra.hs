@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables #-}
+{-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, QuasiQuotes, ScopedTypeVariables #-}
 module Extra where
 
 import Control.Applicative.Error (Failing(Failure, Success))
@@ -9,7 +9,8 @@ import Data.String (fromString)
 import FOL (vt, fApp, (.=.), pApp, for_all, exists)
 import Formulas
 import Meson (meson)
-import Pretty (prettyShow)
+import Parser (atp)
+import Pretty (assertEqual', prettyShow)
 import Prop hiding (nnf)
 import Resolution
 import Skolem (HasSkolem(toSkolem), skolemize, runSkolem, MyAtom, MyFormula, MyTerm)
@@ -107,12 +108,12 @@ test00 =
         fm1 = for_all "a" ((.~.)(p[a] .&. (for_all "y" (for_all "z" (q[y] .|. r[z]) .&. (.~.)(p[a])))))
         fm2 = for_all "a" ((.~.)(p[a] .&. (.~.)(p[a]) .&. (for_all "y" (for_all "z" (q[y] .|. r[z]))))) in
     TestList
-    [ TestCase $ assertEqual ("MESON 1")
-                   ("∀a. (¬(P[a]∧∀y. (∀z. (Q[y]∨R[z])∧¬P[a])))", Success ((K 2, Map.empty),Depth 2))
-                   (prettyShow fm1, tab Nothing fm1),
-      TestCase $ assertEqual ("MESON 2")
-                   ("∀a. (¬(P[a]∧¬P[a]∧∀y. ∀z. (Q[y]∨R[z])))", Success ((K 0, Map.empty),Depth 0))
-                   (prettyShow fm2, tab Nothing fm2) ]
+    [ TestCase $ assertEqual' ("MESON 1")
+                   ([atp| ∀a. (¬(P(a)∧∀y. (∀z. (Q(y)∨R(z))∧¬P(a)))) |], Success ((K 2, Map.empty),Depth 2))
+                   (fm1, tab Nothing fm1),
+      TestCase $ assertEqual' ("MESON 2")
+                   ([atp| ∀a. (¬(P(a)∧¬P(a)∧∀y. ∀z. (Q(y)∨R(z)))) |], Success ((K 0, Map.empty),Depth 0))
+                   (fm2, tab Nothing fm2) ]
 
 {-
 test12 :: Test

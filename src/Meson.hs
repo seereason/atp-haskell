@@ -5,6 +5,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -27,6 +28,7 @@ import FOL (generalize, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(Var
 import Formulas ((.~.), false, IsFormula(AtomOf), negative)
 import Lib (Marked)
 import Lit (IsLiteral, JustLiteral, Literal)
+import Parser (atp)
 import Prolog (PrologRule(Prolog), renamerule)
 import Prop (list_conj, Propositional, simpcnf)
 import Skolem (askolemize, HasSkolem, pnf, SkolemT, simpdnf', specialize)
@@ -34,29 +36,28 @@ import Tableaux (Depth(Depth), deepen, unify_literals)
 import Unif (Unify)
 
 #ifndef NOTESTS
-import Data.List as List (map)
-import Data.String (fromString)
+import Data.Monoid ((<>))
 import FOL (exists, fApp, for_all, pApp, vt)
 import Formulas ((.&.), (.|.), (.=>.))
 import Pretty (assertEqual', prettyShow)
 import Resolution (davis_putnam_example_formula)
-import Skolem (MyFormula, MyTerm, runSkolem, toSkolem)
+import Skolem (MyFormula, runSkolem, toSkolem)
 import Tableaux (K(K), tab)
 import Test.HUnit
 
 test00 :: Test
 test00 =
-    let [a, y, z] = List.map vt ["a", "y", "z"] :: [MyTerm]
-        [p, q, r] = List.map (pApp . fromString) ["P", "Q", "R"] :: [[MyTerm] -> MyFormula]
-        fm1 = for_all "a" ((.~.)(p[a] .&. (for_all "y" (for_all "z" (q[y] .|. r[z]) .&. (.~.)(p[a])))))
-        fm2 = for_all "a" ((.~.)(p[a] .&. (.~.)(p[a]) .&. (for_all "y" (for_all "z" (q[y] .|. r[z]))))) in
+    let fm1 = [atp| ∀ a. ¬(P(a)∧∀ y. ∀ z. (Q(y)∨R(z))∧¬P(a)) |]
+        fm2 = [atp| ∀ a. ¬(P(a)∧¬P(a)∧∀ y. ∀ z. (Q(y)∨R(z))) |]
+        {- fm3 = [atp| ¬p ∧ (p ∨ q) ∧ (r ∨ s) ∧ (¬q ∨ t ∨ u) ∧
+                    (¬r ∨ ¬t) ∧ (¬r ∨ ¬u) ∧ (¬q ∨ v ∨ w) ∧
+               (¬s ∨ ¬v) ∧ (¬s ∨ ¬w) |] -}
+    in
     TestList
-    [ TestCase $ assertEqual ("MESON 1")
-                   ("∀a. (¬(P[a]∧∀y. (∀z. (Q[y]∨R[z])∧¬P[a])))", Success ((K 2, Map.empty),Depth 2))
-                   (prettyShow fm1, tab Nothing fm1),
-      TestCase $ assertEqual ("MESON 2")
-                   ("∀a. (¬(P[a]∧¬P[a]∧∀y. ∀z. (Q[y]∨R[z])))", Success ((K 0, Map.empty),Depth 0))
-                   (prettyShow fm2, tab Nothing fm2) ]
+    [ TestCase $ assertEqual ("TAB 1: " <> prettyShow fm1) (Success ((K 2, Map.empty),Depth 2)) (tab Nothing fm1)
+    , TestCase $ assertEqual ("TAB 2: " <> prettyShow fm2) (Success ((K 0, Map.empty),Depth 0)) (tab Nothing fm2)
+    -- , TestCase $ assertEqual ("TAB 3: " <> prettyShow fm3) (Success ((K 0, Map.empty),Depth 0)) (tab (Just (Depth 1000000)) fm3)
+    ]
 
 {-
 START_INTERACTIVE;;
@@ -88,8 +89,8 @@ test02 :: Test
 test02 =
     TestLabel "Meson 2" $
     TestList [TestCase (assertEqual' "meson dp example, step 1 (p. 220)"
-                                    (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
-                                                                                  (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z])))))))
+                                     [atp| exists x. exists y. forall z. (((F (x,y)) ==> ((F (y,z)) & (F (z,z)))) &
+                                                                          (((F (x,y)) & (G (x,y))) ==> ((G (x,z)) & (G (z,z))))) |]
                                     davis_putnam_example_formula),
               TestCase (assertEqual' "meson dp example, step 2 (p. 220)"
                                     (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.

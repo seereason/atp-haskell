@@ -42,6 +42,9 @@ module Lib
     , setmapfilter
     , (∅)
     , Marked(Mark, unMark')
+    , time'
+    , print'
+    , time
 #ifndef NOTESTS
     , testLib
 #endif
@@ -55,8 +58,10 @@ import Data.Generics
 import qualified Data.List as List (map)
 import Data.Map as Map (delete, findMin, fromList, insert, lookup, Map, member)
 import Data.Maybe
+import Data.Sequence as Seq (Seq, viewl, ViewL(EmptyL, (:<)))
 import Data.Set as Set (delete, empty, fold, fromList, insert, minView, Set, singleton, union)
 import qualified Data.Set as Set (map)
+import Data.Time.Clock
 import Prelude hiding (map)
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
 #ifndef NOTESTS
@@ -102,6 +107,12 @@ instance SetLike [] where
     view [] = Nothing
     view (h : t) = Just (h, t)
     map = List.map
+
+instance SetLike Seq where
+    view s = case viewl s of
+               EmptyL -> Nothing
+               h :< t -> Just (h, t)
+    map = fmap
 
 (∅) :: (Monoid (c a), SetLike c) => c a
 (∅) = mempty
@@ -219,7 +230,7 @@ let rec forall p l =
     [] -> true
   | h::t -> p(h) & forall p t;;
 -}
-exists :: (a -> Bool) -> [a] -> Bool
+exists :: Foldable t => (a -> Bool) -> t a -> Bool
 exists = any
 {-
 let partition p l =
@@ -398,9 +409,8 @@ let repetitions =
   fun l -> if l = [] then [] else repcount 1 l;;
 -}
 
-tryfind :: (t -> Failing a) -> [t] -> Failing a
-tryfind _ [] = Failure ["tryfind"]
-tryfind f (h : t) = failing (\_ -> tryfind f t) Success (f h)
+tryfind :: Foldable t => (a -> Failing r) -> t a -> Failing r
+tryfind p s = maybe (Failure ["tryfind"]) p (find (failing (const False) (const True) . p) s)
 
 tryfindM :: Monad m => (t -> m (Failing a)) -> [t] -> m (Failing a)
 tryfindM _ [] = return $ Failure ["tryfindM"]
@@ -443,7 +453,7 @@ setmapfilter f s = Set.fold (\ a r -> failing (const r) (`Set.insert` r) (f a)) 
 
 optimize :: forall s a b. (SetLike s, Foldable s) => (b -> b -> Ordering) -> (a -> b) -> s a -> Maybe a
 optimize _ _ l | isNothing (view l) = Nothing
-optimize ord f l = let (cmp :: a -> a -> Ordering) = ord `on` f in Just (Foldable.maximumBy cmp l)
+optimize ord f l = Just (Foldable.maximumBy (ord `on` f) l)
 
 maximize :: (Ord b, SetLike s, Foldable s) => (a -> b) -> s a -> Maybe a
 maximize = optimize compare
@@ -895,6 +905,23 @@ let rec first n p = if p(n) then n else first (n +/ Int 1) p;;
 
 -- This is a type used to mark values with the phantom type "mark".
 data Marked mark a = Mark {unMark' :: a} deriving (Data, Typeable, Read)
+
+time' :: IO t -> IO (t, NominalDiffTime)
+time' a = do
+  start <- getCurrentTime
+  v <- a
+  end <- getCurrentTime
+  -- putStrLn $ "Computation time: " ++ show (diffUTCTime end start)
+  return (v, diffUTCTime end start)
+
+print' :: Show a => a -> IO a
+print' x = print x >> return x
+
+time :: IO t -> IO t
+time a = do
+  (r, t) <- time' a
+  putStrLn ("Computation time: " ++ show t)
+  return r
 
 #ifndef NOTESTS
 testLib :: Test

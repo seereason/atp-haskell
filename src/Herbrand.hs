@@ -25,7 +25,7 @@ import FOL (Arity, functions, HasApply(TermOf, PredOf), HasApply, IsFirstOrder, 
             fApp, lsubst, fv, generalize)
 import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib, Marked)
-import Lit (IsLiteral, Literal)
+import Lit (JustLiteral, Literal)
 import Prop (eval, IsPropositional, JustPropositional, Propositional, simpcnf, simpdnf, trivial)
 import Skolem (HasSkolem, runSkolem, skolemize)
 
@@ -67,7 +67,7 @@ groundtuples cntms fns n m =
 -- | Iterate modifier "mfn" over ground terms till "tfn" fails.
 herbloop :: forall lit atom function v term.
             (atom ~ AtomOf lit, v ~ VarOf lit, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
-             IsLiteral lit,
+             JustLiteral lit,
              HasApply atom,
              IsTerm term) =>
             (Set (Set lit) -> (lit -> lit) -> Set (Set lit) -> Set (Set lit))
@@ -99,7 +99,7 @@ herbloop mfn tfn fl0 cntms fns fvs n fl tried tuples =
 
 -- | Hence a simple Gilmore-type procedure.
 gilmore_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term, function ~ FunOf term,
-                 IsLiteral lit, Ord lit,
+                 JustLiteral lit, Ord lit,
                  HasApply atom,
                  IsTerm term) =>
                 Set (Set lit)
@@ -197,7 +197,7 @@ dp_mfn :: Ord b => Set (Set a) -> (a -> b) -> Set (Set b) -> Set (Set b)
 dp_mfn cjs0 ifn cjs = Set.union (Set.map (Set.map ifn) cjs0) cjs
 
 dp_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf lit, v ~ TVarOf term,
-            IsLiteral lit, Ord lit,
+            JustLiteral lit, Ord lit,
             HasApply atom,
             IsTerm term) =>
            Set (Set lit)
@@ -250,7 +250,7 @@ davisputnam' _ _ fm =
 
 -- | Try to cut out useless instantiations in final result.
 dp_refine_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term, function ~ FunOf term,
-                   IsLiteral lit, Ord lit,
+                   JustLiteral lit, Ord lit,
                    IsTerm term,
                    HasApply atom) =>
                   Set (Set lit)
@@ -268,7 +268,7 @@ dp_refine_loop cjs0 cntms fns fvs n cjs tried tuples =
 
 dp_refine :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
               HasApply atom,
-              IsLiteral lit, Ord lit,
+              JustLiteral lit, Ord lit,
               IsTerm term
              ) => Set (Set lit) -> [VarOf lit] -> Set [term] -> Set [term] -> Failing (Set [term])
 dp_refine cjs0 fvs dknow need =
