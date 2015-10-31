@@ -63,8 +63,7 @@ import Test.HUnit
 #endif
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
-simplify :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-             IsFirstOrder formula atom predicate term v function) => formula -> formula
+simplify :: (IsQuantified formula, HasApply atom, IsTerm term, atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term {-, atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term, IsFirstOrder formula-}) => formula -> formula
 simplify fm =
     foldQuantified qu co ne (\_ -> fm) (\_ -> fm) fm
     where
@@ -76,8 +75,8 @@ simplify fm =
       co p (:=>:) q = simplify1 (simplify p .=>. simplify q)
       co p (:<=>:) q = simplify1 (simplify p .<=>. simplify q)
 
-simplify1 :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-              IsFirstOrder formula atom predicate term v function) =>
+simplify1 :: (IsQuantified formula, HasApply atom, IsTerm term, atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term {-atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
+              IsFirstOrder formula-}) =>
              formula -> formula
 simplify1 fm =
     foldQuantified qu (\_ _ _ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) (\_ -> psimplify1 fm) fm
@@ -93,7 +92,7 @@ type MyFormula = Formula V MyAtom
 --instance HasFunctions MyFormula Function where
 --    funcs = quantifiedFuncs
 
-instance IsFirstOrder MyFormula MyAtom Predicate MyTerm V Function
+instance IsFirstOrder MyFormula
 
 -- Example.
 test01 :: Test
@@ -106,7 +105,7 @@ test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ prettyShow fm) expected
 
 -- | Negation normal form for first order formulas
 nnf :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-        IsFirstOrder formula atom predicate term v function) => formula -> formula
+        IsFirstOrder formula) => formula -> formula
 nnf = nnf1 . simplify
 
 nnf1 :: IsQuantified formula => formula -> formula
@@ -145,11 +144,11 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
 
 -- | Prenex normal form.
 pnf :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-        IsFirstOrder formula atom predicate term v function) => formula -> formula
+        IsFirstOrder formula) => formula -> formula
 pnf = prenex . nnf . simplify
 
 prenex :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-           IsFirstOrder formula atom predicate term v function) => formula -> formula
+           IsFirstOrder formula) => formula -> formula
 prenex fm =
     foldQuantified qu co (\ _ -> fm) (\ _ -> fm) (\ _ -> fm) fm
     where
@@ -159,7 +158,7 @@ prenex fm =
       co _ _ _ = fm
 
 pullquants :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-               IsFirstOrder formula atom predicate term v function) => formula -> formula
+               IsFirstOrder formula) => formula -> formula
 pullquants fm =
     foldQuantified (\_ _ _ -> fm) pullQuantsCombine (\_ -> fm) (\_ -> fm) (\_ -> fm) fm
     where
@@ -179,7 +178,7 @@ pullquants fm =
       getQuant = foldQuantified (\ op v f -> Just (op, v, f)) (\ _ _ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing) (\ _ -> Nothing)
 
 pullq :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-          IsFirstOrder formula atom predicate term v function) =>
+          IsFirstOrder formula) =>
          (Bool, Bool)
       -> formula
       -> (v -> formula -> formula)
@@ -289,7 +288,7 @@ class HasSkolem function v | function -> v where
 -- quantified in the context where the existential quantifier
 -- appeared.
 skolem :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-           IsFirstOrder formula atom predicate term v function,
+           IsFirstOrder formula,
            HasSkolem function v, Monad m) =>
           formula -> SkolemT m formula
 skolem fm =
@@ -308,7 +307,7 @@ skolem fm =
       tf False = return false
 
 skolem2 :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-            IsFirstOrder formula atom predicate term v function,
+            IsFirstOrder formula,
             HasSkolem function v, Monad m) =>
            (formula -> formula -> formula) -> formula -> formula -> SkolemT m formula
 skolem2 cons p q =
@@ -318,7 +317,7 @@ skolem2 cons p q =
 
 -- | Overall Skolemization function.
 askolemize :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-               IsFirstOrder formula atom predicate term v function,
+               IsFirstOrder formula,
                HasSkolem function v, Monad m) =>
               formula -> SkolemT m formula
 askolemize = skolem . nnf . simplify
@@ -339,7 +338,7 @@ specialize ca fm =
 -- | Skolemize and then specialize.  Because we know all quantifiers
 -- are gone we can convert to any instance of IsPropositional.
 skolemize :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-              IsFirstOrder formula atom predicate term v function,
+              IsFirstOrder formula,
               HasSkolem function v,
               IsPropositional pf, JustPropositional pf,
               Monad m) =>
@@ -399,7 +398,7 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
 
 -- Versions of the normal form functions that leave quantifiers in place.
 simpdnf' :: (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-             IsFirstOrder fof atom predicate term v function, Ord fof) => fof -> Set (Set fof)
+             IsFirstOrder fof, Ord fof) => fof -> Set (Set fof)
 simpdnf' fm =
     {-t2 $-}
     foldQuantified (\_ _ _ -> go) (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) ({-t1-}fm)
@@ -425,7 +424,7 @@ purednf' fm =
       -- t4 x = trace ("purednf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
 
 simpcnf' :: (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-             IsFirstOrder fof atom predicate term v function, Ord fof) => fof -> Set (Set fof)
+             IsFirstOrder fof, Ord fof) => fof -> Set (Set fof)
 simpcnf' fm =
     foldQuantified (\_ _ _ -> go) (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
@@ -435,7 +434,7 @@ simpcnf' fm =
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
 purecnf' :: (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-             IsFirstOrder fof atom predicate term v function, Ord fof) => fof -> Set (Set fof)
+             IsFirstOrder fof, Ord fof) => fof -> Set (Set fof)
 purecnf' fm = Set.map (Set.map negate) (purednf' (nnf ((.~.) fm)))
 
 #ifndef NOTESTS

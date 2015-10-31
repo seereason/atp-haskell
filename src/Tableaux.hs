@@ -33,7 +33,7 @@ import Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace (trace)
-import FOL (asubst, exists, foldQuantified, for_all, fv, generalize, HasApply(TermOf, PredOf),
+import FOL (asubst, exists, foldQuantified, for_all, fv, generalize, HasApply(TermOf),
             HasApply, HasApplyAndEquate, JustApply, IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
             pApp, Quant((:!:)), subst, V, vt, zipPredicates, zipPredicatesEq)
 import Formulas
@@ -88,7 +88,7 @@ unify_complements :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ 
 unify_complements p q = unify_literals (p, ((.~.) q))
 
 -- | Unify and refute a set of disjuncts.
-unify_refute :: (atom ~ AtomOf lit, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf lit, v ~ TVarOf term,
+unify_refute :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
                  IsLiteral lit, Ord lit,
                  HasApply atom, Unify (atom, atom) v term,
                  IsTerm term) =>
@@ -117,9 +117,9 @@ prawitz_loop djs0 fvs djs n =
     where
       newvar k = vt (fromString ("_" ++ show (n * length fvs + k)))
 
-prawitz :: forall formula atom term predicate function v.
-           (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, predicate ~ PredOf atom, function ~ FunOf term,
-            IsFirstOrder formula atom predicate term v function,
+prawitz :: forall formula atom term function v.
+           (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
+            IsFirstOrder formula,
             Ord formula,
             Unify (atom, atom) v term,
             HasSkolem function v
@@ -155,10 +155,11 @@ p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
 -- -------------------------------------------------------------------------
 
 #ifndef NOTESTS
-compare :: (atom ~ AtomOf formula, predicate ~ PredOf atom, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-            IsFirstOrder formula atom predicate term v function, Ord formula,
+compare :: (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
+            IsFirstOrder formula, Ord formula,
             Unify (atom, atom) v term,
-            HasSkolem function v) => formula -> (Int, Failing Int)
+            HasSkolem function v
+           ) => formula -> (Int, Failing Int)
 compare fm = (prawitz fm, davisputnam fm)
 
 p19 :: Test
@@ -242,14 +243,14 @@ instance Pretty Depth where
     pPrint = text . show
 
 -- | More standard tableau procedure, effectively doing DNF incrementally.  (p. 177)
-tableau :: forall formula atom term v predicate function.
-           (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, predicate ~ PredOf atom, function ~ FunOf term,
-            IsFirstOrder formula (AtomOf formula) (PredOf (AtomOf formula)) (TermOf (AtomOf formula)) (VarOf formula) function,
-            Unify (AtomOf formula, AtomOf formula) (VarOf formula) (TermOf (AtomOf formula))) =>
+tableau :: forall formula atom term v function.
+           (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
+            IsFirstOrder formula,
+            Unify (atom, atom) v term) =>
            ([formula], [formula], Depth)
-        -> ((K, Map (VarOf formula) (TermOf (AtomOf formula))) -> RWS () () () (Failing (K, Map (VarOf formula) (TermOf (AtomOf formula)))))
-        -> (K, Map (VarOf formula) (TermOf (AtomOf formula)))
-        -> RWS () () () (Failing (K, Map (VarOf formula) (TermOf (AtomOf formula))))
+        -> ((K, Map v term) -> RWS () () () (Failing (K, Map v term)))
+        -> (K, Map v term)
+        -> RWS () () () (Failing (K, Map v term))
 tableau (fms, lits, n) cont (k, env) =
     case fms of
       _ | n < Depth 0 -> return $ Failure ["no proof at this level"]
@@ -286,16 +287,16 @@ instance Enum K where
 instance Pretty K where
     pPrint (K n) = text ("K" ++ show n)
 
-tabrefute :: (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, predicate ~ PredOf atom, function ~ FunOf term,
-              IsFirstOrder formula atom predicate term v function,
+tabrefute :: (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
+              IsFirstOrder formula,
               Unify (atom, atom) v term) =>
              Maybe Depth -> [formula] -> Failing ((K, Map v term), Depth)
 tabrefute limit fms =
     let r = deepen (\n -> (,n) <$> evalRS (tableau (fms,[],n) (return . Success) (K 0, Map.empty)) () ()) (Depth 0) limit in
     failing Failure (Success . fst) r
 
-tab :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-        IsFirstOrder formula atom predicate term v function, Unify (atom, atom) v term, Pretty formula, HasSkolem function v) =>
+tab :: (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
+        IsFirstOrder formula, Unify (atom, atom) v term, Pretty formula, HasSkolem function v) =>
        Maybe Depth -> formula -> Failing ((K, Map v term), Depth)
 tab limit fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
@@ -342,9 +343,9 @@ END_INTERACTIVE;;
 -- -------------------------------------------------------------------------
 -- Try to split up the initial formula first; often a big improvement.
 -- -------------------------------------------------------------------------
-splittab :: forall formula atom predicate term v function.
-            (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-             IsFirstOrder formula atom predicate term v function, Unify (atom, atom) v term,
+splittab :: forall formula atom term v function.
+            (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
+             IsFirstOrder formula, Unify (atom, atom) v term,
              Ord formula, Pretty formula, HasSkolem function v
             ) => formula -> [Failing ((K, Map v term), Depth)]
 splittab fm =

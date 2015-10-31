@@ -290,7 +290,7 @@ class (Eq predicate, Ord predicate, Show predicate, IsString predicate, Pretty p
 -- ATOM (Atomic Formula) --
 ---------------------------
 
-class (IsAtom atom, IsPredicate (PredOf atom), Ord (TermOf atom), Pretty (TermOf atom)) => HasApply atom where
+class (IsAtom atom, IsPredicate (PredOf atom), IsTerm (TermOf atom), Ord (TermOf atom), Pretty (TermOf atom)) => HasApply atom where
     type PredOf atom
     type TermOf atom
     applyPredicate :: PredOf atom -> [(TermOf atom)] -> atom
@@ -534,14 +534,12 @@ class (IsPropositional formula, IsVariable (VarOf formula)) => IsQuantified form
                    -> formula -> r
 
 -- | Combine IsQuantified, HasApply, IsTerm
-class (atom ~ AtomOf formula,
-       v ~ VarOf formula,
-       IsQuantified formula,
-       HasApply atom,
-       IsTerm term,
-       HasFunctions formula function,
+class (IsQuantified formula,
+       HasApply (AtomOf formula),
+       IsTerm (TermOf (AtomOf formula)),
+       HasFunctions formula (FunOf (TermOf (AtomOf formula))),
        Pretty formula
-      ) => IsFirstOrder formula atom predicate term v function
+      ) => IsFirstOrder formula
 
 instance (IsQuantified formula, IsPropositional (Marked mk formula)) => IsQuantified (Marked mk formula) where
     type VarOf (Marked mk formula) = VarOf formula
@@ -551,7 +549,7 @@ instance (IsQuantified formula, IsPropositional (Marked mk formula)) => IsQuanti
               ne' x = ne (Mark x)
               co' x op y = co (Mark x) op (Mark y)
 
-instance IsFirstOrder formula atom predicate term v function => IsFirstOrder (Marked mk formula) atom predicate term v function
+instance IsFirstOrder formula => IsFirstOrder (Marked mk formula)
 
 -- | Implementation of funcs for quantified formulas.
 quantifiedFuncs :: forall formula atom term function.
@@ -787,8 +785,8 @@ type MyAtom2 = FOLEQ Predicate MyTerm1
 type MyFormula1 = Formula V MyAtom1
 type MyFormula2 = Formula V MyAtom2
 
-instance IsFirstOrder MyFormula1 MyAtom1 Predicate MyTerm1 V FName
-instance IsFirstOrder MyFormula2 MyAtom2 Predicate MyTerm1 V FName
+instance IsFirstOrder MyFormula1
+instance IsFirstOrder MyFormula2
 
 instance JustApply MyAtom2
 #endif
@@ -1114,8 +1112,7 @@ test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
 -- Free variables in terms and formulas.
 
 -- | Find the free variables in a formula.
-fv :: (atom ~ AtomOf formula, v ~ VarOf formula, predicate ~ PredOf atom, term ~ TermOf atom, v ~ TVarOf term, function ~ FunOf term,
-       IsFirstOrder formula atom predicate term v function) => formula -> Set v
+fv :: (IsQuantified formula, HasApply atom, IsTerm term, atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term {-, atom ~ AtomOf formula, v ~ VarOf formula, term ~ TermOf atom, v ~ TVarOf term, IsFirstOrder formula-}) => formula -> Set v
 fv fm =
     foldQuantified qu co ne tf at fm
     where
@@ -1145,8 +1142,7 @@ fva :: (term ~ TermOf atom, v ~ TVarOf term, HasApply atom, IsTerm term) => atom
 fva = overterms (\t s -> Set.union (fvt t) s) mempty
 
 -- | Find the variables in a formula.
-var :: (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, predicate ~ PredOf atom, term ~ TermOf atom, function ~ FunOf term,
-        IsFirstOrder formula atom predicate term v function) => formula -> Set v
+var :: (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, IsFirstOrder formula) => formula -> Set v
 var fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
 
 -- | Find the variables in a 'Term'.
@@ -1154,8 +1150,7 @@ fvt :: (IsTerm term, v ~ TVarOf term) => term -> Set v
 fvt tm = foldTerm singleton (\_ args -> unions (map fvt args)) tm
 
 -- | Universal closure of a formula.
-generalize :: (atom ~ (AtomOf formula), v ~ VarOf formula, v ~ TVarOf term, predicate ~ PredOf atom, term ~ TermOf atom, function ~ FunOf term,
-               IsFirstOrder formula atom predicate term v function) => formula -> formula
+generalize :: (atom ~ (AtomOf formula), v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, IsFirstOrder formula) => formula -> formula
 generalize fm = Set.fold for_all fm (fv fm)
 
 #ifndef NOTESTS
@@ -1174,9 +1169,7 @@ test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
 #endif
 
 -- | Substitution in formulas, with variable renaming.
-subst :: (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, predicate ~ PredOf atom, term ~ TermOf atom, function ~ FunOf term,
-          IsFirstOrder formula atom predicate term v function) =>
-         Map (VarOf formula) (TermOf atom) -> formula -> formula
+subst :: (atom ~ AtomOf formula, IsFirstOrder formula, term ~ TermOf atom, v ~ TVarOf term, v ~ VarOf formula) => Map v term -> formula -> formula
 subst subfn fm =
     foldQuantified qu co ne tf at fm
     where
@@ -1213,8 +1206,7 @@ asubst :: (term ~ TermOf atom, v ~ TVarOf term, HasApply atom, IsTerm term) => M
 asubst sfn a = onterms (tsubst sfn) a
 
 -- | Substitution within quantifiers
-substq :: (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, predicate ~ PredOf atom, term ~ TermOf atom, function ~ FunOf term,
-           IsFirstOrder formula atom predicate term v function) =>
+substq :: (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, IsFirstOrder formula) =>
           Map v term
        -> (VarOf formula -> formula -> formula)
        -> VarOf formula

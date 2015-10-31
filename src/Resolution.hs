@@ -158,9 +158,9 @@ resloop1 used unused =
             -- resolve_clauses is not in the Failing monad, so setmapfilter isn't appropriate.
             news = Set.fold Set.insert Set.empty ({-setmapfilter-} Set.map (resolve_clauses cl) used')
 
-pure_resolution1 :: forall fof atom term predicate v function.
-                    (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, predicate ~ PredOf atom, function ~ FunOf term,
-                     IsFirstOrder fof atom predicate term v function,
+pure_resolution1 :: forall fof atom term v.
+                    (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
+                     IsFirstOrder fof,
                      Unify (atom, atom) v term,
                      Ord fof, Pretty fof
                     ) => fof -> Failing Bool
@@ -168,7 +168,7 @@ pure_resolution1 fm = resloop1 Set.empty (simpcnf id (specialize id (pnf fm) :: 
 
 resolution1 :: forall m fof atom term predicate v function.
                (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, predicate ~ PredOf atom, function ~ FunOf term,
-                IsFirstOrder fof atom predicate term v function,
+                IsFirstOrder fof,
                 Unify (atom, atom) v term, Ord fof, Pretty fof,
                 HasSkolem function v,
                 Monad m
@@ -306,9 +306,9 @@ resloop2 used unused =
           let news = Set.map (resolve_clauses cl) used' in
           if Set.member Set.empty news then return True else resloop2 used' (Set.fold (incorporate cl) ros news)
 
-pure_resolution2 :: forall fof atom term predicate v function.
-                    (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, predicate ~ PredOf atom, function ~ FunOf term,
-                     IsFirstOrder fof atom predicate term v function,
+pure_resolution2 :: forall fof atom term v.
+                    (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
+                     IsFirstOrder fof,
                      Ord fof, Pretty fof,
                      HasApply atom,
                      Unify (atom, atom) v term,
@@ -317,9 +317,9 @@ pure_resolution2 :: forall fof atom term predicate v function.
                     ) => fof -> Failing Bool
 pure_resolution2 fm = resloop2 Set.empty (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set (Marked Literal fof)))
 
-resolution2 :: forall fof atom term predicate v function m.
-               (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, predicate ~ PredOf atom, function ~ FunOf term,
-                IsFirstOrder fof atom predicate term v function,
+resolution2 :: forall fof atom term v function m.
+               (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
+                IsFirstOrder fof,
                 Ord fof, Pretty fof,
                 Unify (atom, atom) v term,
                 Match (atom, atom) v term,
@@ -367,18 +367,18 @@ presloop used unused =
           then Success True
           else presloop used' (Set.fold (incorporate cl) ros news)
 
-pure_presolution :: forall fof atom term predicate v function.
-                    (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, predicate ~ PredOf atom, function ~ FunOf term,
-                     IsFirstOrder fof atom predicate term v function,
+pure_presolution :: forall fof atom term v.
+                    (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
+                     IsFirstOrder fof,
                      Unify (atom, atom) v term,
                      Match (atom, atom) v term,
                      Ord fof, Pretty fof
                     ) => fof -> Failing Bool
 pure_presolution fm = presloop Set.empty (simpcnf id (specialize id (pnf fm :: fof) ::  Marked Propositional fof) :: Set (Set (Marked Literal fof)))
 
-presolution :: forall fof atom term predicate v function m.
-               (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, predicate ~ PredOf atom, function ~ FunOf term,
-                IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof,
+presolution :: forall fof atom term v function m.
+               (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
+                IsFirstOrder fof, Ord fof, Pretty fof,
                 Unify (atom, atom) v term,
                 Match (atom, atom) v term,
                 HasSkolem function v, Monad m
@@ -390,18 +390,18 @@ presolution fm =
 -- Introduce a set-of-support restriction.
 -- -------------------------------------------------------------------------
 
-pure_resolution3 :: forall fof atom term predicate v function.
-                    (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, predicate ~ PredOf atom, function ~ FunOf term,
-                     IsFirstOrder fof atom predicate term v function,
+pure_resolution3 :: forall fof atom term v.
+                    (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
+                     IsFirstOrder fof,
                      Unify (atom, atom) v term,
                      Match (atom, atom) v term,
                      Ord fof, Pretty fof) => fof -> Failing Bool
 pure_resolution3 fm =
     uncurry resloop2 (Set.partition (setAny positive) (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set (Marked Literal fof))))
 
-resolution3 :: forall fof atom term predicate v function m.
-               (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, predicate ~ PredOf atom, function ~ FunOf term,
-                IsFirstOrder fof atom predicate term v function, Ord fof, Pretty fof,
+resolution3 :: forall fof atom term v function m.
+               (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
+                IsFirstOrder fof, Ord fof, Pretty fof,
                 Unify (atom, atom) v term,
                 Match (atom, atom) v term,
                 HasSkolem function v, Monad m

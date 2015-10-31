@@ -214,7 +214,7 @@ mexpand1 rules ancestors g cont (env,n,k) =
 
 puremeson1 :: forall fof atom predicate term v function.
               (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-               IsFirstOrder fof atom predicate term v function,
+               IsFirstOrder fof,
                Unify (atom, atom) v term, Ord fof
               ) => Maybe Depth -> fof -> Failing Depth
 puremeson1 maxdl fm =
@@ -227,7 +227,7 @@ puremeson1 maxdl fm =
 
 meson1 :: forall m fof atom predicate term function v.
           (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-           IsFirstOrder fof atom predicate term v function,
+           IsFirstOrder fof,
            Unify (atom, atom) (VarOf fof) (TermOf (atom)),
            Ord fof, HasSkolem function (VarOf fof), Monad m
           ) => Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
@@ -330,9 +330,9 @@ setSplitAt n s = go n (mempty, s)
                          Nothing -> (s1, s2)
                          Just (x, s2') -> go (i - 1) (Set.insert x s1, s2')
 
-puremeson2 :: forall fof atom predicate term v function.
-             (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-              IsFirstOrder fof atom predicate term v function,
+puremeson2 :: forall fof atom term v.
+             (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
+              IsFirstOrder fof,
               Unify (atom, atom) v term, Ord fof
              ) => Maybe Depth -> fof -> Failing Depth
 puremeson2 maxdl fm =
@@ -343,17 +343,17 @@ puremeson2 maxdl fm =
       rules = Set.fold (Set.union . contrapositives) Set.empty cls
       (cls :: Set (Set (Marked Literal fof))) = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
 
-meson2 :: forall m fof atom predicate term function v.
-          (atom ~ AtomOf fof, predicate ~ PredOf (atom), term ~ TermOf (atom), v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-           IsFirstOrder fof atom predicate term v function, Unify (atom, atom) v term, Ord fof,
+meson2 :: forall m fof atom term function v.
+          (atom ~ AtomOf fof, term ~ TermOf (atom), v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
+           IsFirstOrder fof, Unify (atom, atom) v term, Ord fof,
            HasSkolem function v, Monad m
           ) => Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
 meson2 maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
     return . Set.map (puremeson2 maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
-meson :: (atom ~ AtomOf fof, predicate ~ PredOf atom, term ~ TermOf (atom), v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-          IsFirstOrder fof atom predicate term v function,
+meson :: (atom ~ AtomOf fof, term ~ TermOf (atom), v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
+          IsFirstOrder fof,
           Unify (atom, atom) v term, Ord fof,
           HasSkolem function v, Monad m) =>
          Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
