@@ -20,7 +20,8 @@ import Data.String (IsString(..))
 import Debug.Trace
 
 import DP (dpll)
-import FOL (Arity, HasFunctions(funcs), HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf), IsTerm, fApp, lsubst, fv, generalize)
+import FOL (Arity, HasFunctions(funcs), HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
+            fApp, lsubst, fv, generalize)
 import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib, Marked)
 import Lit (IsLiteral)
@@ -47,14 +48,14 @@ herbfuns fm =
   if Set.null cns then (Set.singleton (fromString "c",0),fns) else (cns,fns)
 
 -- | Enumeration of ground terms and m-tuples, ordered by total fns.
-groundterms :: IsTerm term v f => Set term -> Set (f, Arity) -> Int -> Set term
+groundterms :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => Set term -> Set (f, Arity) -> Int -> Set term
 groundterms cntms _ 0 = cntms
 groundterms cntms fns n =
     Set.fold terms Set.empty fns
     where
       terms (f,m) l = Set.union (Set.map (fApp f) (groundtuples cntms fns (n - 1) m)) l
 
-groundtuples :: IsTerm term v f => Set term -> Set (f, Int) -> Int -> Int -> Set [term]
+groundtuples :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => Set term -> Set (f, Int) -> Int -> Int -> Set [term]
 groundtuples _ _ 0 0 = Set.singleton []
 groundtuples _ _ _ 0 = Set.empty
 groundtuples cntms fns n m =
@@ -63,22 +64,23 @@ groundtuples cntms fns n m =
       tuples k l = Set.union (allpairs (:) (groundterms cntms fns k) (groundtuples cntms fns (n - k) (m - 1))) l
 
 -- | Iterate modifier "mfn" over ground terms till "tfn" fails.
-herbloop :: forall lit function.
-            (IsLiteral lit,
-             HasApply (AtomOf lit),
-             IsTerm (TermOf (AtomOf lit)) (VarOf lit) function,
+herbloop :: forall lit atom function v term.
+            (atom ~ AtomOf lit, v ~ VarOf lit, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
+             IsLiteral lit,
+             HasApply atom,
+             IsTerm term,
              HasFunctions lit function) =>
             (Set (Set lit) -> (lit -> lit) -> Set (Set lit) -> Set (Set lit))
          -> (Set (Set lit) -> Failing Bool)
          -> Set (Set lit)
-         -> Set (TermOf (AtomOf lit))
+         -> Set term
          -> Set (function, Int)
          -> [VarOf lit]
          -> Int
          -> Set (Set lit)
-         -> Set [TermOf (AtomOf lit)]
-         -> Set [TermOf (AtomOf lit)]
-         -> Failing (Set [TermOf (AtomOf lit)])
+         -> Set [term]
+         -> Set [term]
+         -> Failing (Set [term])
 herbloop mfn tfn fl0 cntms fns fvs n fl tried tuples =
   let debug x = trace (show (size tried) ++ " ground instances tried; " ++ show (length fl) ++ " items in list") x in
   case Set.minView (debug tuples) of
@@ -96,28 +98,30 @@ herbloop mfn tfn fl0 cntms fns fvs n fl tried tuples =
               else herbloop mfn tfn fl0 cntms fns fvs n fl' (Set.insert tup tried) tups
 
 -- | Hence a simple Gilmore-type procedure.
-gilmore_loop :: (IsLiteral lit, Ord lit,
-                 HasApply (AtomOf lit),
-                 IsTerm (TermOf (AtomOf lit)) (VarOf lit) function,
+gilmore_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term, function ~ FunOf term,
+                 IsLiteral lit, Ord lit,
+                 HasApply atom,
+                 IsTerm term,
                  HasFunctions lit function) =>
                 Set (Set lit)
-             -> Set (TermOf (AtomOf lit))
+             -> Set term
              -> Set (function, Int)
              -> [VarOf lit]
              -> Int
              -> Set (Set lit)
-             -> Set [TermOf (AtomOf lit)]
-             -> Set [TermOf (AtomOf lit)]
-             -> Failing (Set [TermOf (AtomOf lit)])
+             -> Set [term]
+             -> Set [term]
+             -> Failing (Set [term])
 gilmore_loop =
     herbloop mfn (Success . not . Set.null)
     where
       mfn djs0 ifn djs = Set.filter (not . trivial) (distrib (Set.map (Set.map ifn) djs0) djs)
 
-gilmore :: forall fof function.
-           (IsFirstOrder fof (AtomOf fof) (PredOf (AtomOf fof)) (TermOf (AtomOf fof)) (VarOf fof) function, Ord fof,
+gilmore :: forall fof atom predicate term v function.
+           (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
+            IsFirstOrder fof atom predicate term v function, Ord fof,
             HasFunctions fof function,
-            HasSkolem function (VarOf fof)) =>
+            HasSkolem function v) =>
            fof -> Failing Int
 gilmore fm =
   let (sfm :: Marked Propositional fof) = runSkolem (skolemize id ((.~.) (generalize fm))) in
@@ -194,23 +198,25 @@ let p20 = gilmore
 dp_mfn :: Ord b => Set (Set a) -> (a -> b) -> Set (Set b) -> Set (Set b)
 dp_mfn cjs0 ifn cjs = Set.union (Set.map (Set.map ifn) cjs0) cjs
 
-dp_loop :: (IsLiteral lit, Ord lit,
-            HasApply (AtomOf lit),
+dp_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf lit, v ~ TVarOf term,
+            IsLiteral lit, Ord lit,
+            HasApply atom,
             HasFunctions lit function,
-            IsTerm (TermOf (AtomOf lit)) (VarOf lit) function) =>
+            IsTerm term) =>
            Set (Set lit)
-        -> Set (TermOf (AtomOf lit))
+        -> Set term
         -> Set (function, Int)
-        -> [VarOf lit]
+        -> [v]
         -> Int
         -> Set (Set lit)
-        -> Set [(TermOf (AtomOf lit))]
-        -> Set [(TermOf (AtomOf lit))]
-        -> Failing (Set [(TermOf (AtomOf lit))])
+        -> Set [term]
+        -> Set [term]
+        -> Failing (Set [term])
 dp_loop = herbloop dp_mfn dpll
 
-davisputnam :: forall formula function.
-               (IsFirstOrder formula (AtomOf formula) (PredOf (AtomOf formula)) (TermOf (AtomOf formula)) (VarOf formula) function, Ord formula,
+davisputnam :: forall formula atom predicate term v function.
+               (atom ~ AtomOf formula, predicate ~ PredOf atom, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf formula, v ~ TVarOf term,
+                IsFirstOrder formula atom predicate term v function, Ord formula,
                 HasSkolem function (VarOf formula)) =>
                formula -> Failing Int
 davisputnam fm =
@@ -230,43 +236,46 @@ END_INTERACTIVE;;
 -}
 
 -- | Show how few of the instances we really need. Hence unification!
-davisputnam' :: forall formula f.
-                (IsFirstOrder formula (AtomOf formula) (PredOf (AtomOf formula)) (TermOf (AtomOf formula)) (VarOf formula) f, Ord formula,
-                 HasFunctions formula f,
-                 HasSkolem f (VarOf formula)) =>
+davisputnam' :: forall formula atom predicate term v function.
+                (atom ~ AtomOf formula, predicate ~ PredOf atom, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf formula, v ~ TVarOf term,
+                 IsFirstOrder formula atom predicate term v function, Ord formula,
+                 HasFunctions formula function,
+                 HasSkolem function (VarOf formula)) =>
                 formula -> formula -> formula -> Failing Int
 davisputnam' _ _ fm =
     let (sfm :: Marked Propositional formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
     let fvs = Set.toList (overatoms (\ (a :: AtomOf formula) s -> Set.union (fv (atomic a :: formula)) s) sfm Set.empty)
-        consts :: Set (f, Arity)
-        fns :: Set (f, Arity)
+        consts :: Set (function, Arity)
+        fns :: Set (function, Arity)
         (consts,fns) = herbfuns sfm in
     let cntms :: Set (TermOf (AtomOf formula))
         cntms = Set.map (\ (c,_) -> fApp c []) consts in
     dp_refine_loop (simpcnf id sfm :: Set (Set (Marked Literal formula))) cntms fns fvs 0 Set.empty Set.empty Set.empty >>= return . Set.size
 
 -- | Try to cut out useless instantiations in final result.
-dp_refine_loop :: (IsLiteral lit, Ord lit,
-                   IsTerm (TermOf (AtomOf lit)) (VarOf lit) function,
-                   HasApply (AtomOf lit),
+dp_refine_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term, function ~ FunOf term,
+                   IsLiteral lit, Ord lit,
+                   IsTerm term,
+                   HasApply atom,
                    HasFunctions lit function) =>
                   Set (Set lit)
-               -> Set (TermOf (AtomOf lit))
+               -> Set term
                -> Set (function, Int)
-               -> [VarOf lit]
+               -> [v]
                -> Int
                -> Set (Set lit)
-               -> Set [TermOf (AtomOf lit)]
-               -> Set [TermOf (AtomOf lit)]
-               -> Failing (Set [TermOf (AtomOf lit)])
+               -> Set [term]
+               -> Set [term]
+               -> Failing (Set [term])
 dp_refine_loop cjs0 cntms fns fvs n cjs tried tuples =
     dp_loop cjs0 cntms fns fvs n cjs tried tuples >>= \ tups ->
     dp_refine cjs0 fvs tups Set.empty
 
-dp_refine :: (HasApply (AtomOf lit),
+dp_refine :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
+              HasApply atom,
               IsLiteral lit, Ord lit,
-              IsTerm (TermOf (AtomOf lit)) (VarOf lit) function
-             ) => Set (Set lit) -> [VarOf lit] -> Set [TermOf (AtomOf lit)] -> Set [TermOf (AtomOf lit)] -> Failing (Set [TermOf (AtomOf lit)])
+              IsTerm term
+             ) => Set (Set lit) -> [VarOf lit] -> Set [term] -> Set [term] -> Failing (Set [term])
 dp_refine cjs0 fvs dknow need =
     case Set.minView dknow of
       Nothing -> Success need

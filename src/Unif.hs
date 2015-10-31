@@ -8,6 +8,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Unif
     ( Unify(unify)
@@ -39,10 +40,10 @@ class Unify a v term where
 instance Unify a v term => Unify [a] v term where
     unify = mapM_ unify
 
-unify_terms :: IsTerm term v f => [(term,term)] -> StateT (Map v term) Failing ()
+unify_terms :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term,term)] -> StateT (Map v term) Failing ()
 unify_terms = mapM_ (uncurry unify_term_pair)
 
-unify_term_pair :: forall term v f. IsTerm term v f => term -> term -> StateT (Map v term) Failing ()
+unify_term_pair :: forall term v f. (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => term -> term -> StateT (Map v term) Failing ()
 unify_term_pair a b =
     foldTerm (vr b) (\ f fargs -> foldTerm (vr a) (fn f fargs) b) a
     where
@@ -57,7 +58,7 @@ unify_term_pair a b =
           then mapM_ (uncurry unify_term_pair) (zip fargs gargs)
           else fail "impossible unification"
 
-istriv :: forall term v f. IsTerm term v f => v -> term -> StateT (Map v term) Failing Bool
+istriv :: forall term v f. (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => v -> term -> StateT (Map v term) Failing Bool
 istriv x t =
     foldTerm vr fn t
     where
@@ -68,21 +69,21 @@ istriv x t =
       fn _ args = mapM (istriv x) args >>= bool (return False) (fail "cyclic") . or
 
 -- | Solve to obtain a single instantiation.
-solve :: IsTerm term v f => Map v term -> Map v term
+solve :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => Map v term -> Map v term
 solve env =
     if env' == env then env else solve env'
     where env' = Map.map (tsubst env) env
 
 -- | Unification reaching a final solved form (often this isn't needed).
-fullunify :: IsTerm term v f => [(term,term)] -> Failing (Map v term)
+fullunify :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term,term)] -> Failing (Map v term)
 fullunify eqs = solve <$> execStateT (unify_terms eqs) Map.empty
 
 -- | Examples.
-unify_and_apply :: IsTerm term v f => [(term, term)] -> Failing [(term, term)]
+unify_and_apply :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term, term)] -> Failing [(term, term)]
 unify_and_apply eqs =
     fullunify eqs >>= \i -> return $ List.map (\ (t1, t2) -> (tsubst i t1, tsubst i t2)) eqs
 
-unify_and_apply' :: IsTerm term v f => [(term, term)] -> Failing [(term, term)]
+unify_and_apply' :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term, term)] -> Failing [(term, term)]
 unify_and_apply' eqs =
     mapM app eqs
         where
