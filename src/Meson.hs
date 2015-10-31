@@ -23,7 +23,7 @@ import Control.Monad.State (execStateT)
 import Data.Map as Map
 import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (generalize, HasApply, IsFirstOrder, IsQuantified(VarOf), IsTerm)
+import FOL (generalize, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf), IsTerm)
 import Formulas ((.~.), false, IsFormula(AtomOf), negative)
 import Lib (Marked)
 import Lit (IsLiteral)
@@ -181,15 +181,15 @@ contrapositives cls =
 -- -------------------------------------------------------------------------
 
 mexpand1 :: (IsLiteral lit, JustLiteral lit, Ord lit,
-            HasApply (AtomOf lit) predicate term,
-            IsTerm term (VarOf lit) function,
-            Unify (AtomOf lit, AtomOf lit) (VarOf lit) term) =>
+            HasApply (AtomOf lit),
+            IsTerm (TermOf (AtomOf lit)) (VarOf lit) function,
+            Unify (AtomOf lit, AtomOf lit) (VarOf lit) (TermOf (AtomOf lit))) =>
            Set (PrologRule lit)
         -> Set lit
         -> lit
-        -> ((Map (VarOf lit) term, Int, Int) -> Failing (Map (VarOf lit) term, Int, Int))
-        -> (Map (VarOf lit) term, Int, Int)
-        -> Failing (Map (VarOf lit) term, Int, Int)
+        -> ((Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int) -> Failing (Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int))
+        -> (Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int)
+        -> Failing (Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int)
 mexpand1 rules ancestors g cont (env,n,k) =
     if fromEnum n < 0
     then Failure ["Too deep"]
@@ -212,8 +212,10 @@ mexpand1 rules ancestors g cont (env,n,k) =
 -- -------------------------------------------------------------------------
 
 puremeson1 :: forall fof atom predicate term v f.
-             (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof
-             ) => Maybe Depth -> fof -> Failing Depth
+              (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof,
+               IsFirstOrder fof atom predicate term v f,
+               Unify (atom, atom) v term, Ord fof
+              ) => Maybe Depth -> fof -> Failing Depth
 puremeson1 maxdl fm =
     snd <$> deepen f (Depth 0) maxdl
     where
@@ -223,8 +225,10 @@ puremeson1 maxdl fm =
       (cls :: Set (Set (Marked Literal fof))) = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
 
 meson1 :: forall m fof atom predicate term f v.
-          (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof,
-           HasSkolem f v, Monad m
+          (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof,
+           IsFirstOrder fof atom predicate term v f,
+           Unify (atom, atom) (VarOf fof) (TermOf (atom)),
+           Ord fof, HasSkolem f (VarOf fof), Monad m
           ) => Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
 meson1 maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
@@ -234,8 +238,10 @@ meson1 maxdl fm =
 -- With repetition checking and divide-and-conquer search.
 -- -------------------------------------------------------------------------
 
-equal :: (IsLiteral lit, HasApply (AtomOf lit) predicate term, Unify ((AtomOf lit), (AtomOf lit)) (VarOf lit) term, IsTerm term (VarOf lit) function) =>
-         Map (VarOf lit) term -> lit -> lit -> Bool
+equal :: (IsLiteral lit, HasApply (AtomOf lit),
+          Unify ((AtomOf lit), (AtomOf lit)) (VarOf lit) (TermOf (AtomOf lit)),
+          IsTerm (TermOf (AtomOf lit)) (VarOf lit) function) =>
+         Map (VarOf lit) (TermOf (AtomOf lit)) -> lit -> lit -> Bool
 equal env fm1 fm2 =
     case execStateT (unify_literals (fm1,fm2)) env of
       Success env' | env == env' -> True
@@ -261,15 +267,15 @@ expand2 expfn goals1 n1 goals2 n2 n3 cont env k =
                  (env,n1,k)
 
 mexpand2 :: (IsLiteral lit, JustLiteral lit, Ord lit,
-            HasApply (AtomOf lit) predicate term,
-            IsTerm term (VarOf lit) function,
-            Unify ((AtomOf lit), (AtomOf lit)) (VarOf lit) term) =>
+            HasApply (AtomOf lit),
+            IsTerm (TermOf (AtomOf lit)) (VarOf lit) function,
+            Unify ((AtomOf lit), (AtomOf lit)) (VarOf lit) (TermOf (AtomOf lit))) =>
            Set (PrologRule lit)
         -> Set lit
         -> lit
-        -> ((Map (VarOf lit) term, Int, Int) -> Failing (Map (VarOf lit) term, Int, Int))
-        -> (Map (VarOf lit) term, Int, Int)
-        -> Failing (Map (VarOf lit) term, Int, Int)
+        -> ((Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int) -> Failing (Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int))
+        -> (Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int)
+        -> Failing (Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int)
 mexpand2 rules ancestors g cont (env,n,k) =
     if fromEnum n < 0
     then Failure ["Too deep"]
@@ -289,14 +295,15 @@ mexpand2 rules ancestors g cont (env,n,k) =
             mexpand2' = mexpands rules (Set.insert g ancestors) asm cont
             (Prolog asm c, k') = renamerule k rule
 
-mexpands :: (IsLiteral lit, JustLiteral lit, Ord lit,
-             HasApply (AtomOf lit) predicate term, Unify ((AtomOf lit), (AtomOf lit)) (VarOf lit) term,
-             IsTerm term (VarOf lit) function) =>
+mexpands :: (atom ~ AtomOf lit, term ~ TermOf atom,
+             IsLiteral lit, JustLiteral lit, Ord lit,
+             HasApply (AtomOf lit), Unify ((AtomOf lit), (AtomOf lit)) (VarOf lit) (TermOf (AtomOf lit)),
+             IsTerm (TermOf (AtomOf lit)) (VarOf lit) function) =>
             Set (PrologRule lit)
          -> Set lit
          -> Set lit
-         -> ((Map (VarOf lit) term, Int, Int) -> Failing (Map (VarOf lit) term, Int, Int))
-         -> (Map (VarOf lit) term, Int, Int)
+         -> ((Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int) -> Failing (Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int))
+         -> (Map (VarOf lit) (TermOf (AtomOf lit)), Int, Int)
          -> Failing (Map (VarOf lit) term, Int, Int)
 mexpands rules ancestors gs cont (env,n,k) =
     if fromEnum n < 0
@@ -321,7 +328,9 @@ setSplitAt n s = go n (mempty, s)
                          Just (x, s2') -> go (i - 1) (Set.insert x s1, s2')
 
 puremeson2 :: forall fof atom predicate term v f.
-             (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof
+             (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof,
+              IsFirstOrder fof atom predicate term v f,
+              Unify (atom, atom) v term, Ord fof
              ) => Maybe Depth -> fof -> Failing Depth
 puremeson2 maxdl fm =
     snd <$> deepen f (Depth 0) maxdl
@@ -332,14 +341,24 @@ puremeson2 maxdl fm =
       (cls :: Set (Set (Marked Literal fof))) = simpcnf id (specialize id (pnf fm) :: Marked Propositional fof)
 
 meson2 :: forall m fof atom predicate term f v.
-          (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof,
+          (atom ~ AtomOf fof,
+           predicate ~ PredOf (atom),
+           term ~ TermOf (atom),
+           v ~ VarOf fof,
+           IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof,
            HasSkolem f v, Monad m
           ) => Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
 meson2 maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
     return . Set.map (puremeson2 maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
-meson :: (IsFirstOrder fof atom predicate term v f, Unify (atom, atom) v term, Ord fof, HasSkolem f v, Monad m) =>
+meson :: (atom ~ AtomOf fof,
+          predicate ~ PredOf atom,
+          term ~ TermOf (atom),
+          v ~ VarOf fof,
+          IsFirstOrder fof atom predicate term v f,
+          Unify (atom, atom) v term, Ord fof,
+          HasSkolem f v, Monad m) =>
          Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
 meson = meson2
 

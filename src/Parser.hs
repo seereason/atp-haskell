@@ -1,4 +1,4 @@
-{-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts, FlexibleInstances, ScopedTypeVariables, TemplateHaskell #-}
+{-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts, FlexibleInstances, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
 module Parser where
 
 -- Parsing expressions and statements
@@ -6,7 +6,7 @@ module Parser where
 
 import Control.Monad.Identity
 import Data.Char (isSpace)
-import Data.Set (fromList)
+--import Data.Set (fromList)
 import Data.String (fromString)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Text.Parsec
@@ -17,9 +17,9 @@ import Text.Parsec.Language
 
 import FOL
 import Formulas
-import Lit
-import Prop
-import Prolog (PrologRule(Prolog))
+--import Lit
+--import Prop
+--import Prolog (PrologRule(Prolog))
 import Skolem
 
 -- | QuasiQuote for a first order formula.  Loading this symbol into the interpreter
@@ -94,7 +94,7 @@ TokenParser{ parens = m_parens
 folparser :: forall s u m. Stream s m Char => ParsecT s u m MyFormula
 folparser = exprparser folterm
 
-exprparser :: forall s u m a. Stream s m Char => ParsecT s u m MyFormula -> ParsecT s u m MyFormula
+exprparser :: forall s u m. Stream s m Char => ParsecT s u m MyFormula -> ParsecT s u m MyFormula
 exprparser term = buildExpressionParser table term <?> "expression"
  where
   table = [ [Prefix (m_reservedOp "~" >> return (.~.)), Prefix (m_reservedOp "¬" >> return (.~.))]

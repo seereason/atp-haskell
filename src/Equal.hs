@@ -1,4 +1,5 @@
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TypeFamilies #-}
 -- | First order logic with equality.
 --
 -- Copyright (co) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
@@ -20,7 +21,7 @@ import Data.List as List (foldr, map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
 import Formulas ((∧), (⇒), IsFormula(AtomOf, atomic), atom_union)
-import FOL ((.=.), HasFunctions(funcs), HasApply(applyPredicate), HasApplyAndEquate(foldEquate),
+import FOL ((.=.), HasFunctions(funcs), HasApply(TermOf, PredOf, applyPredicate), HasApplyAndEquate(foldEquate),
             IsQuantified(..), (∀), IsTerm(..))
 import Lib ((∅))
 import Parser (atp)
@@ -60,8 +61,9 @@ predicates :: IsFormula formula => formula -> Set (AtomOf formula)
 predicates fm = atom_union Set.singleton fm
 
 -- | Code to generate equate axioms for functions.
-function_congruence :: forall fof term p f.
-                       (IsQuantified fof, HasApplyAndEquate (AtomOf fof) p term, IsTerm term (VarOf fof) f, Ord fof) =>
+function_congruence :: forall fof atom term v p f.
+                       (atom ~ AtomOf fof, term ~ TermOf atom, p ~ PredOf atom, v ~ VarOf fof,
+                        IsQuantified fof, HasApplyAndEquate atom, IsTerm term v f, Ord fof) =>
                        (f, Int) -> Set fof
 function_congruence (_,0) = (∅)
 function_congruence (f,n) =
@@ -77,7 +79,8 @@ function_congruence (f,n) =
       con = fApp f args_x .=. fApp f args_y
 
 -- | And for predicates.
-predicate_congruence :: (IsQuantified fof, HasApplyAndEquate (AtomOf fof) p term, IsTerm term (VarOf fof) f, Ord p) =>
+predicate_congruence :: (atom ~ AtomOf fof, p ~ PredOf atom, term ~ TermOf atom, v ~ VarOf fof,
+                         IsQuantified fof, HasApplyAndEquate atom, IsTerm term v f, Ord p) =>
                         AtomOf fof -> Set fof
 predicate_congruence =
     foldEquate (\_ _ -> Set.empty) (\p ts -> ap p (length ts))
@@ -93,7 +96,9 @@ predicate_congruence =
             con = atomic (applyPredicate p args_x) ⇒ atomic (applyPredicate p args_y)
 
 -- | Hence implement logic with equate just by adding equate "axioms".
-equivalence_axioms :: forall fof term p f. (IsQuantified fof, HasApplyAndEquate (AtomOf fof) p term, IsTerm term (VarOf fof) f, Ord fof) => Set fof
+equivalence_axioms :: forall fof atom term v f.
+                      (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof,
+                       IsQuantified fof, HasApplyAndEquate atom, IsTerm term v f, Ord fof) => Set fof
 equivalence_axioms =
     Set.fromList
     [(∀) "x" (x .=. x),
@@ -106,8 +111,9 @@ equivalence_axioms =
       z :: term
       z = vt (fromString "z")
 
-equalitize :: forall formula term p f.
-              (IsQuantified formula, HasApplyAndEquate (AtomOf formula) p term, HasFunctions formula f, HasFunctions term f, Ord p, Show p, IsTerm term (VarOf formula) f, Ord formula, Ord (AtomOf formula), Ord f) =>
+equalitize :: forall formula atom term v f.
+              (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula,
+               IsQuantified formula, HasApplyAndEquate atom, HasFunctions formula f, HasFunctions term f, IsTerm term v f, Ord formula, Ord atom, Ord f) =>
               formula -> formula
 equalitize fm =
     if Set.null eqPreds then fm else foldr1 (∧) axioms ⇒ fm
