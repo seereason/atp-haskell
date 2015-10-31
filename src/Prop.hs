@@ -27,11 +27,7 @@ module Prop
     , prettyPropositional
     , showPropositional
     -- * Formula marker types and restricted formula classes
-    , Literal
     , Propositional
-    , markLiteral
-    , unmarkLiteral
-    , JustLiteral
     , JustPropositional
     , markPropositional
     , unmarkPropositional
@@ -103,7 +99,7 @@ import Data.Set as Set (fromList)
 import Data.String (IsString(fromString))
 import Formulas ((¬), (∧), (∨))
 import Lib ((|=>))
-import Lit (LFormula)
+import Lit (LFormula, Literal, unmarkLiteral)
 import Pretty (leafFixity)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 #endif
@@ -122,29 +118,29 @@ class (IsLiteral formula, IsCombinable formula) => IsPropositional formula where
     -- to its parameter functions, one to handle binary operators, one
     -- for negations, and one for atomic formulas.  See examples of its
     -- use to implement the polymorphic functions below.
-    foldPropositional' :: (formula -> r)
-                       -> (formula -> BinOp -> formula -> r)
-                       -> (formula -> r)
-                       -> (Bool -> r)
-                       -> (AtomOf formula -> r)
+    foldPropositional' :: (formula -> r)                     -- ^ fold on some higher order formula
+                       -> (formula -> BinOp -> formula -> r) -- ^ fold on a binary operation formula
+                       -> (formula -> r)                     -- ^ fold on a negated formula
+                       -> (Bool -> r)                        -- ^ fold on a boolean formula
+                       -> (AtomOf formula -> r)              -- ^ fold on an atomic formula
                        -> formula -> r
 
 foldPropositional :: (IsPropositional pf, JustPropositional pf) =>
-                     (pf -> BinOp -> pf -> r)
-                  -> (pf -> r)
-                  -> (Bool -> r)
-                  -> (AtomOf pf -> r)
+                     (pf -> BinOp -> pf -> r) -- ^ fold on a binary operation formula
+                  -> (pf -> r)                -- ^ fold on a negated formula
+                  -> (Bool -> r)              -- ^ fold on a boolean formula
+                  -> (AtomOf pf -> r)         -- ^ fold on an atomic formula
                   -> pf -> r
 foldPropositional = foldPropositional' (error "JustPropositional failure")
 
 -- | Combine two formulas if they are similar.
 zipPropositional :: (IsPropositional pf1, JustPropositional pf1,
                      IsPropositional pf2, JustPropositional pf2) =>
-                    (pf1 -> BinOp -> pf1 -> pf2 -> BinOp -> pf2 -> Maybe r)
-                 -> (pf1 -> pf2 -> Maybe r)
-                 -> (Bool -> Bool -> Maybe r)
-                 -> (AtomOf pf1 -> AtomOf pf2 -> Maybe r)
-                 -> pf1 -> pf2 -> Maybe r
+                    (pf1 -> BinOp -> pf1 -> pf2 -> BinOp -> pf2 -> Maybe r) -- ^ Combine two binary operation formulas
+                 -> (pf1 -> pf2 -> Maybe r)                                 -- ^ Combine two negated formulas
+                 -> (Bool -> Bool -> Maybe r)                               -- ^ Combine two boolean formulas
+                 -> (AtomOf pf1 -> AtomOf pf2 -> Maybe r)                   -- ^ Combine two atomic formulas
+                 -> pf1 -> pf2 -> Maybe r                                   -- ^ Result is Nothing if the formulas don't unify
 zipPropositional co ne tf at fm1 fm2 =
     foldPropositional co' ne' tf' at' fm1
     where
@@ -154,7 +150,9 @@ zipPropositional co ne tf at fm1 fm2 =
       at' a1 = foldPropositional (\_ _ _ -> Nothing) (\_ -> Nothing) (\_ -> Nothing)     (at a1)     fm2
 
 -- | Convert any instance of JustPropositional to any IsPropositional formula.
-convertPropositional :: (IsPropositional pf1, JustPropositional pf1, IsPropositional pf2) => (AtomOf pf1 -> AtomOf pf2) -> pf1 -> pf2
+convertPropositional :: (IsPropositional pf1, JustPropositional pf1, IsPropositional pf2) =>
+                        (AtomOf pf1 -> AtomOf pf2) -- ^ Convert an atomic formula
+                     -> pf1 -> pf2
 convertPropositional ca pf =
     foldPropositional co ne tf (atomic . ca) pf
     where
@@ -167,7 +165,9 @@ convertPropositional ca pf =
 
 -- | Convert any instance of IsPropositional to a JustPropositional formula.
 convertToPropositional :: (IsPropositional formula, IsPropositional pf, JustPropositional pf) =>
-                          (formula -> pf) -> (AtomOf formula -> AtomOf pf) -> formula -> pf
+                          (formula -> pf)               -- ^ Convert a higher order formula
+                       -> (AtomOf formula -> AtomOf pf) -- ^ Convert an atomic formula
+                       -> formula -> pf
 convertToPropositional ho ca fm =
     foldPropositional' ho co ne tf (atomic . ca) fm
     where
@@ -286,18 +286,8 @@ instance IsPropositional formula => IsPropositional (Marked mk formula) where
           co' lhs op rhs = co (Mark lhs) op (Mark rhs)
 
 -- | The formula marker types
-data Literal
 data Propositional
-deriving instance Data Literal
 deriving instance Data Propositional
-
--- We only want these simple instances for specific markings, not the
--- general Marked mk case.
-instance Show formula => Show (Marked Literal formula) where
-    show (Mark x) = "markLiteral (" ++ show x ++ ")"
-
-instance Eq formula => Eq (Marked Literal formula) where
-    Mark a == Mark b = a == b
 
 instance Show formula => Show (Marked Propositional formula) where
     show (Mark x) = "markPropositional (" ++ show x ++ ")"
@@ -305,14 +295,8 @@ instance Show formula => Show (Marked Propositional formula) where
 instance Eq formula => Eq (Marked Propositional formula) where
     Mark a == Mark b = a == b
 
-instance Ord formula => Ord (Marked Literal formula)where
-    compare (Mark a) (Mark b) = compare a b
-
 instance Ord formula => Ord (Marked Propositional formula)where
     compare (Mark a) (Mark b) = compare a b
-
-instance Show (Marked Expr formula) => Show (Marked Expr (Marked Literal formula)) where
-    show (Mark (Mark fm)) = "markLiteral (" ++ show (markExpr fm) ++ ")"
 
 instance Show (Marked Expr formula) => Show (Marked Expr (Marked Propositional formula)) where
     show (Mark (Mark fm)) = "markPropositional (" ++ show (markExpr fm) ++ ")"
@@ -321,15 +305,10 @@ instance Show (Marked Expr formula) => Show (Marked Expr (Marked Propositional f
 -- features - no quantifiers.
 class JustPropositional formula
 
-instance JustLiteral (Marked Literal formula)
 instance JustPropositional (Marked Propositional formula)
+-- A 'Literal' formula can safely be used wherever a 'Propositional'
+-- formula can.
 instance JustPropositional (Marked Literal formula)
-
-markLiteral :: IsLiteral lit => lit -> Marked Literal lit
-markLiteral = Mark
-
-unmarkLiteral :: IsLiteral pf => Marked Literal pf -> pf
-unmarkLiteral = unMark'
 
 markPropositional :: IsPropositional lit => lit -> Marked Propositional lit
 markPropositional fm = convertToPropositional (error "markPropositional") id fm

@@ -86,11 +86,11 @@ import Data.Typeable (Typeable)
 import Formulas ((.~.), BinOp(..), binop, false, HasBoolean(..), IsCombinable(..), IsFormula(..),
                  onatoms, prettyBool, true)
 import Lib (Marked(Mark, unMark'), setAny, tryApplyD, undefine, (|->))
-import Lit (foldLiteral, IsLiteral)
+import Lit (foldLiteral, IsLiteral, JustLiteral)
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Expr, Fixity(Fixity), HasFixity(fixity),
                leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
-import Prop (foldPropositional, IsAtom, IsPropositional, JustLiteral, JustPropositional)
+import Prop (foldPropositional, IsAtom, IsPropositional, JustPropositional)
 import Text.PrettyPrint (parens, braces, brackets, punctuate, comma, fcat, fsep, hsep, space)
 #ifndef NOTESTS
 import Data.Map as Map (empty, fromList)

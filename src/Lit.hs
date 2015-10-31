@@ -2,10 +2,13 @@
 -- have true and false elements.
 
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -20,15 +23,20 @@ module Lit
     , fixityLiteral
     , prettyLiteral
     , showLiteral
+    , Literal
+    , markLiteral
+    , unmarkLiteral
 #ifndef NOTESTS
     , LFormula(T, F, Atom, Not)
 #endif
     ) where
 
+import Data.Generics (Data)
 import Data.Monoid ((<>))
 import Formulas (HasBoolean(..), IsAtom, IsNegatable(..), IsFormula(atomic, AtomOf), (.~.))
+import Lib (Marked(Mark, unMark'))
 import Prelude hiding (negate, null)
-import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
+import Pretty (Associativity(..), Doc, Expr, Fixity(..), HasFixity(fixity), markExpr, Pretty(pPrint), text)
 #ifndef NOTESTS
 import Formulas (overatoms, onatoms)
 #endif
@@ -128,6 +136,32 @@ overatomsLiteral f fm r0 =
         foldLiteral ne (const r0) (flip f r0) fm
         where
           ne fm' = overatomsLiteral f fm' r0
+
+-- | Type used as a parameter to 'Marked' to indicate Literal values.
+data Literal
+deriving instance Data Literal
+
+-- We only want these simple instances for specific markings, not the
+-- general Marked mk case.
+instance Show formula => Show (Marked Literal formula) where
+    show (Mark x) = "markLiteral (" ++ show x ++ ")"
+
+instance Eq formula => Eq (Marked Literal formula) where
+    Mark a == Mark b = a == b
+
+instance Ord formula => Ord (Marked Literal formula)where
+    compare (Mark a) (Mark b) = compare a b
+
+instance Show (Marked Expr formula) => Show (Marked Expr (Marked Literal formula)) where
+    show (Mark (Mark fm)) = "markLiteral (" ++ show (markExpr fm) ++ ")"
+
+instance JustLiteral (Marked Literal formula)
+
+markLiteral :: IsLiteral lit => lit -> Marked Literal lit
+markLiteral = Mark
+
+unmarkLiteral :: IsLiteral pf => Marked Literal pf -> pf
+unmarkLiteral = unMark'
 
 #ifndef NOTESTS
 -- | Example of a 'JustLiteral' type.

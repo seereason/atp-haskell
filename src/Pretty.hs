@@ -108,7 +108,7 @@ parenthesize parens braces (Fixity pprec pdir) (Fixity prec _dir) side pp =
             (_, InfixN) -> error ("Nested non-associative operators: " ++ show pp)
 
 instance Pretty a => Pretty (Set a) where
-    pPrint s = brackets (fsep (punctuate comma (map pPrint (Set.toAscList s))))
+    pPrint = brackets . fsep . punctuate comma . map pPrint . Set.toAscList
 
 instance (Pretty v, Pretty term) => Pretty (Map v term) where
     pPrint = pPrint . Map.toList

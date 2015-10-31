@@ -21,12 +21,12 @@ import Data.String (IsString(..))
 import Debug.Trace
 
 import DP (dpll)
-import FOL (Arity, functions, funcs, HasApply(TermOf, PredOf), HasApply(overterms), IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
+import FOL (Arity, functions, HasApply(TermOf, PredOf), HasApply, IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
             fApp, lsubst, fv, generalize)
 import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib, Marked)
-import Lit (IsLiteral)
-import Prop (eval, IsPropositional, JustPropositional, Literal, Propositional, simpcnf, simpdnf, trivial)
+import Lit (IsLiteral, Literal)
+import Prop (eval, IsPropositional, JustPropositional, Propositional, simpcnf, simpdnf, trivial)
 import Skolem (HasSkolem, runSkolem, skolemize)
 
 #ifndef NOTESTS
