@@ -25,7 +25,10 @@ module Skolem
     , runSkolem
     , SkolemT
     , runSkolemT
-    , HasSkolem(toSkolem, fromSkolem)
+    , HasSkolem(toSkolem, foldSkolem)
+    , fromSkolem
+    , showSkolem
+    , prettySkolem
     , skolems
     , askolemize
     , skolemize
@@ -48,7 +51,7 @@ import Data.Map as Map (singleton)
 import Data.Maybe (isJust)
 import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union)
 import FOL (exists, fApp, for_all, functions, fv, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf, foldQuantified),
-            IsTerm(TVarOf, FunOf), quant, Quant((:?:), (:!:)), subst, variant, vt)
+            IsTerm(TVarOf, FunOf), IsVariable, quant, Quant((:?:), (:!:)), subst, variant, vt)
 import Formulas ((.~.), (.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)), IsFormula(AtomOf), negate, false, true, atomic)
 import Lib (setAny, distrib)
 import Prelude hiding (negate)
@@ -58,8 +61,8 @@ import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
 import Data.String (IsString(fromString))
 import FOL (FOLEQ, Formula, IsFunction, pApp, Predicate, Term, V)
-import Lib (Marked(Mark))
-import Pretty (Expr, Pretty(pPrint), prettyShow, text)
+import Lib (Marked)
+import Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
 import Prop (Propositional)
 import Test.HUnit
 #endif
@@ -270,9 +273,15 @@ runSkolemT action = (runStateT action) newSkolemState >>= return . fst
 -- @P[x,y,sKz[x,y]]@ is also satisfiable.  Thus, using this mechanism
 -- we can eliminate all the formula's existential quantifiers and some
 -- of its variables.
-class HasSkolem function v | function -> v where
+class (IsFunction function, IsVariable v) => HasSkolem function v | function -> v where
     toSkolem :: v -> function
-    fromSkolem :: function -> Maybe v
+    foldSkolem :: (function -> r) -> (v -> r) -> function -> r
+
+fromSkolem :: HasSkolem function v => function -> Maybe v
+fromSkolem = foldSkolem (const Nothing) Just
+
+showSkolem :: HasSkolem function v => function -> String
+showSkolem f = maybe (show (prettyShow f)) (\v -> "toSkolem " ++ show v) (fromSkolem f)
 
 -- | Extract the skolem functions from a formula.
 skolems :: (atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term,
@@ -351,25 +360,26 @@ skolemize ca fm = (specialize ca . pnf) <$> askolemize fm
 data Function
     = Fn String
     | Skolem V
-    deriving (Eq, Ord, Data, Typeable, Show)
+    deriving (Eq, Ord, Data, Typeable, Read)
 
 instance IsFunction Function
 
 instance IsString Function where
     fromString = Fn
 
-instance Show (Marked Expr Function) where
-    show (Mark (Fn s)) = show s
-    show (Mark (Skolem v)) = "(toSkolem " ++ show v ++ ")"
+instance Show Function where
+    show = showSkolem
+
+prettySkolem :: HasSkolem function v => (function -> Doc) -> function -> Doc
+prettySkolem prettyFunction = foldSkolem prettyFunction (\v -> text "sK" <> brackets (pPrint v))
 
 instance Pretty Function where
-    pPrint (Fn s) = text s
-    pPrint (Skolem v) = text "sK" <> pPrint v
+    pPrint = prettySkolem (\(Fn s) -> text s)
 
 instance HasSkolem Function V where
     toSkolem = Skolem
-    fromSkolem (Skolem v) = Just v
-    fromSkolem _ = Nothing
+    foldSkolem _ var (Skolem v) = var v
+    foldSkolem other _ f = other f
 
 -- Example.
 

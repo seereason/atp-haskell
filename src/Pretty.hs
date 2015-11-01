@@ -20,12 +20,9 @@ module Pretty
     , leafFixity
     , parenthesize
     , assertEqual'
-    , Expr
-    , markExpr
     ) where
 
 import Control.Monad (unless)
-import Data.Generics (Data)
 import Data.Map as Map (Map, toList)
 import Data.Monoid ((<>))
 import Data.Set as Set (Set, toAscList)
@@ -123,14 +120,6 @@ assertEqual' preface expected actual =
   unless (actual == expected) (assertFailure msg)
  where msg = (if null preface then "" else preface ++ "\n") ++
              "expected: " ++ prettyShow expected ++ "\n but got: " ++ prettyShow actual
-
--- | Phantom type to modify a formula's show instance to output an
--- expression that only use class methods instead of the constructors
--- of the specific instance.
-data Expr
-deriving instance Data Expr
-markExpr :: a -> Marked Expr a
-markExpr = Mark
 
 instance HasFixity formula => HasFixity (Marked mk formula) where
     fixity (Mark x) = fixity x

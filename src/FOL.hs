@@ -88,7 +88,7 @@ import Formulas ((.~.), BinOp(..), binop, false, HasBoolean(..), IsAtom, IsCombi
 import Lib (Marked(Mark, unMark'), setAny, tryApplyD, undefine, (|->))
 import Lit (foldLiteral, IsLiteral, JustLiteral)
 import Prelude hiding (pred)
-import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Expr, Fixity(Fixity), HasFixity(fixity),
+import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
                leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 import Prop (foldPropositional, IsPropositional, JustPropositional)
 import Text.PrettyPrint (parens, braces, brackets, punctuate, comma, fcat, fsep, space)
@@ -121,29 +121,26 @@ variants v0 =
     loop Set.empty v0
     where loop s v = let v' = variant v s in v' : loop (Set.insert v s) v'
 
-{-
+-- | Because IsString is a superclass we can just output a string expression
 showVariable :: IsVariable v => v -> String
-showVariable v = "(fromString (" ++ show (show (prettyVariable v)) ++ "))"
--}
+showVariable v = show (prettyShow v)
 
 #ifndef NOTESTS
-newtype V = V String deriving (Eq, Ord, Data, Typeable, Read, Show)
+newtype V = V String deriving (Eq, Ord, Data, Typeable, Read)
 
 instance IsVariable String where
     variant v vs = if Set.member v vs then variant (v ++ "'") vs else v
     prefix pre s = pre ++ s
-    -- prettyVariable = text
 
 instance IsVariable V where
     variant v@(V s) vs = if Set.member v vs then variant (V (s ++ "'")) vs else v
     prefix pre (V s) = V (pre ++ s)
-    -- prettyVariable (V s) = text s
 
 instance IsString V where
     fromString = V
 
-instance Show (Marked Expr V) where
-    show (Mark (V s)) = show s
+instance Show V where
+    show (V s) = show s
 
 instance Pretty V where
     pPrint (V s) = text s
@@ -161,13 +158,13 @@ type Arity = Int
 -- | A simple type to use as the function parameter of Term, FOL, etc.
 -- The only reason to use this instead of String is to get nicer
 -- pretty printing.
-newtype FName = FName String deriving (Eq, Ord, Show)
+newtype FName = FName String deriving (Eq, Ord)
 
 instance IsFunction FName
 
 instance IsString FName where fromString = FName
 
-instance Show (Marked Expr FName) where show (Mark (FName s)) = s
+instance Show FName where show (FName s) = s
 
 instance Pretty FName where pPrint (FName s) = text s
 #endif
@@ -178,7 +175,8 @@ instance Pretty FName where pPrint (FName s) = text s
 
 -- | A term is an expression representing a domain element, either as
 -- a variable reference or a function applied to a list of terms.
-class (Eq term, Ord term, Pretty term, Show term, IsVariable (TVarOf term), IsFunction (FunOf term)) => IsTerm term where
+class (Eq term, Ord term, Pretty term, Show term, IsString term,
+       IsVariable (TVarOf term), IsFunction (FunOf term)) => IsTerm term where
     type TVarOf term
     type FunOf term
     vt :: TVarOf term -> term
@@ -222,7 +220,7 @@ prettyFunctionApply f [] = pPrint f
 prettyFunctionApply f ts = pPrint f <> space <> parens (fsep (punctuate comma (map prettyTerm ts)))
 
 showTerm :: (v ~ TVarOf term, function ~ FunOf term, IsTerm term, Pretty v, Pretty function) => term -> String
-showTerm = foldTerm (\v -> "vt " <> show v) showFunctionApply
+showTerm = foldTerm showVariable showFunctionApply
 
 showFunctionApply :: (v ~ TVarOf term, function ~ FunOf term, IsTerm term) => function -> [term] -> String
 showFunctionApply f ts = "fApp (" <> show f <> ")" <> show (brackets (fsep (punctuate (comma <> space) (map (text . show) ts))))
@@ -231,7 +229,13 @@ showFunctionApply f ts = "fApp (" <> show f <> ")" <> show (brackets (fsep (punc
 data Term function v
     = Var v
     | FApply function [Term function v]
-    deriving (Eq, Ord, Data, Typeable, Show)
+    deriving (Eq, Ord, Data, Typeable, Read)
+
+instance (IsVariable v, IsFunction function) => IsString (Term function v) where
+    fromString = Var . fromString
+
+instance (IsVariable v, IsFunction function) => Show (Term function v) where
+    show = showTerm
 
 instance (IsFunction function, IsVariable v) => IsTerm (Term function v) where
     type TVarOf (Term function v) = v
@@ -385,7 +389,7 @@ data Predicate
     = TP
     | FP
     | NamedPred String
-    deriving (Eq, Ord, Data, Typeable, Show)
+    deriving (Eq, Ord, Data, Typeable, Read)
 
 instance HasBoolean Predicate where
     fromBool True = TP
@@ -410,13 +414,13 @@ instance Pretty Predicate where
 
 instance Pretty Predicate => IsPredicate Predicate
 
-instance Show (Marked Expr Predicate) where
-    show (Mark TP) = "true"
-    show (Mark FP) = "false"
-    show (Mark (NamedPred s)) = "fromString " ++ show s
+instance Show Predicate where
+    show TP = "true"
+    show FP = "false"
+    show (NamedPred s) = "fromString " ++ show s
 
 -- | First order logic formula atom type.
-data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable, Show)
+data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable, Read)
 
 instance (IsPredicate predicate, IsTerm term) => JustApply (FOL predicate term)
 
@@ -433,15 +437,13 @@ instance (IsPredicate predicate, IsTerm term) => HasApply (FOL predicate term) w
     overterms f r (R _ ts) = foldr f r ts
     onterms f (R p ts) = R p (map f ts)
 
-instance (IsPredicate predicate, IsTerm term,
-          Show (Marked Expr predicate),
-          Show (Marked Expr term)) => Show (Marked Expr (FOL predicate term)) where
-    show = foldApply (\p ts -> showApply (Mark p :: Marked Expr predicate) (map Mark ts :: [Marked Expr term])) . unMark'
+instance (IsPredicate predicate, IsTerm term, Show predicate, Show term) => Show (FOL predicate term) where
+    show = foldApply (\p ts -> showApply (p :: predicate) (ts :: [term]))
 
 instance HasFixity (FOL predicate term) where
     fixity _ = Fixity 6 InfixN
 
-data FOLEQ predicate term = AP predicate [term] | Equals term term deriving (Eq, Ord, Data, Typeable, Show)
+data FOLEQ predicate term = AP predicate [term] | Equals term term deriving (Eq, Ord, Data, Typeable, Read)
 
 instance (IsPredicate predicate, IsTerm term) => IsAtom (FOLEQ predicate term)
 
@@ -459,10 +461,9 @@ instance (IsPredicate predicate, IsTerm term) => HasApply (FOLEQ predicate term)
     overterms = overtermsEq
     onterms = ontermsEq
 
-instance (IsPredicate predicate, IsTerm term,
-          Show (Marked Expr predicate), Show (Marked Expr term)) => Show (Marked Expr (FOLEQ predicate term)) where
-    show = foldEquate (\t1 t2 -> showEquate (Mark t1 :: Marked Expr term) (Mark t2 :: Marked Expr term))
-                      (\p ts -> showApply (Mark p :: Marked Expr predicate) (map Mark ts :: [Marked Expr term])) . unMark'
+instance (IsPredicate predicate, IsTerm term, Show predicate, Show term) => Show (FOLEQ predicate term) where
+    show = foldEquate (\t1 t2 -> showEquate (t1 :: term) (t2 :: term))
+                      (\p ts -> showApply (p :: predicate) (ts :: [term]))
 
 instance (IsPredicate predicate, IsTerm term) => HasApplyAndEquate (FOLEQ predicate term) where
     equate lhs rhs = Equals lhs rhs

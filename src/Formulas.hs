@@ -138,7 +138,7 @@ infixl 4  .&., ∧
 (<=>) = (.<=>.)
 
 (∧) :: IsCombinable formula => formula -> formula -> formula
-(∧) = (.&.)
+(∧) = (.&.) -- ·
 (∨) :: IsCombinable formula => formula -> formula -> formula
 (∨) = (.|.)
 
@@ -146,8 +146,9 @@ infixl 4  .&., ∧
 -- becomes a special character used in type signatures.
 (⇒) :: IsCombinable formula => formula -> formula -> formula
 (⇒) = (.=>.)
+-- ⊃
 (⇔) :: IsCombinable formula => formula -> formula -> formula
-(⇔) = (.<=>.)
+(⇔) = (.<=>.) -- ↔ , ≡
 
 data BinOp
     = (:<=>:)

@@ -24,11 +24,11 @@ import Formulas ((∧), (⇒), IsFormula(AtomOf, atomic), atom_union)
 import FOL ((.=.), functions, HasApply(TermOf, PredOf, applyPredicate), HasApplyAndEquate(foldEquate),
             IsQuantified(..), (∀), IsTerm(..))
 import Lib ((∅))
-import Parser (atp)
+import Parser (fof)
 import Prelude hiding ((*))
 #ifndef NOTESTS
 import FOL ((∃), pApp)
-import Formulas ((.&.), (.=>.), (.<=>.))
+import Formulas ((.&.), (.=>.))
 import Lib (Failing (Success, Failure))
 import Meson (meson)
 import Pretty (assertEqual')
@@ -199,13 +199,11 @@ testEqual02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expected
 
 -- | Wishnu Prasetya's example (even nicer with an "exists unique" primitive).
 
-instance IsString MyTerm where
-    fromString s = vt (fromString s)
+--instance IsString ([MyTerm] -> MyTerm) where
+--    fromString = fApp . fromString
 
-instance IsString ([MyTerm] -> MyTerm) where
-    fromString = fApp . fromString
-
-wishnu = equalitize [atp| (∃ x. ((x = f(g(x))) ∧ ∀ x'. ((x' = f(g(x'))) ⇒ (x = x')))) ⇔
+wishnu :: MyFormula
+wishnu = equalitize [fof| (∃ x. ((x = f(g(x))) ∧ ∀ x'. ((x' = f(g(x'))) ⇒ (x = x')))) ⇔
                           (∃ y. ((y = g(f(y))) ∧ ∀ y'. ((y' = g(f(y'))) ⇒ (y = y')))) |]
 
 -- This takes 0.7 seconds on my machine.
@@ -213,15 +211,16 @@ testEqual03 :: Test
 testEqual03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (p. 241)" (expected, expectedProof) input
     where input = (equalitize wishnu, runSkolem (meson (Just (Depth 30)) (equalitize wishnu)))
           expected :: MyFormula
-          expected = ((∀) "x" ("x" .=. "x")) .&.
-                     ((∀) "x" . (∀) "y" . (∀) "z" $ ("x" .=. "y" .&. "x" .=. "z" .=>. "y" .=. "z")) .&.
-                     ((∀) "x1" . (∀) "y1" $ ("x1" .=. "y1" .=>. f["x1"] .=. f["y1"])) .&.
-                     ((∀) "x1" . (∀) "y1" $ ("x1" .=. "y1" .=>. g["x1"] .=. g["y1"])) .=>.
-                     (((∃) "x" $ "x" .=. f[g["x"]] .&. ((∀) "x'" $ ("x'" .=. f[g["x'"]] .=>. "x" .=. "x'"))) .<=>.
-                      ((∃) "y" $ "y" .=. g[f["y"]] .&. ((∀) "y'" $ ("y'" .=. g[f["y'"]] .=>. "y" .=. "y'"))))
+          expected = [fof| ∀x. (x=x) ∧
+                           ∀x. ∀y. ∀z. (x=y∧x=z⇒y=z) ∧
+                           ∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1)) ∧
+                           ∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒∀x. (x=x) ∧
+                           ∀x. ∀y. ∀z. (x=y∧x=z⇒y=z) ∧
+                           ∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1)) ∧
+                           ∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1)) ⇒
+                                     (∃x. (x=f (g (x))∧∀x'. (x'=f (g (x'))⇒x=x')) ⇔
+                                      ∃y. (y=g (f (y))∧∀y'. (y'=g (f (y'))⇒y=y'))) |]
           expectedProof = Set.fromList [Success (Depth 16), Success (Depth 16)]
-          f terms = fApp (fromString "f") terms
-          g terms = fApp (fromString "g") terms
 
 -- -------------------------------------------------------------------------
 -- More challenging equational problems. (Size 18, 61814 seconds.)

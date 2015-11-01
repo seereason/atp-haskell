@@ -83,11 +83,11 @@ unify_and_apply :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term, ter
 unify_and_apply eqs =
     fullunify eqs >>= \i -> return $ List.map (\ (t1, t2) -> (tsubst i t1, tsubst i t2)) eqs
 
-unify_and_apply' :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term, term)] -> Failing [(term, term)]
-unify_and_apply' eqs =
-    mapM app eqs
-        where
-          app (t1, t2) = fullunify eqs >>= \i -> return $ (tsubst i t1, tsubst i t2)
+--unify_and_apply' :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term, term)] -> Failing [(term, term)]
+--unify_and_apply' eqs =
+--    mapM app eqs
+--        where
+--          app (t1, t2) = fullunify eqs >>= \i -> return $ (tsubst i t1, tsubst i t2)
 
 #ifndef NOTESTS
 test01, test02, test03, test04 :: Test

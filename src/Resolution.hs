@@ -36,7 +36,7 @@ import Formulas
 import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
             Failing(..), failing, (|->), Marked, setAll, setAny, settryfind)
 import Lit
-import Parser (atp)
+import Parser (fof)
 import Pretty (assertEqual', Pretty)
 import Prop
 import Skolem
@@ -180,7 +180,7 @@ resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_re
 #ifndef NOTESTS
 -- | Simple example that works well.
 davis_putnam_example_formula :: MyFormula
-davis_putnam_example_formula = [atp| ∃ x. ∃ y. ∀ z. ((F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z))) |]
+davis_putnam_example_formula = [fof| ∃ x. ∃ y. ∀ z. ((F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z))) |]
 {-
     exists "x" . exists "y" .for_all "z" $
               (f [x, y] .=>. (f [y, z] .&. f [z, z])) .&.

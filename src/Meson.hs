@@ -28,7 +28,7 @@ import FOL (generalize, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(Var
 import Formulas ((.~.), false, IsFormula(AtomOf), negative)
 import Lib (Marked)
 import Lit (IsLiteral, JustLiteral, Literal)
-import Parser (atp)
+import Parser (fof)
 import Prolog (PrologRule(Prolog), renamerule)
 import Prop (list_conj, Propositional, simpcnf)
 import Skolem (askolemize, HasSkolem, pnf, SkolemT, simpdnf', specialize)
@@ -47,9 +47,9 @@ import Test.HUnit
 
 test00 :: Test
 test00 =
-    let fm1 = [atp| ∀ a. ¬(P(a)∧∀ y. ∀ z. (Q(y)∨R(z))∧¬P(a)) |]
-        fm2 = [atp| ∀ a. ¬(P(a)∧¬P(a)∧∀ y. ∀ z. (Q(y)∨R(z))) |]
-        {- fm3 = [atp| ¬p ∧ (p ∨ q) ∧ (r ∨ s) ∧ (¬q ∨ t ∨ u) ∧
+    let fm1 = [fof| ∀ a. ¬(P(a)∧∀ y. ∀ z. (Q(y)∨R(z))∧¬P(a)) |]
+        fm2 = [fof| ∀ a. ¬(P(a)∧¬P(a)∧∀ y. ∀ z. (Q(y)∨R(z))) |]
+        {- fm3 = [fof| ¬p ∧ (p ∨ q) ∧ (r ∨ s) ∧ (¬q ∨ t ∨ u) ∧
                     (¬r ∨ ¬t) ∧ (¬r ∨ ¬u) ∧ (¬q ∨ v ∨ w) ∧
                (¬s ∨ ¬v) ∧ (¬s ∨ ¬w) |] -}
     in
@@ -89,7 +89,7 @@ test02 :: Test
 test02 =
     TestLabel "Meson 2" $
     TestList [TestCase (assertEqual' "meson dp example, step 1 (p. 220)"
-                                     [atp| exists x. exists y. forall z. (((F (x,y)) ==> ((F (y,z)) & (F (z,z)))) &
+                                     [fof| exists x. exists y. forall z. (((F (x,y)) ==> ((F (y,z)) & (F (z,z)))) &
                                                                           (((F (x,y)) & (G (x,y))) ==> ((G (x,z)) & (G (z,z))))) |]
                                     davis_putnam_example_formula),
               TestCase (assertEqual' "meson dp example, step 2 (p. 220)"

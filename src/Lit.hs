@@ -36,7 +36,7 @@ import Data.Monoid ((<>))
 import Formulas (HasBoolean(..), IsAtom, IsNegatable(..), IsFormula(atomic, AtomOf), (.~.))
 import Lib (Marked(Mark, unMark'))
 import Prelude hiding (negate, null)
-import Pretty (Associativity(..), Doc, Expr, Fixity(..), HasFixity(fixity), markExpr, Pretty(pPrint), text)
+import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
 #ifndef NOTESTS
 import Formulas (overatoms, onatoms)
 #endif
@@ -151,9 +151,6 @@ instance Eq formula => Eq (Marked Literal formula) where
 
 instance Ord formula => Ord (Marked Literal formula)where
     compare (Mark a) (Mark b) = compare a b
-
-instance Show (Marked Expr formula) => Show (Marked Expr (Marked Literal formula)) where
-    show (Mark (Mark fm)) = "markLiteral (" ++ show (markExpr fm) ++ ")"
 
 instance IsLiteral formula => JustLiteral (Marked Literal formula)
 

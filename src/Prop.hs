@@ -93,8 +93,8 @@ import Formulas (atom_union, binop,
 import Lib (distrib, fpf, Marked(..), setAny)
 import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral)
 import Prelude hiding (negate, null)
-import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Expr, Fixity(Fixity), HasFixity(fixity),
-              markExpr, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
+import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
+               parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 import Text.PrettyPrint.HughesPJClass (braces, parens, vcat)
 #ifndef NOTESTS
 import Data.Set as Set (fromList)
@@ -270,9 +270,6 @@ instance Eq formula => Eq (Marked Propositional formula) where
 instance Ord formula => Ord (Marked Propositional formula)where
     compare (Mark a) (Mark b) = compare a b
 
-instance Show (Marked Expr formula) => Show (Marked Expr (Marked Propositional formula)) where
-    show (Mark (Mark fm)) = "markPropositional (" ++ show (markExpr fm) ++ ")"
-
 -- | Class that indicates a formula type *only* supports Propositional
 -- features - no quantifiers.
 class IsPropositional formula => JustPropositional formula
@@ -292,7 +289,11 @@ unmarkPropositional fm = convertPropositional id fm
 instance IsAtom atom => JustPropositional (PFormula atom)
 instance IsPropositional (LFormula atom) => JustPropositional (LFormula atom)
 
-data Prop = P {pname :: String} deriving (Eq, Ord, Show)
+data Prop = P {pname :: String} deriving (Eq, Ord)
+
+-- Because of the IsString instance, the Show instance can just be a String.
+instance Show Prop where
+    show (P {pname = s}) = show s
 
 instance IsAtom Prop
 
@@ -305,11 +306,6 @@ instance HasBoolean Prop where
     asBool (P "False") = Just False
     asBool _ = Nothing
     fromBool = P . show
-
--- Because of the IsString instance, the Show instance can just
--- be a String.
-instance Show (Marked Expr Prop) where
-    show (Mark (P {pname = s})) = show s
 
 instance Pretty Prop where
     pPrint = text . pname
@@ -354,17 +350,6 @@ instance Ord atom => IsCombinable (PFormula atom) where
           _ -> other fm
 
 -- infixr 9 !, ?, ∀, ∃
-
--- Display formulas using infix notation
-instance Show (Marked Expr atom) => Show (Marked Expr (PFormula atom)) where
-    show (Mark F) = "false"
-    show (Mark T) = "true"
-    show (Mark (Atom atom)) = "atomic (" ++ show (markExpr atom) ++ ")"
-    show (Mark (Not f)) = "(.~.) (" ++ show (markExpr f) ++ ")"
-    show (Mark (And f g)) = "(" ++ show (markExpr f) ++ ") .&. (" ++ show (markExpr g) ++ ")"
-    show (Mark (Or f g)) = "(" ++ show (markExpr f) ++ ") .|. (" ++ show (markExpr g) ++ ")"
-    show (Mark (Imp f g)) = "(" ++ show (markExpr f) ++ ") .=>. (" ++ show (markExpr g) ++ ")"
-    show (Mark (Iff f g)) = "(" ++ show (markExpr f) ++ ") .<=>. (" ++ show (markExpr g) ++ ")"
 
 -- Build a Haskell expression for this formula
 instance (IsPropositional (PFormula atom), Show atom) => Show (PFormula atom) where
@@ -488,11 +473,12 @@ test00 = TestCase $ assertEqual "parenthesization" expected (List.map prettyShow
 test01 :: Test
 test01 =
     let fm = atomic "p" .=>. atomic "q" .<=>. atomic "r" .&. atomic "s" .|. (atomic "t" .<=>. ((.~.) ((.~.) (atomic "u"))) .&. atomic "v") :: PFormula Prop
-        input = (prettyShow fm, show (markExpr fm))
+        input = (prettyShow fm, show fm)
         expected = (-- Pretty printed
                     "p⇒q⇔(r∧s)∨(t⇔u∧v)",
                     -- Haskell expression
-                    "((atomic (\"p\")) .=>. (atomic (\"q\"))) .<=>. (((atomic (\"r\")) .&. (atomic (\"s\"))) .|. ((atomic (\"t\")) .<=>. ((atomic (\"u\")) .&. (atomic (\"v\")))))") in
+                    "(((\"p\") .=>. (\"q\")) .<=>. (((\"r\") .&. (\"s\")) .|. ((\"t\") .<=>. ((\"u\") .&. (\"v\")))))"
+                    ) in
     TestCase $ assertEqual "Build Formula 1" expected input
 
 test02 :: Test

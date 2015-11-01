@@ -1,4 +1,4 @@
-{-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts, FlexibleInstances, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE CPP, NoMonomorphismRestriction, FlexibleContexts, FlexibleInstances, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
 module Parser where
 
 -- Parsing expressions and statements
@@ -6,7 +6,6 @@ module Parser where
 
 import Control.Monad.Identity
 import Data.Char (isSpace)
---import Data.Set (fromList)
 import Data.String (fromString)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Text.Parsec
@@ -23,23 +22,14 @@ import Formulas
 import Skolem
 
 -- | QuasiQuote for a first order formula.  Loading this symbol into the interpreter
--- and setting -XQuasiQuotes lets you type expressions like [atp| ∃ x. p(x) |]
-atp :: QuasiQuoter
-atp = QuasiQuoter
+-- and setting -XQuasiQuotes lets you type expressions like [fof| ∃ x. p(x) |]
+fof :: QuasiQuoter
+fof = QuasiQuoter
     { quoteExp = \str -> [| parseFOL (dropWhile isSpace str) |]
     , quoteType = error "abtQQ does not implement quoteType"
     , quotePat  = error "abtQQ does not implement quotePat"
     , quoteDec  = error "abtQQ does not implement quoteDec"
     }
-
--- instance Read lit => Read (PrologRule lit) where
---    readsPrec _n str = [(parseProlog str,"")]
-
-instance Read MyFormula where
-   readsPrec _n str = [(parseFOL str,"")]
-
--- instance Read (PFormula Prop) where
---    readsPrec _n str = [(parsePL str,"")]
 
 -- parseProlog :: forall s lit. Stream s Identity Char => s -> PrologRule lit
 -- parseProlog str = either (error . show) id $ parse prologparser "" str
@@ -52,11 +42,11 @@ parseFOLTerm str = either (error . show) id $ parse folsubterm "" str
 
 def :: forall s u m. Stream s m Char => GenLanguageDef s u m
 def = emptyDef{ identStart = letter
-              , identLetter = alphaNum <|> char '\''
+              , identLetter = alphaNum <|> char '\'' <|> char '_'
               , opStart = oneOf "~&|=<:*/+->"
               , opLetter = oneOf "~&|=><:-"
               , reservedOpNames = ["~", "¬", "&", "∧", "|", "∨", "<==>", "⇔", "==>", "⇒", ":-", "::", "*", "/", "+", "-", "∃", "∀"] ++ predicate_infix_symbols
-              , reservedNames = ["true", "false", "exists", "forall"] ++ constants
+              , reservedNames = ["true", "false", "exists", "forall", "for_all"] ++ constants
               }
 
 m_parens :: forall t t1 t2. Stream t t2 Char => forall a. ParsecT t t1 t2 a -> ParsecT t t1 t2 a
@@ -122,7 +112,7 @@ folterm = try (m_parens folparser)
 existentialQuantifier :: forall s u m. Stream s m Char => ParsecT s u m MyFormula
 existentialQuantifier = quantifier "∃" Exists <|> quantifier "exists" Exists
 forallQuantifier :: forall s u m. Stream s m Char => ParsecT s u m MyFormula
-forallQuantifier = quantifier "∀" Forall <|> quantifier "forall" Forall
+forallQuantifier = quantifier "∀" Forall <|> quantifier "for_all" Forall
 
 quantifier :: forall s u m. Stream s m Char => [Char] -> (V -> MyFormula -> MyFormula) -> ParsecT s u m MyFormula
 quantifier name op = do

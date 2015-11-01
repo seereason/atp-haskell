@@ -23,6 +23,13 @@ module Lib
     , (|=>)
     , (|->)
     , fpf
+    -- * Time and timeout
+    , timeComputation
+    , timeMessage
+    , time
+    , timeout
+    , compete
+    -- * Map aliases
     , defined
     , undefine
     , apply
@@ -42,27 +49,26 @@ module Lib
     , setmapfilter
     , (∅)
     , Marked(Mark, unMark')
-    , time'
-    , print'
-    , time
 #ifndef NOTESTS
     , testLib
 #endif
     ) where
 
 import Control.Applicative.Error (Failing (Success, Failure))
+import Control.Concurrent (forkIO, killThread, newEmptyMVar, putMVar, takeMVar, threadDelay)
 import Control.Monad.RWS (evalRWS, runRWS, RWS)
 import Data.Foldable as Foldable
 import Data.Function (on)
 import Data.Generics
 import qualified Data.List as List (map)
-import Data.Map as Map (delete, findMin, fromList, insert, lookup, Map, member)
+import Data.Map as Map (delete, findMin, insert, lookup, Map, member, singleton)
 import Data.Maybe
 import Data.Sequence as Seq (Seq, viewl, ViewL(EmptyL, (:<)))
 import Data.Set as Set (delete, empty, fold, fromList, insert, minView, Set, singleton, union)
 import qualified Data.Set as Set (map)
-import Data.Time.Clock
+import Data.Time.Clock (DiffTime, diffUTCTime, getCurrentTime, NominalDiffTime)
 import Prelude hiding (map)
+import System.IO (hPutStrLn, stderr)
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
 #ifndef NOTESTS
 import Test.HUnit (assertEqual, Test(TestCase, TestLabel, TestList))
@@ -602,24 +608,53 @@ let time f x =
   result;;
 -}
 
--- -------------------------------------------------------------------------
--- Polymorphic finite partial functions via Patricia trees.
+-- | Perform an IO operation and return the elapsed time along with the result.
+timeComputation :: IO r -> IO (r, NominalDiffTime)
+timeComputation a = do
+  start <- getCurrentTime
+  r <- a
+  end <- getCurrentTime
+  return (r, diffUTCTime end start)
+
+-- | Perform an IO operation and output a message about how long it took.
+timeMessage :: (r -> NominalDiffTime -> String) -> IO r -> IO r
+timeMessage pp a = do
+  (r, e) <- timeComputation a
+  hPutStrLn stderr (pp r e)
+  return r
+
+-- | Output elapsed time
+time :: IO r -> IO r
+time a = timeMessage (\_ e -> "Computation time: " ++ show e) a
+
+-- | Allow a computation to proceed for a given amount of time.
+timeout :: String -> DiffTime -> IO r -> IO (Either String r)
+timeout message delay a = do
+  compete [threadDelay (fromEnum (realToFrac (delay / 1e6) :: Rational)) >> return (Left message),
+           Right <$> a]
+
+-- | Run several IO operations in parallel, return the result of the
+-- first one that completes and kill the others.
+compete :: [IO a] -> IO a
+compete actions = do
+  mvar <- newEmptyMVar
+  tids <- mapM (\action -> forkIO $ action >>= putMVar mvar) actions
+  result <- takeMVar mvar
+  mapM_ killThread tids
+  return result
+
+-- | Polymorphic finite partial functions via Patricia trees.
 --
 -- The point of this strange representation is that it is canonical (equal
 -- functions have the same encoding) yet reasonably efficient on average.
 --
 -- Idea due to Diego Olivier Fernandez Pons (OCaml list, 2003/11/10).
--- -------------------------------------------------------------------------
-
 data Func a b
     = Empty
     | Leaf Int [(a, b)]
     | Branch Int Int (Func a b) (Func a b)
 
--- -------------------------------------------------------------------------
--- Undefined function.
--- -------------------------------------------------------------------------
-
+-- | Undefined function.
 undefinedFunction :: Func a b
 undefinedFunction = Empty
 
@@ -826,17 +861,17 @@ let (|->),combine =
 -- -------------------------------------------------------------------------
 
 (|=>) :: Ord k => k -> a -> Map k a
-x |=> y = Map.fromList [(x, y)]
+x |=> y = Map.singleton x y
 
 -- -------------------------------------------------------------------------
 -- Idiom for a mapping zipping domain and range lists.
 -- -------------------------------------------------------------------------
 
 (|->) :: Ord k => k -> a -> Map k a -> Map k a
-(|->) a b m = Map.insert a b m
+(|->) = Map.insert
 
 fpf :: Ord a => Map a b -> a -> Maybe b
-fpf m a = Map.lookup a m
+fpf = flip Map.lookup
 
 -- -------------------------------------------------------------------------
 -- Grab an arbitrary element.
@@ -905,23 +940,6 @@ let rec first n p = if p(n) then n else first (n +/ Int 1) p;;
 
 -- This is a type used to mark values with the phantom type "mark".
 data Marked mark a = Mark {unMark' :: a} deriving (Data, Typeable, Read)
-
-time' :: IO t -> IO (t, NominalDiffTime)
-time' a = do
-  start <- getCurrentTime
-  v <- a
-  end <- getCurrentTime
-  -- putStrLn $ "Computation time: " ++ show (diffUTCTime end start)
-  return (v, diffUTCTime end start)
-
-print' :: Show a => a -> IO a
-print' x = print x >> return x
-
-time :: IO t -> IO t
-time a = do
-  (r, t) <- time' a
-  putStrLn ("Computation time: " ++ show t)
-  return r
 
 #ifndef NOTESTS
 testLib :: Test

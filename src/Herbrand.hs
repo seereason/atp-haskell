@@ -32,7 +32,7 @@ import Skolem (HasSkolem, runSkolem, skolemize)
 #ifndef NOTESTS
 import FOL (exists, for_all, pApp, V, vt)
 import Formulas ((.=>.), (.&.), (.|.))
-import Parser(atp)
+import Parser(fof)
 import Pretty (prettyShow)
 import Skolem (MyFormula, MyTerm)
 import Test.HUnit hiding (tried)
@@ -132,7 +132,7 @@ gilmore fm =
 -- | First example and a little tracing.
 test01 :: Test
 test01 =
-    let fm = [atp| exists x. forall y. p(x) ==> p(y) |]
+    let fm = [fof| exists x. forall y. p(x) ==> p(y) |]
         expected = Success 2
     in
     TestCase (assertString (case gilmore fm of
