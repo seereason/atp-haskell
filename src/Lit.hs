@@ -200,8 +200,8 @@ instance HasBoolean (LFormula atom) where
 
 instance Ord atom => IsNegatable (LFormula atom) where
     naiveNegate = Not
-    foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
-    foldNegation' _ normal x = normal x
+    foldNegation normal inverted (Not x) = foldNegation inverted normal x
+    foldNegation normal _ x = normal x
 
 instance IsAtom atom => HasFixity (LFormula atom) where
     fixity = fixityLiteral

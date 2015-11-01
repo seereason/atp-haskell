@@ -15,7 +15,7 @@ module Formulas
       HasBoolean(asBool, fromBool), prettyBool
     , true, false, (⊨), (⊭)
     -- * Negation
-    , IsNegatable(naiveNegate, foldNegation, foldNegation'), (.~.), (¬), negate, negated, negative, positive
+    , IsNegatable(naiveNegate, foldNegation), (.~.), (¬), negate, negated, negative, positive
     -- * IsCombinable
     , IsCombinable((.|.), (.&.), (.<=>.), (.=>.), foldCombination), (.<=.), (.<~>.), (.~|.), (.~&.)
     , (==>), (<=>), (∧), (∨), (⇒), (⇔)
@@ -57,8 +57,8 @@ prettyBool :: Bool -> Doc
 prettyBool True = text "⊨"
 prettyBool False = text "⊭"
 
--- |The class of formulas that can be negated.  There are some types
--- that can be negated but do not support the other Boolean Logic
+-- | The class of formulas that can be negated.  There are some types
+-- that can be negated but do not support the other Boolean logic
 -- operators, such as the 'IsLiteral' class.
 class IsNegatable formula where
     -- | Negate a formula in a naive fashion, the operators below
@@ -68,18 +68,14 @@ class IsNegatable formula where
     foldNegation :: (formula -> r) -- ^ called for normal formulas
                  -> (formula -> r) -- ^ called for negated formulas
                  -> formula -> r
-    foldNegation other ne fm = foldNegation' ne other fm
-    foldNegation' :: (formula -> r) -- ^ called for negated formulas
-                  -> (formula -> r) -- ^ called for other formulas
-                 -> formula -> r
 
 -- | Is this formula negated at the top level?
 negated :: IsNegatable formula => formula -> Bool
-negated = foldNegation' (not . negated) (const False)
+negated = foldNegation (const False) (not . negated)
 
 -- | Negate the formula, avoiding double negation
 (.~.) :: IsNegatable formula => formula -> formula
-(.~.) = foldNegation' id naiveNegate
+(.~.) = foldNegation naiveNegate id
 
 (¬) :: IsNegatable formula => formula -> formula
 (¬) = (.~.)
@@ -111,11 +107,11 @@ class IsNegatable formula => IsCombinable formula where
     -- | Implication.  @x .=>. y = ((.~.) x .|. y)@
     (.=>.) :: formula -> formula -> formula
 
-    foldCombination :: (formula -> formula -> r) -- disjunction
+    foldCombination :: (formula -> r) -- other
+                    -> (formula -> formula -> r) -- disjunction
                     -> (formula -> formula -> r) -- conjunction
                     -> (formula -> formula -> r) -- implication
                     -> (formula -> formula -> r) -- equivalence
-                    -> (formula -> r) -- other
                     -> formula -> r
 
     -- | Reverse implication:
@@ -191,7 +187,7 @@ leftAssociate :: IsCombinable formula => formula -> formula
 canonical fm =
     foldCombination dj cj imp iff other (canonical1 fm)
     where
-      dj p q = foldCombination dj' (canonical p) (canonical q)
+      dj p q = foldCombination ho dj' cj' (canonical p) (canonical q)
 -}
 
 instance IsFormula formula => IsFormula (Marked mk formula) where
@@ -206,17 +202,17 @@ instance HasBoolean formula => HasBoolean (Marked mk formula) where
 
 instance IsNegatable formula => IsNegatable (Marked mk formula) where
     naiveNegate (Mark x) = Mark (naiveNegate x)
-    foldNegation' ne ot (Mark x) = foldNegation' (ne . Mark) (ot . Mark) x
+    foldNegation ot ne (Mark x) = foldNegation (ot . Mark) (ne . Mark) x
 
 instance IsCombinable formula => IsCombinable (Marked mk formula) where
     (Mark a) .|. (Mark b) = Mark (a .|. b)
     (Mark a) .&. (Mark b) = Mark (a .&. b)
     (Mark a) .=>. (Mark b) = Mark (a .=>. b)
     (Mark a) .<=>. (Mark b) = Mark (a .<=>. b)
-    foldCombination dj cj imp iff other fm =
-        foldCombination (\a b -> dj a b)
+    foldCombination other dj cj imp iff fm =
+        foldCombination (\a -> other a)
+                        (\a b -> dj a b)
                         (\a b -> cj a b)
                         (\a b -> imp a b)
                         (\a b -> iff a b)
-                        (\a -> other a)
                         fm

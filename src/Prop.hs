@@ -89,7 +89,7 @@ import Formulas (atom_union, binop,
                  IsAtom,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination),
                  IsFormula(AtomOf, atomic, overatoms, onatoms),
-                 IsNegatable(naiveNegate, foldNegation'), (.~.), negate, positive)
+                 IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive)
 import Lib (distrib, fpf, Marked(..), setAny)
 import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral)
 import Prelude hiding (negate, null)
@@ -337,15 +337,15 @@ instance HasBoolean (PFormula atom) where
 
 instance Ord atom => IsNegatable (PFormula atom) where
     naiveNegate = Not
-    foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
-    foldNegation' _ normal x = normal x
+    foldNegation normal inverted (Not x) = foldNegation inverted normal x
+    foldNegation normal _ x = normal x
 
 instance Ord atom => IsCombinable (PFormula atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
     (.<=>.) = Iff
-    foldCombination dj cj imp iff other fm =
+    foldCombination other dj cj imp iff fm =
         case fm of
           Or a b -> a `dj` b
           And a b -> a `cj` b
@@ -919,21 +919,21 @@ test30 = TestCase $ assertEqual "dnf 2 (p. 56)" expected input
 -- | DNF via distribution.
 distrib1 :: IsPropositional formula => formula -> formula
 distrib1 fm =
-    foldCombination (\_ _ -> fm) lhs (\_ _ -> fm) (\_ _ -> fm) (\_ -> fm) fm
+    foldCombination (\_ -> fm) (\_ _ -> fm) lhs (\_ _ -> fm) (\_ _ -> fm) fm
     where
       -- p & (q | r) -> (p & q) | (p & r)
-      lhs p qr = foldCombination (\q r -> distrib1 (p .&. q) .|. distrib1 (p .&. r))
+      lhs p qr = foldCombination (\_ -> rhs p qr)
+                                 (\q r -> distrib1 (p .&. q) .|. distrib1 (p .&. r))
                                  (\_ _ -> rhs p qr)
                                  (\_ _ -> rhs p qr)
                                  (\_ _ -> rhs p qr)
-                                 (\_ -> rhs p qr)
                                  qr
       -- (p | q) & r -> (p & r) | (q & r)
-      rhs pq r = foldCombination (\p q -> distrib1 (p .&. r) .|. distrib1 (q .&. r))
+      rhs pq r = foldCombination (\_ -> fm)
+                                 (\p q -> distrib1 (p .&. r) .|. distrib1 (q .&. r))
                                  (\_ _ -> fm)
                                  (\_ _ -> fm)
                                  (\_ _ -> fm)
-                                 (\_ -> fm)
                                  pq
 {-
 distrib1 :: Formula atom -> Formula atom

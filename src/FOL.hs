@@ -32,6 +32,7 @@ module FOL
     , HasApplyAndEquate(equate, foldEquate)
     , convertPredicate, convertPredicateEq
     , zipPredicates, zipPredicatesEq
+    , ontermsEq, overtermsEq
     , pApp, atomFuncs, functions
     , isEquate, (.=.), showEquate, showApplyAndEquate
     -- * Quantified Formulas
@@ -357,6 +358,14 @@ isEquate = foldEquate (\_ _ -> True) (\_ _ -> False)
 prettyEquate :: IsTerm term => term -> term -> Doc
 prettyEquate t1 t2 = pPrint t1 <> text "=" <> pPrint t2
 
+-- | Implementation of 'overterms' for 'HasApply' types.
+overtermsEq :: HasApplyAndEquate atom => ((TermOf atom) -> r -> r) -> r -> atom -> r
+overtermsEq f r0 = foldEquate (\t1 t2 -> f t2 (f t1 r0)) (\_ ts -> foldr f r0 ts)
+
+-- | Implementation of 'onterms' for 'HasApply' types.
+ontermsEq :: HasApplyAndEquate atom => ((TermOf atom) -> (TermOf atom)) -> atom -> atom
+ontermsEq f = foldEquate (\t1 t2 -> equate (f t1) (f t2)) (\p ts -> applyPredicate p (map f ts))
+
 -- | Implementation of Show for HasApplyAndEquate types
 showApplyAndEquate :: (HasApplyAndEquate atom, Show (TermOf atom)) => atom -> String
 showApplyAndEquate atom = foldEquate showEquate showApply atom
@@ -447,10 +456,8 @@ instance (IsPredicate predicate, IsTerm term) => HasApply (FOLEQ predicate term)
     applyPredicate = AP
     foldApply' _ f (AP p ts) = f p ts
     foldApply' d _ x = d x
-    overterms f r (AP _ ts) = foldr f r ts
-    overterms f r (Equals t1 t2) = foldr f r [t1, t2]
-    onterms f (AP p ts) = AP p (map f ts)
-    onterms f (Equals t1 t2) = Equals (f t1) (f t2)
+    overterms = overtermsEq
+    onterms = ontermsEq
 
 instance (IsPredicate predicate, IsTerm term,
           Show (Marked Expr predicate), Show (Marked Expr term)) => Show (Marked Expr (FOLEQ predicate term)) where
@@ -599,15 +606,15 @@ instance HasBoolean (Formula v atom) where
 
 instance IsNegatable (Formula v atom) where
     naiveNegate = Not
-    foldNegation' inverted normal (Not x) = foldNegation' normal inverted x
-    foldNegation' _ normal x = normal x
+    foldNegation normal inverted (Not x) = foldNegation inverted normal x
+    foldNegation normal _ x = normal x
 
 instance IsCombinable (Formula v atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
     (.<=>.) = Iff
-    foldCombination dj cj imp iff other fm =
+    foldCombination other dj cj imp iff fm =
         case fm of
           Or a b -> a `dj` b
           And a b -> a `cj` b

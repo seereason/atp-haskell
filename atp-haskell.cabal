@@ -1,10 +1,10 @@
 Name:             atp-haskell
 Version:          1.5.3
 Synopsis:         Translation from Ocaml to Haskell of John Harrison's ATP code
-Description:      This package is a translation from OCaml to Haskell of
+Description:      This package is a liberal translation from OCaml to Haskell of
                   the automated theorem prover written in OCaml in
                   John Harrison's book "Practical Logic and Automated
-                  Reasoning".
+                  Reasoning".  Click on module ATP below for an overview.
 Homepage:         https://github.com/seereason/atp-haskell
 License-File:     LICENSE.txt
 Author:           John Harrison, David Fox <dsf@seereason.com>
