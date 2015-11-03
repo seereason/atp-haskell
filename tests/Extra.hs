@@ -62,14 +62,14 @@ test06 =
     let fm :: MyFormula
         fm = for_all "x" (vt "x" .=. vt "x") .=>. for_all "x" (exists "y" (vt "x" .=. vt "y"))
         expected :: PFormula MyAtom
-        expected =  (vt "x" .=. vt "x") .&. (.~.) (fApp (toSkolem "x") [] .=. vt "x")
-        -- atoms = [applyPredicate equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x")[]) .=. (vt "x")-}] :: [MyAtom]
+        expected =  (vt "x" .=. vt "x") .&. (.~.) (fApp (toSkolem "x" 1) [] .=. vt "x")
+        -- atoms = [applyPredicate equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x" 1)[]) .=. (vt "x")-}] :: [MyAtom]
         sk = runSkolem (skolemize id ((.~.) fm)) :: PFormula MyAtom
         table = truthTable sk :: TruthTable MyAtom in
     TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y"
                            (expected,
                             TruthTable
-                              (List.map asAtom ([vt "x" .=. vt "x", fApp (toSkolem "x") [] .=. vt "x"] :: [MyFormula]))
+                              (List.map asAtom ([vt "x" .=. vt "x", fApp (toSkolem "x" 1) [] .=. vt "x"] :: [MyFormula]))
                               [([False,False],False),
                                ([False,True],False),
                                ([True,False],True),

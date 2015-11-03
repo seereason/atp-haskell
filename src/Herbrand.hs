@@ -128,7 +128,7 @@ gilmore fm =
 -- | First example and a little tracing.
 test01 :: Test
 test01 =
-    let fm = [fof| exists x. forall y. p(x) ==> p(y) |]
+    let fm = [fof| exists x. (forall y. p(x) ==> p(y)) |]
         expected = 2
     in
     TestCase (assertString (case gilmore fm of

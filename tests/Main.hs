@@ -35,6 +35,7 @@ main = runTestTT (TestList  [testLib,
                              testProlog,
                              testMeson,
                              testEqual,
-                             testExtra]) >>= doCounts
+                             testExtra
+                             ]) >>= doCounts
     where
       doCounts counts' = exitWith (if errors counts' /= 0 || failures counts' /= 0 then ExitFailure 1 else ExitSuccess)
