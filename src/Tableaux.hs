@@ -148,7 +148,7 @@ compare :: (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TV
             IsFirstOrder formula, Ord formula,
             Unify atom v term,
             HasSkolem function v
-           ) => formula -> (Int, Failing Int)
+           ) => formula -> (Int, Int)
 compare fm = (prawitz fm, davisputnam fm)
 
 p19 :: Test
@@ -157,7 +157,7 @@ p19 = TestCase $ assertEqual "p19" expected input
       fm :: MyFormula
       fm = exists "x" (for_all "y" (for_all "z" ((pApp "P" [vt "y"] .=>. pApp "Q" [vt "z"]) .=>. pApp "P" [vt "x"] .=>. pApp "Q" [vt "x"])))
       input = compare fm
-      expected = (3, Success 3)
+      expected = (3, 3)
 
 {-
 START_INTERACTIVE;;
