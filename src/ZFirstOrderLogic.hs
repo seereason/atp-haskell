@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE RankNTypes, KindSignatures, TypeFamilies #-}
+{-# LANGUAGE RankNTypes, KindSignatures, OverloadedStrings, TypeFamilies #-}
 {-# OPTIONS_GHC -fwarn-unused-binds -fwarn-missing-signatures #-}
 module ZFirstOrderLogic
     ( p45
@@ -20,7 +20,7 @@ import Lib (distrib, allpairs, flatten, Marked)
 import Lit (Literal, unmarkLiteral)
 import Formulas (AtomOf, negate, positive, negative, atom_union, (.&.), (.~.), (.=>.))
 import Prop (trivial, psimplify1, simpdnf, markPropositional, Propositional, unmarkPropositional)
-import FOL (fv, fvt, generalize, subst, variant)
+import FOL (fv, fvt, generalize, subst, variant, V(V))
 
 import ZTypes (Formula(..), FOL(..), Term(..))
 import ZInstances ()
@@ -35,43 +35,22 @@ p45 = gilmore p45fm
 fpf :: Ord k => [k] -> [a] -> M.Map k a
 fpf xs ys = M.fromList $ zip xs ys
 
-#if 0
-gilmore :: forall fof pf lit atom term v function.
-           (IsFirstOrder fof, Ord fof, HasSkolem function v,
-            pf ~ Marked Propositional fof,
-            lit ~ Marked Literal pf,
-            atom ~ AtomOf lit,
-            term ~ TermOf atom,
-            v ~ VarOf fof,
-            v ~ VarOf pf,
-            v ~ VarOf lit,
-            v ~ TVarOf term,
-            function ~ FunOf term) =>
-           fof -> Int
-gilmore fm = length (gilmore_loop (simpdnf id sfm :: Set (Set lit)) (Set.toList cntms) funcs (Set.toList fvs) 0 (Set.singleton Set.empty) [] [])
- where
-   sfm :: pf
-   sfm = runSkolem (skolemize id ((.~.) (generalize fm)))
-   fvs = fv sfm
-   cntms = Set.map (\(c,_) -> fApp c []) consts
-   (consts,funcs) = herbfuns sfm
-#else
 gilmore :: Formula FOL -> Int
 gilmore fm = length (gilmore_loop dnf (S.toList cntms) funcs (S.toList fvs) 0 (S.singleton S.empty) [] [])
  where
   dnf :: S.Set (S.Set (Formula FOL))
   dnf = S.map (S.map (unmarkPropositional . unmarkLiteral)) (simpdnf id (markPropositional sfm) :: S.Set (S.Set (Marked Literal (Marked Propositional (Formula FOL)))))
   sfm = skolemize (Not (generalize fm))
+  fvs :: S.Set V
   fvs = fv sfm
   cntms = S.map (\(c,_) -> Fn c []) consts
   (consts,funcs) = herbfuns sfm
-#endif
 
 gilmore_loop :: (Foldable foldable) =>
                 S.Set (S.Set (Formula FOL))
              -> [Term]
              -> foldable (String, Int)
-             -> [String]
+             -> [V]
              -> Integer
              -> S.Set (S.Set (Formula FOL))
              -> [[Term]]
@@ -91,7 +70,7 @@ herbloop :: forall foldable. (Foldable foldable) =>
          -> S.Set (S.Set (Formula FOL))
          -> [Term]
          -> foldable (String, Int)
-         -> [String]
+         -> [V]
          -> Integer
          -> S.Set (S.Set (Formula FOL))
          -> [[Term]]
@@ -147,7 +126,7 @@ functions :: AtomOf (Formula FOL) ~ FOL => Formula FOL -> S.Set (String, Int)
 functions fm = atom_union (\(R _ a) -> S.unions (map funcs a)) fm
 
 skolem :: Formula FOL -> S.Set String -> (Formula FOL, S.Set String)
-skolem fm@(Exists y p) fns = skolem (subst (M.singleton y fx) p) (S.insert f fns)
+skolem fm@(Exists v@(V y) p) fns = skolem (subst (M.singleton v fx) p) (S.insert f fns)
  where
   xs = fv fm
   f = variant (if S.null xs then "c_"++y else "f_"++y) fns
@@ -194,10 +173,10 @@ pullquants fm = fm
 
 pullq :: (Bool, Bool)
                -> Formula FOL
-               -> (String -> Formula FOL -> t)
+               -> (V -> Formula FOL -> t)
                -> (Formula FOL -> Formula FOL -> Formula FOL)
-               -> String
-               -> String
+               -> V
+               -> V
                -> Formula FOL
                -> Formula FOL
                -> t

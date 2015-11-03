@@ -54,7 +54,7 @@ instance IsPropositional (Formula FOL) where
           _ -> foldLiteral' ho ne tf at fm
 
 instance IsQuantified (Formula FOL) where
-    type VarOf (Formula FOL) = String
+    type VarOf (Formula FOL) = V
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldQuantified qu _co _ne _tf _at (Forall v fm) = qu (:!:) v fm
@@ -91,7 +91,7 @@ instance Pretty FOL where
 instance IsPredicate String
 
 instance IsString Term where
-    fromString = Var
+    fromString = Var . fromString
 
 {-
 instance Show Term where
@@ -104,7 +104,7 @@ instance Pretty Term where
 instance IsFunction String
 
 instance IsTerm Term where
-    type TVarOf Term = String
+    type TVarOf Term = V
     type FunOf Term = String
     vt = Var
     fApp = Fn

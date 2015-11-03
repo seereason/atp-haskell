@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes, KindSignatures #-}
 {-# OPTIONS_GHC -fwarn-unused-binds -fwarn-missing-signatures #-}
 module ZTypes (Formula(..), FOL(..), Term(..),
-              itlist, allpairs, Prop(..), unions, PrologRule(..)) where
+              itlist, allpairs, Prop(..), PrologRule(..)) where
 
 import Text.PrettyPrint
 import Data.List
@@ -11,6 +11,7 @@ import qualified Data.Set as S
 import qualified Data.Map as M
 import Control.Monad (foldM)
 import Formulas (IsFormula(..))
+import FOL (V(V))
 
 newtype Prop = P {pname :: String}  deriving (Eq,Ord)
 
@@ -27,15 +28,13 @@ data Formula a = FF
                | Or (Formula a) (Formula a)
                | Imp (Formula a) (Formula a)
                | Iff (Formula a) (Formula a)
-               | Forall String (Formula a)
-               | Exists String (Formula a)
+               | Forall V (Formula a)
+               | Exists V (Formula a)
                deriving (Eq, Ord, Show)
 
-data Term = Var String | Fn String [Term]  deriving (Eq,Ord, Show)
+data Term = Var V | Fn String [Term]  deriving (Eq,Ord, Show)
 
 data FOL = R String [Term]  deriving (Eq,Ord, Show)
-
-data V = V String deriving (Eq, Ord, Show)
 
 allpairs :: forall t a (t1 :: * -> *) a1.
                   Foldable t1 =>
@@ -55,9 +54,6 @@ iffs :: Formula t -> [Formula t]
 iffs (Iff p q) = (iffs p) ++ (iffs q)
 iffs fm = [fm]
 
-unions :: Ord a => S.Set (S.Set a) -> S.Set a
-unions sets = S.fold S.union S.empty sets
-
 itlist :: Foldable t => (a -> b -> b) -> t a -> b -> b
 itlist f l b = foldr f b l
 
@@ -76,8 +72,8 @@ showFormula p@(And _ _) = parens $ hcat (punctuate (text " ⋀ ") (map showFormu
 showFormula p@(Or _ _) = parens $ hcat (punctuate (text " ⋁ ") (map showFormula (disjuncts p)))
 showFormula (Imp p q) = parens $ (showFormula p) <+> (text "⟹ ") <+> (showFormula q)
 showFormula p@(Iff _ _) = parens $ hcat (punctuate (text " ⟺  ") (map showFormula (iffs p)))
-showFormula (Forall x p) = (char '∀') <> (text x) <> (char ':') <> (showFormula p)
-showFormula (Exists x p) = (char '∃') <> (text x) <> (char ':') <> (showFormula p)
+showFormula (Forall (V x) p) = (char '∀') <> (text x) <> (char ':') <> (showFormula p)
+showFormula (Exists (V x) p) = (char '∃') <> (text x) <> (char ':') <> (showFormula p)
 
 -- pretty printing FOL
 
@@ -85,7 +81,7 @@ isOperator :: Char -> Bool
 isOperator c = (isSymbol c) || (isPunctuation c)
 
 showTerm :: Term -> Doc
-showTerm (Var s) = text s
+showTerm (Var (V s)) = text s
 showTerm (Fn s []) = text "'" <> text s <> text "'"
 showTerm (Fn s@(h:_) [x,y]) | isOperator h = parens (showTerm x <+> (text s) <+> showTerm y)
 showTerm (Fn s args) = text s <> (brackets (hcat (punctuate (char ',') (map showTerm args))))
