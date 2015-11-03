@@ -29,11 +29,11 @@ import Prelude hiding ((*))
 #ifndef NOTESTS
 import FOL ((∃), pApp)
 import Formulas ((.&.), (.=>.))
-import Lib (Failing (Success, Failure))
+import Lib (Depth(Depth), Failing (Success, Failure))
 import Meson (meson)
 import Pretty (assertEqual')
-import Skolem
-import Tableaux (Depth(Depth))
+import Skolem (runSkolem, MyFormula)
+import Tableaux ()
 import Test.HUnit
 #endif
 

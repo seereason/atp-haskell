@@ -13,9 +13,9 @@ import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
 import FOL (fvl, HasApply(TermOf), IsQuantified(VarOf), IsTerm(TVarOf), lsubst, vt)
+-- import Lib (deepen)
 import Lit (IsLiteral, JustLiteral)
 import Formulas (IsFormula(AtomOf))
-import Tableaux (deepen)
 #ifndef NOTESTS
 import Test.HUnit
 #endif

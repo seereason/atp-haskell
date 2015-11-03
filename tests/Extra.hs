@@ -8,13 +8,14 @@ import Data.Set as Set (fromList, minView, null, Set, singleton)
 import Data.String (fromString)
 import FOL (vt, fApp, (.=.), pApp, for_all, exists)
 import Formulas
+import Lib (Depth(Depth))
 import Meson (meson)
 import Parser (fof)
 import Pretty (assertEqual', prettyShow)
 import Prop hiding (nnf)
 import Resolution
 import Skolem (HasSkolem(toSkolem), skolemize, runSkolem, MyAtom, MyFormula, MyTerm)
-import Tableaux (Depth(Depth), K(K), tab)
+import Tableaux (K(K), tab)
 import Test.HUnit
 
 testExtra :: Test

@@ -26,13 +26,13 @@ import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
 import FOL (generalize, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf), IsTerm(FunOf, TVarOf))
 import Formulas ((.~.), false, IsFormula(AtomOf), negative)
-import Lib (Marked)
+import Lib (Depth(Depth), deepen, Marked)
 import Lit (IsLiteral, JustLiteral, Literal)
 import Parser (fof)
 import Prolog (PrologRule(Prolog), renamerule)
 import Prop (list_conj, Propositional, simpcnf)
 import Skolem (askolemize, HasSkolem(SVarOf), pnf, SkolemT, simpdnf', specialize)
-import Tableaux (Depth(Depth), deepen, unify_literals)
+import Tableaux (unify_literals)
 import Unif (Unify)
 
 #ifndef NOTESTS

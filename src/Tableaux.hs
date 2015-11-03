@@ -21,7 +21,7 @@ module Tableaux
     , unify_atoms
     , unify_atoms_eq
     , prawitz
-    , deepen, Depth(Depth), K(K)
+    , K(K)
     , tab
 #ifndef NOTESTS
     , testTableaux
@@ -202,34 +202,6 @@ let p60 = compare
 END_INTERACTIVE;;
 -}
 #endif
-
--- | Try f with higher and higher values of n until it succeeds, or
--- optional maximum depth limit is exceeded.
-{-
-let rec deepen f n =
-  try print_string "Searching with depth limit ";
-      print_int n; print_newline(); f n
-  with Failure _ -> deepen f (n + 1);;
--}
-deepen :: (Depth -> Failing t) -> Depth -> Maybe Depth -> Failing (t, Depth)
-deepen _ n (Just m) | n > m = Failure ["Exceeded maximum depth limit"]
-deepen f n m =
-    -- If no maximum depth limit is given print a trace of the
-    -- levels tried.  The assumption is that we are running
-    -- interactively.
-    let n' = maybe (trace ("Searching with depth limit " ++ show n) n) (\_ -> n) m in
-    case f n' of
-      Failure _ -> deepen f (succ n) m
-      Success x -> Success (x, n)
-
-newtype Depth = Depth Int deriving (Eq, Ord, Show)
-
-instance Enum Depth where
-    toEnum = Depth
-    fromEnum (Depth n) = n
-
-instance Pretty Depth where
-    pPrint = text . show
 
 newtype K = K Int deriving (Eq, Ord, Show)
 

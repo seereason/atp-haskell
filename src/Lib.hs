@@ -52,6 +52,7 @@ module Lib
     , setmapfilter
     , (∅)
     , Marked(Mark, unMark')
+    , deepen, Depth(Depth)
 #ifndef NOTESTS
     , testLib
 #endif
@@ -71,6 +72,7 @@ import Data.Sequence as Seq (Seq, viewl, ViewL(EmptyL, (:<)), (><), singleton)
 import Data.Set as Set (delete, empty, fold, fromList, insert, minView, Set, singleton, union)
 import qualified Data.Set as Set (map)
 import Data.Time.Clock (DiffTime, diffUTCTime, getCurrentTime, NominalDiffTime)
+import Debug.Trace (trace)
 import Prelude hiding (map)
 import System.IO (hPutStrLn, stderr)
 import Text.PrettyPrint.HughesPJClass (Doc, fsep, punctuate, comma, space, Pretty(pPrint), text)
@@ -973,6 +975,34 @@ let rec first n p = if p(n) then n else first (n +/ Int 1) p;;
 
 -- This is a type used to mark values with the phantom type "mark".
 data Marked mark a = Mark {unMark' :: a} deriving (Data, Typeable, Read)
+
+-- | Try f with higher and higher values of n until it succeeds, or
+-- optional maximum depth limit is exceeded.
+{-
+let rec deepen f n =
+  try print_string "Searching with depth limit ";
+      print_int n; print_newline(); f n
+  with Failure _ -> deepen f (n + 1);;
+-}
+deepen :: (Depth -> Failing t) -> Depth -> Maybe Depth -> Failing (t, Depth)
+deepen _ n (Just m) | n > m = Failure ["Exceeded maximum depth limit"]
+deepen f n m =
+    -- If no maximum depth limit is given print a trace of the
+    -- levels tried.  The assumption is that we are running
+    -- interactively.
+    let n' = maybe (trace ("Searching with depth limit " ++ show n) n) (\_ -> n) m in
+    case f n' of
+      Failure _ -> deepen f (succ n) m
+      Success x -> Success (x, n)
+
+newtype Depth = Depth Int deriving (Eq, Ord, Show)
+
+instance Enum Depth where
+    toEnum = Depth
+    fromEnum (Depth n) = n
+
+instance Pretty Depth where
+    pPrint = text . show
 
 #ifndef NOTESTS
 testLib :: Test
