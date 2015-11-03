@@ -14,6 +14,7 @@ module Lib
 
     , setAny
     , setAll
+    , flatten
     -- , itlist2
     -- , itlist  -- same as foldr with last arguments flipped
     , tryfind
@@ -152,6 +153,9 @@ setAny = any
 
 setAll :: Foldable t => (a -> Bool) -> t a -> Bool
 setAll = all
+
+flatten :: Ord a => Set (Set a) -> Set a
+flatten ss' = Set.fold Set.union Set.empty ss'
 
 {-
 (* ========================================================================= *)

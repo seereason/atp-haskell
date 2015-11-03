@@ -23,7 +23,7 @@ import Data.Set as Set (delete, difference, empty, filter, findMin, fold, insert
                         minView, null, partition, Set, singleton, size, union)
 import DefCNF (NumAtom(ai, ma), defcnfs)
 import Formulas (IsFormula(AtomOf), IsNegatable, (.~.), negative, positive, negate, negated)
-import Lib (Failing(Success, Failure), failing, allpairs, minimize, maximize, defined, (|->), setmapfilter)
+import Lib (Failing(Success, Failure), failing, allpairs, minimize, maximize, defined, (|->), setmapfilter, flatten)
 import Prelude hiding (negate, pure)
 import Prop (trivial, IsPropositional, JustPropositional)
 import PropExamples (Knows(K))
@@ -36,9 +36,6 @@ import Test.HUnit
 instance NumAtom (Knows Integer) where
     ma n = K "p" n Nothing
     ai (K _ n _) = n
-
-flatten :: Ord a => Set (Set a) -> Set a
-flatten ss' = Set.fold Set.union Set.empty ss'
 
 -- | The DP procedure.
 dp :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Bool
