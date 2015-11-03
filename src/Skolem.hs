@@ -60,7 +60,7 @@ import Prop (convertToPropositional, foldPropositional', IsPropositional, JustPr
 import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
 import Data.String (IsString(fromString))
-import FOL (FOLEQ, Formula, IsFunction, pApp, Predicate, Term, V)
+import FOL (FOLEQ, Formula, IsFunction(variantFunction), pApp, Predicate, Term, V)
 import Lib (Marked)
 import Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
 import Prop (Propositional)
@@ -362,7 +362,10 @@ data Function
     | Skolem V
     deriving (Eq, Ord, Data, Typeable, Read)
 
-instance IsFunction Function
+instance IsFunction Function where
+    variantFunction f@(Fn s) fns | Set.member f fns = variantFunction (fromString (s ++ "'")) fns
+    variantFunction f@(Fn s) fns = f
+    variantFunction (Skolem _v) _fns = error "variantFunction (Skolem v)"
 
 instance IsString Function where
     fromString = Fn

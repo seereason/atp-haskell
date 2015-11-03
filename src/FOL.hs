@@ -19,7 +19,7 @@ module FOL
     ( -- * Variables
       IsVariable(variant, prefix), variants --, showVariable
     -- * Functions
-    , IsFunction
+    , IsFunction(variantFunction)
     , Arity
     -- * Terms
     , IsTerm(TVarOf, FunOf, vt, fApp, foldTerm), zipTerms, funcs, convertTerm, prettyTerm, showTerm
@@ -150,7 +150,11 @@ instance Pretty V where
 -- FUNCTIONS --
 ---------------
 
-class (IsString function, Ord function, Pretty function, Show function) => IsFunction function
+class (IsString function, Ord function, Pretty function, Show function) => IsFunction function where
+    variantFunction :: function -> Set function -> function
+    -- ^ Return a function based on f but different from any set
+    -- element.  The result may be f itself if f is not a member of
+    -- the set.
 
 type Arity = Int
 
@@ -160,7 +164,9 @@ type Arity = Int
 -- pretty printing.
 newtype FName = FName String deriving (Eq, Ord)
 
-instance IsFunction FName
+instance IsFunction FName where
+    variantFunction f@(FName s) fns | Set.member f fns = variantFunction (fromString (s ++ "'")) fns
+    variantFunction f _ = f
 
 instance IsString FName where fromString = FName
 
