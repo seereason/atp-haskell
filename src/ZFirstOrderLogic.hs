@@ -18,24 +18,19 @@ import qualified Data.Map as M
 
 import Lib (distrib, allpairs, flatten, Marked)
 import Lit (Literal, unmarkLiteral)
-import Formulas (AtomOf, negate, positive, negative, atom_union)
+import Formulas (AtomOf, negate, positive, negative, atom_union, (.&.), (.~.), (.=>.))
 import Prop (trivial, psimplify1, simpdnf, markPropositional, Propositional, unmarkPropositional)
 import FOL (fv, fvt, generalize, subst, variant)
 
 import ZTypes (Formula(..), FOL(..), Term(..))
 import ZInstances ()
-import ZParser (parseFOL)
+-- import ZParser (parseFOL)
 
-{-
-p20 :: Formula FOL
-p20 = parseFOL "(forall x y. exists z. forall w. P(x) & Q(y) ==> R(z) & U(w)) ==> (exists x y. P(x) & Q(y)) ==> (exists z. R(z))"
--}
+p45fm :: Formula FOL
+--p45fm = parseFOL ("(forall x. P(x) & (forall y. G(y) & H(x,y) ==> J(x,y)) ==> (forall y. G(y) & H(x,y) ==> R(y))) & ~(exists y. L(y) & R(y)) & (exists x. P(x) & (forall y. H(x,y) ==> L(y)) & (forall y. G(y) & H(x,y) ==> J(x,y))) ==> (exists x. P(x) & ~(exists y. G(y) & H(x,y)))" :: String)
+p45fm = Imp (And (Forall "x" (Imp (And (Atom (R "P" [Var "x"])) (Forall "y" (Imp (And (Atom (R "G" [Var "y"])) (Atom (R "H" [Var "x",Var "y"]))) (Atom (R "J" [Var "x",Var "y"]))))) (Forall "y" (Imp (And (Atom (R "G" [Var "y"])) (Atom (R "H" [Var "x",Var "y"]))) (Atom (R "R" [Var "y"])))))) (And (Not (Exists "y" (And (Atom (R "L" [Var "y"])) (Atom (R "R" [Var "y"]))))) (Exists "x" (And (Atom (R "P" [Var "x"])) (And (Forall "y" (Imp (Atom (R "H" [Var "x",Var "y"])) (Atom (R "L" [Var "y"])))) (Forall "y" (Imp (And (Atom (R "G" [Var "y"])) (Atom (R "H" [Var "x",Var "y"]))) (Atom (R "J" [Var "x",Var "y"]))))))))) (Exists "x" (And (Atom (R "P" [Var "x"])) (Not (Exists "y" (And (Atom (R "G" [Var "y"])) (Atom (R "H" [Var "x",Var "y"])))))))
 p45 :: Int
-p45 = gilmore (parseFOL ("(forall x. P(x) & (forall y. G(y) & H(x,y) ==> J(x,y)) ==> (forall y. G(y) & H(x,y) ==> R(y))) & ~(exists y. L(y) & R(y)) & (exists x. P(x) & (forall y. H(x,y) ==> L(y)) & (forall y. G(y) & H(x,y) ==> J(x,y))) ==> (exists x. P(x) & ~(exists y. G(y) & H(x,y)))" :: String) :: Formula FOL)
-{-
-p24 :: Formula FOL
-p24 = parseFOL "~(exists x. U(x) & Q(x)) & (forall x. P(x) ==> Q(x) | R(x)) & ~(exists x. P(x) ==> (exists x. Q(x))) & (forall x. Q(x) & R(x) ==> U(x)) ==> (exists x. P(x) & R(x))"
--}
+p45 = gilmore p45fm
 
 fpf :: Ord k => [k] -> [a] -> M.Map k a
 fpf xs ys = M.fromList $ zip xs ys

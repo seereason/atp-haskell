@@ -12,8 +12,6 @@ import qualified Data.Map as M
 import Control.Monad (foldM)
 import Formulas (IsFormula(..))
 
-import ZFailing (Failing, try, failure, tryM)
-
 newtype Prop = P {pname :: String}  deriving (Eq,Ord)
 
 instance Show Prop where
@@ -31,11 +29,13 @@ data Formula a = FF
                | Iff (Formula a) (Formula a)
                | Forall String (Formula a)
                | Exists String (Formula a)
-               deriving (Eq, Ord)
+               deriving (Eq, Ord, Show)
 
-data Term = Var String | Fn String [Term]  deriving (Eq,Ord)
+data Term = Var String | Fn String [Term]  deriving (Eq,Ord, Show)
 
-data FOL = R String [Term]  deriving (Eq,Ord)
+data FOL = R String [Term]  deriving (Eq,Ord, Show)
+
+data V = V String deriving (Eq, Ord, Show)
 
 allpairs :: forall t a (t1 :: * -> *) a1.
                   Foldable t1 =>
@@ -63,8 +63,8 @@ itlist f l b = foldr f b l
 
 -- pretty printing Prop
 
-instance (Show a) => Show (Formula a) where
- show fm = render (showFormula fm)
+--instance (Show a) => Show (Formula a) where
+-- show fm = render (showFormula fm)
 
 showFormula :: forall a. Show a => Formula a -> Doc
 showFormula FF = char '⟘'
@@ -97,12 +97,12 @@ showFOL (R s args) = text s <> (parens (hcat (punctuate (char ',') (map showTerm
 
 showProlog :: PrologRule -> Doc
 showProlog (Prolog xs y) = (showFormula y) <+> (text ":-") <+> (hcat (punctuate (text ", ") (map showFormula xs)))
-
+{-
 instance Show Term where
    show t = render (showTerm t)
 
 instance Show FOL where
    show t = render (showFOL t)
-
+-}
 instance Show PrologRule where
    show prolog = render (showProlog prolog)

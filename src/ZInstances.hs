@@ -63,8 +63,10 @@ instance IsQuantified (Formula FOL) where
         foldPropositional' (\_ -> error "IsQuantified Formula") co ne tf at fm
 
 -- Build a Haskell expression for this formula
+{-
 instance Show (Formula FOL) where
     show = showQuantified
+-}
 
 -- Precedence information for Formula
 instance HasFixity (Formula FOL) where
