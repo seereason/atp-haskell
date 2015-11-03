@@ -20,11 +20,13 @@ import Lib (distrib, allpairs, flatten, Marked)
 import Lit (Literal, unmarkLiteral)
 import Formulas (AtomOf, negate, positive, negative, atom_union, (.&.), (.~.), (.=>.))
 import Prop (trivial, psimplify1, simpdnf, markPropositional, Propositional, unmarkPropositional)
-import FOL (fv, fvt, generalize, subst, variant, V(V))
+import FOL (fv, fvt, generalize, subst, IsVariable(variant), IsFunction(variantFunction), V(V))
 
-import ZTypes (Formula(..), FOL(..), Term(..))
+import ZTypes (Formula(..), FOL(..), Term(..), Function(..))
 import ZInstances ()
 -- import ZParser (parseFOL)
+
+main = print p45
 
 p45fm :: Formula FOL
 --p45fm = parseFOL ("(forall x. P(x) & (forall y. G(y) & H(x,y) ==> J(x,y)) ==> (forall y. G(y) & H(x,y) ==> R(y))) & ~(exists y. L(y) & R(y)) & (exists x. P(x) & (forall y. H(x,y) ==> L(y)) & (forall y. G(y) & H(x,y) ==> J(x,y))) ==> (exists x. P(x) & ~(exists y. G(y) & H(x,y)))" :: String)
@@ -49,7 +51,7 @@ gilmore fm = length (gilmore_loop dnf (S.toList cntms) funcs (S.toList fvs) 0 (S
 gilmore_loop :: (Foldable foldable) =>
                 S.Set (S.Set (Formula FOL))
              -> [Term]
-             -> foldable (String, Int)
+             -> foldable (Function, Int)
              -> [V]
              -> Integer
              -> S.Set (S.Set (Formula FOL))
@@ -69,7 +71,7 @@ herbloop :: forall foldable. (Foldable foldable) =>
          -> (S.Set (S.Set (Formula FOL)) -> Bool)
          -> S.Set (S.Set (Formula FOL))
          -> [Term]
-         -> foldable (String, Int)
+         -> foldable (Function, Int)
          -> [V]
          -> Integer
          -> S.Set (S.Set (Formula FOL))
@@ -86,20 +88,20 @@ herbloop mfn tfn f10 cntms funcs fvs n fl tried tuples = trace ((show (length tr
 
 groundterms :: forall (t :: * -> *) a a1.
                      (Enum a, Eq a, Eq a1, Num a, Num a1, Foldable t) =>
-                     [Term] -> t (String, a1) -> a -> [Term]
+                     [Term] -> t (Function, a1) -> a -> [Term]
 groundterms cntms funcs 0 = cntms
 groundterms cntms funcs n = foldr (\(f,m) l -> map (\args -> Fn f args) (groundtuples cntms funcs (n-1) m) ++ l) [] funcs
 
 groundtuples :: forall (t :: * -> *) a a1.
                       (Enum a, Eq a, Eq a1, Num a, Num a1, Foldable t) =>
-                      [Term] -> t (String, a1) -> a -> a1 -> [[Term]]
+                      [Term] -> t (Function, a1) -> a -> a1 -> [[Term]]
 groundtuples cntms funcs 0 0 = [[]]
 groundtuples cntms funcs n 0 = []
 groundtuples cntms funcs n m = foldr (\k l -> allpairs (\h t -> h : t) (groundterms cntms funcs k) (groundtuples cntms funcs (n - k) (m - 1)) ++ l) [] [0 .. n]
 
 -- Section 3.7
 
-herbfuns :: Formula FOL -> (S.Set (String, Int), S.Set (String, Int))
+herbfuns :: Formula FOL -> (S.Set (Function, Int), S.Set (Function, Int))
 herbfuns fm
   | null cns = (S.singleton ("c",0),fns)
   | otherwise = (cns,fns)
@@ -118,18 +120,19 @@ specialize fm = fm
 askolemize :: Formula FOL -> Formula FOL
 askolemize fm = fst (skolem (nnf (simplify fm)) (S.map fst (functions fm)))
 
-funcs :: Term -> S.Set (String, Int)
+funcs :: Term -> S.Set (Function, Int)
 funcs (Var _) = S.empty
 funcs (Fn f args) = S.insert (f,length args) (S.unions (map funcs args))
 
-functions :: AtomOf (Formula FOL) ~ FOL => Formula FOL -> S.Set (String, Int)
+functions :: AtomOf (Formula FOL) ~ FOL => Formula FOL -> S.Set (Function, Int)
 functions fm = atom_union (\(R _ a) -> S.unions (map funcs a)) fm
 
-skolem :: Formula FOL -> S.Set String -> (Formula FOL, S.Set String)
+skolem :: Formula FOL -> S.Set Function -> (Formula FOL, S.Set Function)
 skolem fm@(Exists v@(V y) p) fns = skolem (subst (M.singleton v fx) p) (S.insert f fns)
  where
   xs = fv fm
-  f = variant (if S.null xs then "c_"++y else "f_"++y) fns
+  f :: Function
+  f = variantFunction (FName(if S.null xs then "c_"++y else "f_"++y)) fns
   fx = Fn f (map Var (S.toList xs))
 skolem fm@(Forall x p) fns = (Forall x p',fns')
  where
@@ -140,7 +143,7 @@ skolem fm fns = (fm,fns)
 
 skolem2 :: forall t.
                  ((Formula FOL, Formula FOL) -> t)
-                 -> (Formula FOL, Formula FOL) -> S.Set String -> (t, S.Set String)
+                 -> (Formula FOL, Formula FOL) -> S.Set Function -> (t, S.Set Function)
 skolem2 cons (p,q) fns = (cons (p',q'),fns'')
  where
   (p',fns') = skolem p fns

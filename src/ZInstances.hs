@@ -1,12 +1,13 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances, TypeFamilies #-}
 module ZInstances where
 
+import Data.Set as Set
 import Data.String (IsString(fromString))
 import Formulas
 import Pretty
 import Lit hiding (LFormula(..))
 import Prop hiding (PFormula(..))
-import FOL hiding (Formula(..), FOL(..), FOLEQ(..), Term(..))
+import FOL hiding (Formula(..), FOL(..), FOLEQ(..), Term(..), FName)
 import ZTypes
 
 instance Pretty (Formula FOL) where
@@ -101,11 +102,19 @@ instance Show Term where
 instance Pretty Term where
     pPrint = prettyTerm
 
-instance IsFunction String
+instance IsString Function where
+    fromString = FName
+
+instance Pretty Function where
+    pPrint (FName s) = text s
+
+instance IsFunction Function where
+    variantFunction f@(FName s) fns | Set.member f fns = variantFunction (fromString (s ++ "'")) fns
+    variantFunction f _ = f
 
 instance IsTerm Term where
     type TVarOf Term = V
-    type FunOf Term = String
+    type FunOf Term = Function
     vt = Var
     fApp = Fn
     foldTerm vf fn t =

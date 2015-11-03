@@ -1,7 +1,7 @@
 {-# LANGUAGE RankNTypes, KindSignatures #-}
 {-# OPTIONS_GHC -fwarn-unused-binds -fwarn-missing-signatures #-}
-module ZTypes (Formula(..), FOL(..), Term(..),
-              itlist, allpairs, Prop(..), PrologRule(..)) where
+module ZTypes (Formula(..), FOL(..), Term(..), Function(..),
+              allpairs, Prop(..), PrologRule(..)) where
 
 import Text.PrettyPrint
 import Data.List
@@ -32,9 +32,11 @@ data Formula a = FF
                | Exists V (Formula a)
                deriving (Eq, Ord, Show)
 
-data Term = Var V | Fn String [Term]  deriving (Eq,Ord, Show)
+data Term = Var V | Fn Function [Term]  deriving (Eq,Ord, Show)
 
 data FOL = R String [Term]  deriving (Eq,Ord, Show)
+
+newtype Function = FName String deriving (Eq,Ord, Show)
 
 allpairs :: forall t a (t1 :: * -> *) a1.
                   Foldable t1 =>
@@ -82,9 +84,9 @@ isOperator c = (isSymbol c) || (isPunctuation c)
 
 showTerm :: Term -> Doc
 showTerm (Var (V s)) = text s
-showTerm (Fn s []) = text "'" <> text s <> text "'"
-showTerm (Fn s@(h:_) [x,y]) | isOperator h = parens (showTerm x <+> (text s) <+> showTerm y)
-showTerm (Fn s args) = text s <> (brackets (hcat (punctuate (char ',') (map showTerm args))))
+showTerm (Fn (FName s) []) = text "'" <> text s <> text "'"
+showTerm (Fn (FName s@(h:_)) [x,y]) | isOperator h = parens (showTerm x <+> (text s) <+> showTerm y)
+showTerm (Fn (FName s) args) = text s <> (brackets (hcat (punctuate (char ',') (map showTerm args))))
 
 showFOL :: FOL -> Doc
 showFOL (R s []) = text s
