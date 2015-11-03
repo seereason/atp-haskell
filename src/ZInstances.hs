@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, TypeFamilies #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, TypeFamilies #-}
 module ZInstances where
 
 import Data.Set as Set
@@ -8,6 +8,7 @@ import Pretty
 import Lit hiding (LFormula(..))
 import Prop hiding (PFormula(..))
 import FOL hiding (Formula(..), FOL(..), FOLEQ(..), Term(..), FName)
+import Skolem (HasSkolem(..))
 import ZTypes
 
 instance Pretty (Formula FOL) where
@@ -105,13 +106,12 @@ instance Pretty Term where
 instance IsString Function where
     fromString = FName
 
-
 instance Pretty Function where
     pPrint (FName s) = text s
 
 instance IsFunction Function where
     variantFunction f@(FName s) fns | Set.member f fns = variantFunction (FName (s ++ "'")) fns
-    variantFunction f@(Skolem s) fns | Set.member f fns = variantFunction (Skolem (s ++ "'")) fns
+    variantFunction f@(Skolem v n) fns | Set.member f fns = variantFunction (Skolem v (succ n)) fns
     variantFunction f _ = f
 
 instance IsTerm Term where
@@ -149,3 +149,8 @@ instance HasFixity FOL where
     fixity _ = Fixity 6 InfixN
 
 instance IsFirstOrder (Formula FOL)
+
+instance HasSkolem Function V where
+    toSkolem = Skolem
+    foldSkolem _ sk (Skolem v n) = sk v n
+    foldSkolem other _ f = other f

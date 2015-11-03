@@ -17,7 +17,8 @@ import Lib (distrib, allpairs, flatten, Marked)
 import Lit (Literal, unmarkLiteral)
 import Formulas (AtomOf, negate, positive, negative, atom_union, (.&.), (.~.), (.=>.))
 import Prop (trivial, psimplify1, simpdnf, markPropositional, Propositional, unmarkPropositional)
-import FOL (fv, fvt, generalize, subst, IsVariable(variant), IsFunction(variantFunction), V(V))
+import FOL (fv, fvt, generalize, subst, IsVariable(variant), IsFunction(variantFunction), V(V), functions)
+import Skolem (runSkolem, skolemize)
 
 import ZTypes (Formula(..), FOL(..), Term(..), Function(..))
 import ZInstances ()
@@ -39,11 +40,12 @@ gilmore fm = length (gilmore_loop dnf (S.toList cntms) funcs (S.toList fvs) 0 (S
  where
   dnf :: S.Set (S.Set (Formula FOL))
   dnf = S.map (S.map (unmarkPropositional . unmarkLiteral)) (simpdnf id (markPropositional sfm) :: S.Set (S.Set (Marked Literal (Marked Propositional (Formula FOL)))))
-  sfm = skolemize (Not (generalize fm))
+  sfm :: Marked Propositional (Formula FOL)
+  sfm = runSkolem (skolemize id (Not (generalize fm)))
   fvs :: S.Set V
   fvs = fv sfm
   cntms = S.map (\(c,_) -> Fn c []) consts
-  (consts,funcs) = herbfuns sfm
+  (consts,funcs) = herbfuns (unmarkPropositional sfm)
 
 gilmore_loop :: (Foldable foldable) =>
                 S.Set (S.Set (Formula FOL))
@@ -107,6 +109,7 @@ herbfuns fm
 
 -- Section 3.6
 
+{-
 skolemize :: Formula FOL -> Formula FOL
 skolemize fm = specialize (pnf (askolemize fm))
 
@@ -220,7 +223,7 @@ simplify1 fm@(Exists x p)
  | S.member x (fv p) = fm
  | otherwise = p
 simplify1 fm = psimplify1 fm
-
+-}
 -- Section 3.4
 {-
 subst :: M.Map String Term -> Formula FOL -> Formula FOL
