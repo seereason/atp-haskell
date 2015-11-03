@@ -142,11 +142,11 @@ test01 =
 p24 :: Test
 p24 =
      let label = "gilmore p24 (p. 160): " ++ prettyShow fm
-         fm = [fof|~(exists x. (U(x) /\ Q(x))) /\
-                    (forall x. (P(x) ==> Q(x) \/ R(x))) /\
-                   ~(exists x. (P(x) ==> (exists x. Q(x)))) /\
-                    (forall x. (Q(x) /\ R(x) ==> U(x)))
-                       ==> (exists x. (P(x) /\ R(x)))|] in
+         fm = [fof|~(exists x. (U(x) & Q(x))) &
+                    (forall x. (P(x) ==> Q(x) | R(x))) &
+                   ~(exists x. (P(x) ==> (exists x. Q(x)))) &
+                    (forall x. (Q(x) & R(x) ==> U(x)))
+                       ==> (exists x. (P(x) & R(x)))|] in
     TestLabel label $ TestCase $ assertEqual label 1 (gilmore fm)
 
 -- | Slightly less easy example.  Expected output:
