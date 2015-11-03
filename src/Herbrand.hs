@@ -27,7 +27,7 @@ import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib, Marked)
 import Lit (JustLiteral, Literal)
 import Prop (eval, IsPropositional, JustPropositional, Propositional, simpcnf, simpdnf, trivial)
-import Skolem (HasSkolem, runSkolem, skolemize)
+import Skolem (HasSkolem(SVarOf), runSkolem, skolemize)
 
 #ifndef NOTESTS
 import FOL (exists, for_all, pApp, V, vt)
@@ -113,9 +113,12 @@ gilmore_loop =
       mfn djs0 ifn djs = Set.filter (not . trivial) (distrib (Set.map (Set.map ifn) djs0) djs)
 
 gilmore :: forall fof atom term v function.
-           (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-            IsFirstOrder fof, Ord fof,
-            HasSkolem function v) =>
+           (IsFirstOrder fof, Ord fof, HasSkolem function,
+            atom ~ AtomOf fof,
+            term ~ TermOf atom,
+            function ~ FunOf term,
+            v ~ VarOf fof,
+            v ~ SVarOf function) =>
            fof -> Int
 gilmore fm =
   let (sfm :: Marked Propositional fof) = runSkolem (skolemize id ((.~.) (generalize fm))) in
@@ -224,9 +227,12 @@ dp_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, function ~ FunOf term, v ~ Va
 dp_loop = herbloop dp_mfn dpll
 
 davisputnam :: forall formula atom term v function.
-               (atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf formula, v ~ TVarOf term,
-                IsFirstOrder formula, Ord formula,
-                HasSkolem function v) =>
+               (IsFirstOrder formula, Ord formula, HasSkolem function,
+                atom ~ AtomOf formula,
+                term ~ TermOf atom,
+                function ~ FunOf term,
+                v ~ VarOf formula,
+                v ~ SVarOf function) =>
                formula -> Int
 davisputnam fm =
   let (sfm :: Marked Propositional formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
@@ -246,9 +252,12 @@ END_INTERACTIVE;;
 
 -- | Show how few of the instances we really need. Hence unification!
 davisputnam' :: forall formula atom predicate term v function.
-                (atom ~ AtomOf formula, predicate ~ PredOf atom, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf formula, v ~ TVarOf term,
-                 IsFirstOrder formula, Ord formula,
-                 HasSkolem function v) =>
+                (IsFirstOrder formula, Ord formula, HasSkolem function,
+                 atom ~ AtomOf formula,
+                 term ~ TermOf atom,
+                 function ~ FunOf term,
+                 v ~ VarOf formula,
+                 v ~ SVarOf function) =>
                 formula -> formula -> formula -> Int
 davisputnam' _ _ fm =
     let (sfm :: Marked Propositional formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in

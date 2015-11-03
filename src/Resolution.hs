@@ -168,13 +168,10 @@ pure_resolution1 :: forall fof atom term v.
                     ) => fof -> Failing Bool
 pure_resolution1 fm = resloop1 Set.empty (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set (Marked Literal fof)))
 
-resolution1 :: forall m fof atom term predicate v function.
-               (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, predicate ~ PredOf atom, function ~ FunOf term,
-                IsFirstOrder fof,
-                Unify atom v term, Ord fof, Pretty fof,
-                HasSkolem function v,
-                Monad m
-               ) => fof -> SkolemT m function (Set (Failing Bool))
+resolution1 :: forall m fof atom term v function.
+               (IsFirstOrder fof, Unify atom v term, Ord fof, HasSkolem function, Monad m,
+                atom ~ AtomOf fof, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf fof, v ~ SVarOf function) =>
+               fof -> SkolemT m function (Set (Failing Bool))
 resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution1 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 #ifndef NOTESTS
@@ -243,12 +240,8 @@ match_literals env t1 t2 =
 
 -- | With deletion of tautologies and bi-subsumption with "unused".
 resolution2 :: forall fof atom term v function m.
-               (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-                IsFirstOrder fof,
-                Ord fof, Pretty fof,
-                Unify atom v term,
-                Match (atom, atom) v term,
-                HasSkolem function v, Monad m) =>
+               (IsFirstOrder fof, Unify atom v term, Match (atom, atom) v term, HasSkolem function, Monad m, Ord fof,
+                atom ~ AtomOf fof, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf fof, v ~ SVarOf function) =>
                fof -> SkolemT m function (Set (Failing Bool))
 resolution2 fm = askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_resolution2 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
@@ -330,22 +323,16 @@ test03 = TestCase $ assertEqual' "Davis-Putnam example 2" expected (runSkolem (r
 
 -- | Positive (P1) resolution.
 presolution :: forall fof atom term v function m.
-               (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-                IsFirstOrder fof, Ord fof, Pretty fof,
-                Unify atom v term,
-                Match (atom, atom) v term,
-                HasSkolem function v, Monad m
-               ) => fof -> SkolemT m function (Set (Failing Bool))
+               (IsFirstOrder fof, Unify atom v term, Match (atom, atom) v term, HasSkolem function, Monad m, Ord fof, Pretty fof,
+                atom ~ AtomOf fof, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf fof, v ~ SVarOf function) =>
+               fof -> SkolemT m function (Set (Failing Bool))
 presolution fm =
     askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_presolution . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 pure_presolution :: forall fof atom term v.
-                    (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
-                     IsFirstOrder fof,
-                     Unify atom v term,
-                     Match (atom, atom) v term,
-                     Ord fof, Pretty fof
-                    ) => fof -> Failing Bool
+                    (IsFirstOrder fof, Unify atom v term, Match (atom, atom) v term, Ord fof, Pretty fof,
+                     atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term) =>
+                    fof -> Failing Bool
 pure_presolution fm = presloop Set.empty (simpcnf id (specialize id (pnf fm :: fof) ::  Marked Propositional fof) :: Set (Set (Marked Literal fof)))
 
 presloop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
@@ -379,12 +366,9 @@ presolve_clauses cls1 cls2 =
 
 -- | Introduce a set-of-support restriction.
 resolution3 :: forall fof atom term v function m.
-               (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-                IsFirstOrder fof, Ord fof, Pretty fof,
-                Unify atom v term,
-                Match (atom, atom) v term,
-                HasSkolem function v, Monad m
-               ) => fof -> SkolemT m function (Set (Failing Bool))
+               (IsFirstOrder fof, Unify atom v term, Match (atom, atom) v term, HasSkolem function, Monad m, Ord fof,
+                atom ~ AtomOf fof, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf fof, v ~ SVarOf function) =>
+               fof -> SkolemT m function (Set (Failing Bool))
 resolution3 fm =
     askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution3 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 

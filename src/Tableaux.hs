@@ -44,7 +44,7 @@ import Lit
 import Prelude hiding (compare)
 import Pretty (assertEqual', Pretty(pPrint), prettyShow, text)
 import Prop (Propositional, simpdnf, unmarkPropositional)
-import Skolem (askolemize, HasSkolem(toSkolem), runSkolem, skolemize)
+import Skolem (askolemize, HasSkolem(SVarOf, toSkolem), runSkolem, skolemize)
 import Unif (Unify(unify), unify_terms)
 #ifndef NOTESTS
 import Herbrand (davisputnam)
@@ -110,8 +110,9 @@ prawitz_loop djs0 fvs djs n =
       newvar k = vt (fromString ("_" ++ show (n * length fvs + k)))
 
 prawitz :: forall formula atom term function v.
-           (IsFirstOrder formula, Ord formula, Unify atom v term, HasSkolem function v,
-            atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term) =>
+           (IsFirstOrder formula, Ord formula, Unify atom v term, HasSkolem function,
+            atom ~ AtomOf formula, v ~ VarOf formula, term ~ TermOf atom, function ~ FunOf term,
+            {-v ~ TVarOf term,-} v ~ SVarOf function) =>
            formula -> Int
 prawitz fm =
     snd (prawitz_loop dnf (Set.toList fvs) dnf0 0)
@@ -144,11 +145,10 @@ p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
 -- -------------------------------------------------------------------------
 
 #ifndef NOTESTS
-compare :: (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-            IsFirstOrder formula, Ord formula,
-            Unify atom v term,
-            HasSkolem function v
-           ) => formula -> (Int, Int)
+compare :: (IsFirstOrder formula, Ord formula, Unify atom v term, HasSkolem function,
+            atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
+            v ~ VarOf formula, v ~ SVarOf function {-, v ~ VarOf formula, v ~ TVarOf term-}) =>
+           formula -> (Int, Int)
 compare fm = (prawitz fm, davisputnam fm)
 
 p19 :: Test
@@ -317,9 +317,9 @@ tableau fms n0 =
             tryLit fm' l = failing Failure (\env' -> cont (k, env')) (execStateT (unify_complements fm' l) env)
 #endif
 
-tabrefute :: (atom ~ AtomOf formula, v ~ VarOf formula, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
-              IsFirstOrder formula,
-              Unify atom v term) =>
+tabrefute :: (IsFirstOrder formula, Unify atom v term,
+              atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula
+             ) =>
              Maybe Depth -> [formula] -> Failing ((K, Map v term), Depth)
 tabrefute limit fms =
 #if 1
@@ -329,8 +329,9 @@ tabrefute limit fms =
 #endif
     failing Failure (Success . fst) r
 
-tab :: (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-        IsFirstOrder formula, Unify atom v term, Pretty formula, HasSkolem function v) =>
+tab :: (IsFirstOrder formula, Unify atom v term, Pretty formula, HasSkolem function,
+        atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
+        v ~ VarOf formula, v ~ SVarOf function) =>
        Maybe Depth -> formula -> Failing ((K, Map v term), Depth)
 tab limit fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
@@ -391,10 +392,10 @@ END_INTERACTIVE;;
 -- Try to split up the initial formula first; often a big improvement.
 -- -------------------------------------------------------------------------
 splittab :: forall formula atom term v function.
-            (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-             IsFirstOrder formula, Unify atom v term,
-             Ord formula, Pretty formula, HasSkolem function v
-            ) => formula -> [Failing ((K, Map v term), Depth)]
+            (IsFirstOrder formula, Unify atom v term, Ord formula, Pretty formula, HasSkolem function,
+             atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
+             v ~ VarOf formula, v ~ SVarOf function) =>
+            formula -> [Failing ((K, Map v term), Depth)]
 splittab fm =
     (List.map (tabrefute Nothing) . ssll . simpdnf' . runSkolem . skolemize id . (.~.) . generalize) fm
     where ssll :: Set (Set (Marked Literal (Marked Propositional formula))) -> [[formula]]

@@ -20,7 +20,6 @@ import Formulas
 --import Prop
 --import Prolog (PrologRule(Prolog))
 import Skolem
-import Debug.Trace
 
 -- | QuasiQuote for a first order formula.  Loading this symbol into the interpreter
 -- and setting -XQuasiQuotes lets you type expressions like [fof| ∃ x. p(x) |]
