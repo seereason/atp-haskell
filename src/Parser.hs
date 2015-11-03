@@ -46,7 +46,7 @@ def = emptyDef{ identStart = letter
               , identLetter = alphaNum <|> char '\'' <|> char '_'
               , opStart = oneOf "~&|=<:*/+->"
               , opLetter = oneOf "~&|=><:-"
-              , reservedOpNames = ["~", "¬", "&", "∧", "|", "∨", "<==>", "⇔", "==>", "⇒", ":-", "::", "*", "/", "+", "-", "∃", "∀"] ++ predicate_infix_symbols
+              , reservedOpNames = ["~", "¬", "&", "∧", "⋀", "·", "|", "∨", "⋁", "+", "<==>", "⇔", "==>", "⇒", "⟹", ":-", "::", "*", "/", "+", "-", "∃", "∀"] ++ predicate_infix_symbols
               , reservedNames = ["true", "false", "exists", "forall", "for_all"] ++ constants
               }
 
@@ -100,12 +100,14 @@ exprparser term = buildExpressionParser table term <?> "expression"
           , [Infix (m_reservedOp ".&." >> return (.&.)) AssocRight,
              Infix (m_reservedOp "&" >> return (.&.)) AssocRight,
              Infix (m_reservedOp "∧" >> return (.&.)) AssocRight,
+             Infix (m_reservedOp "⋀" >> return (.&.)) AssocRight,
              Infix (m_reservedOp "/\\" >> return (.&.)) AssocRight,
              Infix (m_reservedOp "·" >> return (.&.)) AssocRight]
 
           , [Infix (m_reservedOp ".|." >> return (.|.)) AssocRight,
              Infix (m_reservedOp "|" >> return (.|.)) AssocRight,
              Infix (m_reservedOp "∨" >> return (.|.)) AssocRight,
+             Infix (m_reservedOp "⋁" >> return (.|.)) AssocRight,
              Infix (m_reservedOp "\\/" >> return (.|.)) AssocRight,
              Infix (m_reservedOp "+" >> return (.|.)) AssocRight]
 
@@ -118,6 +120,7 @@ exprparser term = buildExpressionParser table term <?> "expression"
           , [Infix (m_reservedOp ".=>." >> return (.=>.)) AssocRight,
              Infix (m_reservedOp "==>" >> return (.=>.)) AssocRight,
              Infix (m_reservedOp "⇒" >> return (.=>.)) AssocRight,
+             Infix (m_reservedOp "⟹" >> return (.=>.)) AssocRight,
              Infix (m_reservedOp "→" >> return (.=>.)) AssocRight,
              Infix (m_reservedOp "⊃" >> return (.=>.)) AssocRight]
           ]
