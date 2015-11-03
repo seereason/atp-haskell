@@ -88,3 +88,8 @@ Test-Suite atp-haskell-tests
   Main-Is: Main.hs
   Build-Depends: applicative-extras, atp-haskell, base, containers, haskell-src-exts, HUnit, time
   GHC-options: -Wall -O2
+
+Executable ztest
+  Hs-Source-Dirs: src
+  Main-Is: ZFirstOrderLogic.hs
+  Build-Depends: base, pretty, HUnit, applicative-extras, mtl, syb, containers, time, template-haskell

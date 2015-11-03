@@ -1,9 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes, KindSignatures, OverloadedStrings, TypeFamilies #-}
 {-# OPTIONS_GHC -fwarn-unused-binds -fwarn-missing-signatures #-}
-module ZFirstOrderLogic
-    ( p45
-    ) where
 
 import Prelude hiding (negate,sum,pred)
 import qualified Data.Set as S
