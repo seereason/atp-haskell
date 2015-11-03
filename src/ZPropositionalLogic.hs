@@ -9,6 +9,7 @@ import Data.Maybe
 import qualified Data.Map as M
 import GHC.Unicode(isDigit)
 import ZTypes
+import ZInstances ()
 import ZFailing
 
 simpcnf :: Ord t => Formula t -> S.Set (S.Set (Formula t))

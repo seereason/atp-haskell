@@ -10,6 +10,7 @@ import Data.Char
 import qualified Data.Set as S
 import qualified Data.Map as M
 import Control.Monad (foldM)
+import Formulas (IsFormula(..))
 
 import ZFailing (Failing, try, failure, tryM)
 

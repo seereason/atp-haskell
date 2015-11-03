@@ -27,7 +27,7 @@ module Formulas
     ) where
 
 import Data.Data (Data)
-import Data.Set as Set (Set, empty, union)
+import Data.Set as Set (Set, empty, union, map, fromList, insert)
 import Data.Typeable (Typeable)
 import Lib (Marked(Mark, unMark'))
 import Prelude hiding (negate)
@@ -181,6 +181,7 @@ class (Pretty formula, HasFixity formula, IsAtom (AtomOf formula)) => IsFormula 
 -- | Special case of a union of the results of a function over the atoms.
 atom_union :: (IsFormula formula, Ord r) => (AtomOf formula -> Set r) -> formula -> Set r
 atom_union f fm = overatoms (\h t -> Set.union (f h) t) fm Set.empty
+
 {-
 -- | Make sure associative operators are grouped left to right, use this
 -- to make more equality tests succeed.

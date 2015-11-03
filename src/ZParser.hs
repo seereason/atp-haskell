@@ -14,6 +14,7 @@ import Text.Parsec.Token
 import Text.Parsec.Language
 
 import ZTypes hiding (try)
+import ZInstances ()
 
 instance Read PrologRule where
    readsPrec n str = [(parseProlog str,"")]

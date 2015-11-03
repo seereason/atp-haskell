@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE RankNTypes, KindSignatures #-}
+{-# LANGUAGE RankNTypes, KindSignatures, TypeFamilies #-}
 {-# OPTIONS_GHC -fwarn-unused-binds -fwarn-missing-signatures #-}
 module ZFirstOrderLogic
     ( p45
@@ -16,8 +16,11 @@ import Data.List (intercalate,minimumBy,maximumBy)
 import Data.Maybe
 import qualified Data.Map as M
 
-import ZPropositionalLogic (simpdnf, trivial, distrib, atom_union, psimplify1, negative, positive, negate)
+import Lib (distrib)
+import Formulas (AtomOf, negate, positive, negative, atom_union)
+import ZPropositionalLogic (simpdnf, trivial, psimplify1)
 import ZTypes (Formula(..), FOL(..), Term(..), itlist, allpairs, unions)
+import ZInstances ()
 import ZParser (parseFOL)
 import ZFailing (Failing, isSuccess, fromSuccess, failure)
 
@@ -141,8 +144,8 @@ funcs :: Term -> S.Set (String, Int)
 funcs (Var _) = S.empty
 funcs (Fn f args) = S.insert (f,length args) (S.unions (map funcs args))
 
-functions :: Formula FOL -> S.Set (String, Int)
-functions fm = S.fold S.union S.empty (atom_union (\(R _ a) -> S.unions (map funcs a)) fm)
+functions :: AtomOf (Formula FOL) ~ FOL => Formula FOL -> S.Set (String, Int)
+functions fm = atom_union (\(R _ a) -> S.unions (map funcs a)) fm
 
 skolem :: Formula FOL -> S.Set String -> (Formula FOL, S.Set String)
 skolem fm@(Exists y p) fns = skolem (subst (M.singleton y fx) p) (S.insert f fns)
