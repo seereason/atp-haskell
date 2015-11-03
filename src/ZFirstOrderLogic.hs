@@ -16,13 +16,15 @@ import Data.List (intercalate,minimumBy,maximumBy)
 import Data.Maybe
 import qualified Data.Map as M
 
-import Lib (distrib)
+import Lib (distrib, allpairs, flatten, Marked)
+import Lit (Literal, unmarkLiteral)
 import Formulas (AtomOf, negate, positive, negative, atom_union)
-import ZPropositionalLogic (simpdnf, trivial, psimplify1)
-import ZTypes (Formula(..), FOL(..), Term(..), itlist, allpairs, unions)
+import Prop (trivial, psimplify1, simpdnf, markPropositional, Propositional, unmarkPropositional)
+import FOL (fv, fvt, generalize, subst, variant)
+
+import ZTypes (Formula(..), FOL(..), Term(..))
 import ZInstances ()
 import ZParser (parseFOL)
-import ZFailing (Failing, isSuccess, fromSuccess, failure)
 
 {-
 p20 :: Formula FOL
@@ -60,8 +62,10 @@ gilmore fm = length (gilmore_loop (simpdnf id sfm :: Set (Set lit)) (Set.toList 
    (consts,funcs) = herbfuns sfm
 #else
 gilmore :: Formula FOL -> Int
-gilmore fm = length (gilmore_loop (simpdnf sfm) (S.toList cntms) funcs (S.toList fvs) 0 (S.singleton S.empty) [] [])
+gilmore fm = length (gilmore_loop dnf (S.toList cntms) funcs (S.toList fvs) 0 (S.singleton S.empty) [] [])
  where
+  dnf :: S.Set (S.Set (Formula FOL))
+  dnf = S.map (S.map (unmarkPropositional . unmarkLiteral)) (simpdnf id (markPropositional sfm) :: S.Set (S.Set (Marked Literal (Marked Propositional (Formula FOL)))))
   sfm = skolemize (Not (generalize fm))
   fvs = fv sfm
   cntms = S.map (\(c,_) -> Fn c []) consts
@@ -110,14 +114,14 @@ groundterms :: forall (t :: * -> *) a a1.
                      (Enum a, Eq a, Eq a1, Num a, Num a1, Foldable t) =>
                      [Term] -> t (String, a1) -> a -> [Term]
 groundterms cntms funcs 0 = cntms
-groundterms cntms funcs n = itlist (\(f,m) l -> map (\args -> Fn f args) (groundtuples cntms funcs (n-1) m) ++ l) funcs []
+groundterms cntms funcs n = foldr (\(f,m) l -> map (\args -> Fn f args) (groundtuples cntms funcs (n-1) m) ++ l) [] funcs
 
 groundtuples :: forall (t :: * -> *) a a1.
                       (Enum a, Eq a, Eq a1, Num a, Num a1, Foldable t) =>
                       [Term] -> t (String, a1) -> a -> a1 -> [[Term]]
 groundtuples cntms funcs 0 0 = [[]]
 groundtuples cntms funcs n 0 = []
-groundtuples cntms funcs n m = itlist (\k l -> allpairs (\h t -> h : t) (groundterms cntms funcs k) (groundtuples cntms funcs (n - k) (m - 1)) ++ l) [0 .. n] []
+groundtuples cntms funcs n m = foldr (\k l -> allpairs (\h t -> h : t) (groundterms cntms funcs k) (groundtuples cntms funcs (n - k) (m - 1)) ++ l) [] [0 .. n]
 
 -- Section 3.7
 
@@ -244,7 +248,7 @@ simplify1 fm@(Exists x p)
 simplify1 fm = psimplify1 fm
 
 -- Section 3.4
-
+{-
 subst :: M.Map String Term -> Formula FOL -> Formula FOL
 subst subfn FF = FF
 subst subfn TT = TT
@@ -273,7 +277,7 @@ tsubst sfn tm@(Var x) = maybe tm id (M.lookup x sfn)
 tsubst sfn (Fn f args) = Fn f (map (tsubst sfn) args)
 
 generalize :: Formula FOL -> Formula FOL
-generalize fm = itlist Forall (fv fm) fm
+generalize fm = foldr Forall fm (fv fm)
 
 -- Section 3.3
 
@@ -292,3 +296,4 @@ fv (Exists x p) = S.delete x (fv p)
 fvt :: Term -> S.Set String
 fvt (Var x) = S.singleton x
 fvt (Fn _ args) = S.unions (map fvt args)
+-}

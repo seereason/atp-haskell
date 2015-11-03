@@ -134,3 +134,5 @@ instance HasApplyAndEquate FOL where
 
 instance HasFixity FOL where
     fixity _ = Fixity 6 InfixN
+
+instance IsFirstOrder (Formula FOL)
