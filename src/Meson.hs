@@ -140,7 +140,7 @@ test02 =
                                     (Set.map prettyShow ((Set.map list_conj (simpdnf' (runSkolem (askolemize ((.~.) (generalize davis_putnam_example_formula)))))) :: Set (MyFormula))))]
     where f = pApp "F"
           g = pApp "G"
-          sk1 = fApp (toSkolem "z")
+          sk1 = fApp (toSkolem "z" 1)
           x = vt "x"
           y = vt "y"
           z = vt "z"
@@ -231,7 +231,7 @@ meson1 :: forall m fof atom predicate term function v.
            IsFirstOrder fof,
            Unify atom (VarOf fof) (TermOf (atom)),
            Ord fof, HasSkolem function (VarOf fof), Monad m
-          ) => Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
+          ) => Maybe Depth -> fof -> SkolemT m function (Set (Failing Depth))
 meson1 maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
     return . Set.map (puremeson1 maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
@@ -348,7 +348,7 @@ meson2 :: forall m fof atom term function v.
           (atom ~ AtomOf fof, term ~ TermOf (atom), v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
            IsFirstOrder fof, Unify atom v term, Ord fof,
            HasSkolem function v, Monad m
-          ) => Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
+          ) => Maybe Depth -> fof -> SkolemT m function (Set (Failing Depth))
 meson2 maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
     return . Set.map (puremeson2 maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
@@ -357,7 +357,7 @@ meson :: (atom ~ AtomOf fof, term ~ TermOf (atom), v ~ VarOf fof, v ~ TVarOf ter
           IsFirstOrder fof,
           Unify atom v term, Ord fof,
           HasSkolem function v, Monad m) =>
-         Maybe Depth -> fof -> SkolemT m (Set (Failing Depth))
+         Maybe Depth -> fof -> SkolemT m function (Set (Failing Depth))
 meson = meson2
 
 #ifndef NOTESTS

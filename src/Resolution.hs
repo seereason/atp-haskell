@@ -56,7 +56,7 @@ test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p
                     (prettyShow input)
     where shaves = pApp "shaves" :: [MyTerm] -> MyFormula
           [b, x] = [vt "b", vt "x"] :: [MyTerm]
-          fx = fApp (Skolem "x") :: [MyTerm] -> MyTerm
+          fx = fApp (Skolem "x" 1) :: [MyTerm] -> MyTerm
           barb = exists "b" (for_all "x" (shaves [b, x] .<=>. (.~.)(shaves [x, x]))) :: MyFormula
           input :: Set (Set (Marked Literal MyFormula))
           input = simpcnf id (runSkolem (skolemize id ((.~.)barb)) :: Marked Propositional MyFormula)
@@ -66,7 +66,7 @@ test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p
                                    Set.fromList [shaves [fx [b],fx [b]], (.~.)(shaves [b,     fx [b]])]]
           -- x = vt (fromString "x")
           -- b = vt (fromString "b")
-          -- fx = fApp (Skolem "x")
+          -- fx = fApp (Skolem "x" 1)
 #endif
 
 -- | MGU of a set of literals.
@@ -174,7 +174,7 @@ resolution1 :: forall m fof atom term predicate v function.
                 Unify atom v term, Ord fof, Pretty fof,
                 HasSkolem function v,
                 Monad m
-               ) => fof -> SkolemT m (Set (Failing Bool))
+               ) => fof -> SkolemT m function (Set (Failing Bool))
 resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution1 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 #ifndef NOTESTS
@@ -249,7 +249,7 @@ resolution2 :: forall fof atom term v function m.
                 Unify atom v term,
                 Match (atom, atom) v term,
                 HasSkolem function v, Monad m) =>
-               fof -> SkolemT m (Set (Failing Bool))
+               fof -> SkolemT m function (Set (Failing Bool))
 resolution2 fm = askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_resolution2 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
 pure_resolution2 :: forall fof atom term v.
@@ -335,7 +335,7 @@ presolution :: forall fof atom term v function m.
                 Unify atom v term,
                 Match (atom, atom) v term,
                 HasSkolem function v, Monad m
-               ) => fof -> SkolemT m (Set (Failing Bool))
+               ) => fof -> SkolemT m function (Set (Failing Bool))
 presolution fm =
     askolemize ((.~.) (generalize fm)) >>= return . Set.map (pure_presolution . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
@@ -384,7 +384,7 @@ resolution3 :: forall fof atom term v function m.
                 Unify atom v term,
                 Match (atom, atom) v term,
                 HasSkolem function v, Monad m
-               ) => fof -> SkolemT m (Set (Failing Bool))
+               ) => fof -> SkolemT m function (Set (Failing Bool))
 resolution3 fm =
     askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution3 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 

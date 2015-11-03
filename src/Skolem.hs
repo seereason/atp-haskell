@@ -26,7 +26,7 @@ module Skolem
     , SkolemT
     , runSkolemT
     , HasSkolem(toSkolem, foldSkolem)
-    , fromSkolem
+    -- , fromSkolem
     , showSkolem
     , prettySkolem
     , skolems
@@ -45,11 +45,10 @@ module Skolem
     ) where
 
 import Control.Monad.Identity (Identity, runIdentity)
-import Control.Monad.State (runStateT, StateT)
+import Control.Monad.State (runStateT, StateT, get, modify)
 import Data.List as List (map)
 import Data.Map as Map (singleton)
-import Data.Maybe (isJust)
-import Data.Set as Set (empty, filter, isProperSubsetOf, map, member, Set, singleton, toAscList, union)
+import Data.Set as Set (empty, filter, insert, isProperSubsetOf, map, member, notMember, Set, singleton, toAscList, union)
 import FOL (exists, fApp, for_all, functions, fv, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf, foldQuantified),
             IsTerm(TVarOf, FunOf), IsVariable, quant, Quant((:?:), (:!:)), subst, variant, vt)
 import Formulas ((.~.), (.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)), IsFormula(AtomOf), negate, false, true, atomic)
@@ -225,12 +224,12 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" (prettyShow expected) (prettyShow
 -- universally quantified variables.
 
 -- | The Skolem monad
-type SkolemM = StateT SkolemState Identity
+type SkolemM function = StateT (SkolemState function) Identity
 
-data SkolemState
+data SkolemState function
     = SkolemState
-      { skolemCount :: Int
-        -- ^ The next available Skolem number.
+      { skolemSet :: Set function
+        -- ^ The set of allocated skolem functions
       , univQuant :: [String]
         -- ^ The variables which are universally quantified in the
         -- current scope, in the order they were encountered.  During
@@ -239,22 +238,22 @@ data SkolemState
       }
 
 -- | The state associated with the Skolem monad.
-newSkolemState :: SkolemState
+newSkolemState :: IsFunction function => SkolemState function
 newSkolemState
     = SkolemState
-      { skolemCount = 1
+      { skolemSet = mempty
       , univQuant = []
       }
 
 -- | The Skolem monad transformer
-type SkolemT m = StateT SkolemState m
+type SkolemT m function = StateT (SkolemState function) m
 
 -- | Run a computation in the Skolem monad.
-runSkolem :: SkolemT Identity a -> a
+runSkolem :: IsFunction function => SkolemT Identity function a -> a
 runSkolem = runIdentity . runSkolemT
 
 -- | Run a computation in a stacked invocation of the Skolem monad.
-runSkolemT :: Monad m => SkolemT m a -> m a
+runSkolemT :: (Monad m, IsFunction function) => SkolemT m function a -> m a
 runSkolemT action = (runStateT action) newSkolemState >>= return . fst
 
 -- | Class of functions that include embedded Skolem functions
@@ -274,19 +273,27 @@ runSkolemT action = (runStateT action) newSkolemState >>= return . fst
 -- we can eliminate all the formula's existential quantifiers and some
 -- of its variables.
 class (IsFunction function, IsVariable v) => HasSkolem function v | function -> v where
-    toSkolem :: v -> function
-    foldSkolem :: (function -> r) -> (v -> r) -> function -> r
+    toSkolem :: v -> Int -> function
+    -- ^ Create a skolem function with a variant number that differs
+    -- from all the members of the set.
+    foldSkolem :: (function -> r) -> (v -> Int -> r) -> function -> r
 
-fromSkolem :: HasSkolem function v => function -> Maybe v
-fromSkolem = foldSkolem (const Nothing) Just
+newSkolem :: (Monad m, HasSkolem function v) => v -> SkolemT m function function
+newSkolem v = do
+  f <- variantFunction (toSkolem v 1) <$> skolemSet <$> get
+  modify (\s -> s {skolemSet = Set.insert f (skolemSet s)})
+  return f
+
+-- fromSkolem :: HasSkolem function v => function -> Maybe v
+-- fromSkolem = foldSkolem (const Nothing) Just
 
 showSkolem :: HasSkolem function v => function -> String
-showSkolem f = maybe (show (prettyShow f)) (\v -> "toSkolem " ++ show v) (fromSkolem f)
+showSkolem = foldSkolem (show . prettyShow) (\v n -> "(toSkolem " ++ show v ++ " " ++ show n ++ ")")
 
 -- | Extract the skolem functions from a formula.
 skolems :: (atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term,
             HasSkolem function v, HasApply atom, Ord function) => IsFormula formula => formula -> Set function
-skolems = Set.filter (isJust . fromSkolem) . Set.map fst . functions
+skolems = Set.filter (foldSkolem (const False) (\_ _ -> True)) . Set.map fst . functions
 
 -- | Core Skolemization function.
 --
@@ -297,16 +304,20 @@ skolems = Set.filter (isJust . fromSkolem) . Set.map fst . functions
 -- are applied to the list of variables which are universally
 -- quantified in the context where the existential quantifier
 -- appeared.
-skolem :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-           IsFirstOrder formula,
-           HasSkolem function v, Monad m) =>
-          formula -> SkolemT m formula
+skolem :: (IsFirstOrder formula, HasSkolem function v, Monad m,
+           atom ~ AtomOf formula,
+           -- term ~ TermOf atom,
+           -- predicate ~ PredOf atom,
+           v ~ VarOf formula,
+           function ~ FunOf (TermOf (AtomOf formula))) =>
+          formula -> SkolemT m function formula
 skolem fm =
     foldQuantified qu co ne tf (return . atomic) fm
     where
       qu (:?:) y p =
-          do let xs = fv fm
-             let fx = fApp (toSkolem y) (List.map vt (Set.toAscList xs))
+          do sk <- newSkolem y
+             let xs = fv fm
+             let fx = fApp sk (List.map vt (Set.toAscList xs))
              skolem (subst (Map.singleton y fx) p)
       qu (:!:) x p = skolem p >>= return . for_all x
       co l (:&:) r = skolem2 (.&.) l r
@@ -319,7 +330,7 @@ skolem fm =
 skolem2 :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
             IsFirstOrder formula,
             HasSkolem function v, Monad m) =>
-           (formula -> formula -> formula) -> formula -> formula -> SkolemT m formula
+           (formula -> formula -> formula) -> formula -> formula -> SkolemT m function formula
 skolem2 cons p q =
     skolem p >>= \ p' ->
     skolem q >>= \ q' ->
@@ -329,7 +340,7 @@ skolem2 cons p q =
 askolemize :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
                IsFirstOrder formula,
                HasSkolem function v, Monad m) =>
-              formula -> SkolemT m formula
+              formula -> SkolemT m function formula
 askolemize = skolem . nnf . simplify
 
 -- | Remove the leading universal quantifiers.  After a call to pnf
@@ -352,20 +363,20 @@ skolemize :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom
               HasSkolem function v,
               IsPropositional pf, JustPropositional pf,
               Monad m) =>
-             (AtomOf formula -> AtomOf pf) -> formula -> StateT SkolemState m pf
+             (AtomOf formula -> AtomOf pf) -> formula -> StateT (SkolemState function) m pf
 skolemize ca fm = (specialize ca . pnf) <$> askolemize fm
 
 #ifndef NOTESTS
 -- | A function type that is an instance of HasSkolem
 data Function
     = Fn String
-    | Skolem V
+    | Skolem V Int
     deriving (Eq, Ord, Data, Typeable, Read)
 
 instance IsFunction Function where
-    variantFunction f@(Fn s) fns | Set.member f fns = variantFunction (fromString (s ++ "'")) fns
-    variantFunction f@(Fn s) fns = f
-    variantFunction (Skolem _v) _fns = error "variantFunction (Skolem v)"
+    variantFunction f fns | Set.notMember f fns = f
+    variantFunction (Fn s) fns = variantFunction (fromString (s ++ "'")) fns
+    variantFunction (Skolem v n) fns = variantFunction (Skolem v (succ n)) fns
 
 instance IsString Function where
     fromString = Fn
@@ -374,14 +385,14 @@ instance Show Function where
     show = showSkolem
 
 prettySkolem :: HasSkolem function v => (function -> Doc) -> function -> Doc
-prettySkolem prettyFunction = foldSkolem prettyFunction (\v -> text "sK" <> brackets (pPrint v))
+prettySkolem prettyFunction = foldSkolem prettyFunction (\v n -> text "sK" <> brackets (pPrint v <> if n == 1 then mempty else (text "." <> pPrint (show n))))
 
 instance Pretty Function where
     pPrint = prettySkolem (\(Fn s) -> text s)
 
 instance HasSkolem Function V where
     toSkolem = Skolem
-    foldSkolem _ var (Skolem v) = var v
+    foldSkolem _ sk (Skolem v n) = sk v n
     foldSkolem other _ f = other f
 
 -- Example.
@@ -392,8 +403,8 @@ test04 = TestCase $ assertEqual "skolemize 1 (p. 150)" expected input
           fm :: MyFormula
           fm = exists "y" (pApp ("<") [vt "x", vt "y"] .=>.
                            for_all "u" (exists "v" (pApp ("<") [fApp "*" [vt "x", vt "u"],  fApp "*" [vt "y", vt "v"]])))
-          expected = ((.~.)(pApp ("<") [vt "x",fApp (Skolem "y") [vt "x"]])) .|.
-                     (pApp ("<") [fApp "*" [vt "x",vt "u"],fApp "*" [fApp (Skolem "y") [vt "x"],fApp (Skolem "v") [vt "u",vt "x"]]])
+          expected = ((.~.)(pApp ("<") [vt "x",fApp (Skolem "y" 1) [vt "x"]])) .|.
+                     (pApp ("<") [fApp "*" [vt "x",vt "u"],fApp "*" [fApp (Skolem "y" 1) [vt "x"],fApp (Skolem "v" 1) [vt "u",vt "x"]]])
 
 test05 :: Test
 test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
@@ -405,7 +416,7 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
                             (exists "y" (exists "z" ((pApp q [vt "y"]) .|.
                                                      ((.~.)(exists "z" ((pApp p [vt "z"]) .&. (pApp q [vt "z"]))))))))
           expected = ((.~.)(pApp p [vt "x"])) .|.
-                     ((pApp q [fApp (Skolem "y") []]) .|.
+                     ((pApp q [fApp (Skolem "y" 1) []]) .|.
                       (((.~.)(pApp p [vt "z"])) .|.
                        ((.~.)(pApp q [vt "z"]))))
 #endif
