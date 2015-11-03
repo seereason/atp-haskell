@@ -8,6 +8,7 @@ import Lib (testLib)
 import Prop (testProp)
 import PropExamples (testPropExamples)
 import Skolem (testSkolem)
+import ParserTests (testParser)
 import Unif (testUnif)
 import Tableaux (testTableaux)
 import Resolution (testResolution)
@@ -17,9 +18,6 @@ import Equal (testEqual)
 import Extra (testExtra)
 
 import System.Exit (exitWith, ExitCode(ExitSuccess, ExitFailure))
-import Control.Concurrent
-import Control.Exception
-import Data.Time.Clock -- (DiffTime, getCurrentTime, UTCTime)
 
 main :: IO Counts
 main = runTestTT (TestList  [testLib,
@@ -29,6 +27,7 @@ main = runTestTT (TestList  [testLib,
                              testDP,
                              testFOL,
                              testSkolem,
+                             testParser,
                              testHerbrand,
                              testUnif,
                              testTableaux,

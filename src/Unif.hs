@@ -25,6 +25,7 @@ import Control.Monad.State -- (evalStateT, runStateT, State, StateT, get)
 import Data.Bool (bool)
 import Data.List as List (map)
 import Data.Map as Map
+import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
 import FOL (IsTerm(..), tsubst)
 import Lib (Failing)
 #ifndef NOTESTS
@@ -35,15 +36,28 @@ import Test.HUnit hiding (State)
 
 -- | Main unification procedure.
 class Unify a v term where
-    unify :: a -> StateT (Map v term) Failing ()
+    unify :: a -> a -> StateT (Map v term) Failing ()
+    -- ^ Unify the two elements of a pair, collecting variable
+    -- assignments in the state.
 
 instance Unify a v term => Unify [a] v term where
-    unify = mapM_ unify
+    unify [] [] = return ()
+    unify (x : xs) (y : ys) = unify x y >> unify xs ys
+    unify _ _ = fail "unify - list length mismatch"
 
-unify_terms :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term,term)] -> StateT (Map v term) Failing ()
+instance Unify a v term => Unify (Seq a) v term where
+    unify xs ys =
+        case (viewl xs, viewl ys) of
+          (EmptyL, EmptyL) -> return ()
+          (x :< xs', y :< ys') -> unify x y >> unify xs' ys'
+          _ -> fail "unify - Seq list length mismatch"
+
+unify_terms :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) =>
+               [(term,term)] -> StateT (Map v term) Failing ()
 unify_terms = mapM_ (uncurry unify_term_pair)
 
-unify_term_pair :: forall term v f. (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => term -> term -> StateT (Map v term) Failing ()
+unify_term_pair :: forall term v f. (IsTerm term, v ~ TVarOf term, f ~ FunOf term) =>
+                   term -> term -> StateT (Map v term) Failing ()
 unify_term_pair a b =
     foldTerm (vr b) (\ f fargs -> foldTerm (vr a) (fn f fargs) b) a
     where
@@ -58,7 +72,8 @@ unify_term_pair a b =
           then mapM_ (uncurry unify_term_pair) (zip fargs gargs)
           else fail "impossible unification"
 
-istriv :: forall term v f. (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => v -> term -> StateT (Map v term) Failing Bool
+istriv :: forall term v f. (IsTerm term, v ~ TVarOf term, f ~ FunOf term) =>
+          v -> term -> StateT (Map v term) Failing Bool
 istriv x t =
     foldTerm vr fn t
     where
@@ -69,17 +84,20 @@ istriv x t =
       fn _ args = mapM (istriv x) args >>= bool (return False) (fail "cyclic") . or
 
 -- | Solve to obtain a single instantiation.
-solve :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => Map v term -> Map v term
+solve :: (IsTerm term, v ~ TVarOf term, f ~ FunOf term) =>
+         Map v term -> Map v term
 solve env =
     if env' == env then env else solve env'
     where env' = Map.map (tsubst env) env
 
 -- | Unification reaching a final solved form (often this isn't needed).
-fullunify :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term,term)] -> Failing (Map v term)
+fullunify :: (IsTerm term, v ~ TVarOf term, f ~ FunOf term) =>
+             [(term,term)] -> Failing (Map v term)
 fullunify eqs = solve <$> execStateT (unify_terms eqs) Map.empty
 
 -- | Examples.
-unify_and_apply :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term, term)] -> Failing [(term, term)]
+unify_and_apply :: (IsTerm term, v ~ TVarOf term, f ~ FunOf term) =>
+                   [(term, term)] -> Failing [(term, term)]
 unify_and_apply eqs =
     fullunify eqs >>= \i -> return $ List.map (\ (t1, t2) -> (tsubst i t1, tsubst i t2)) eqs
 

@@ -74,14 +74,14 @@ mgu :: forall lit atom term v.
        (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
         IsLiteral lit,
         HasApply atom,
-        Unify (atom, atom) v term,
+        Unify atom v term,
         IsTerm term
        ) => Set lit -> StateT (Map v term) Failing (Map v term)
 mgu l =
     case Set.minView l of
       Just (a, rest) ->
           case Set.minView rest of
-            Just (b, _) -> unify_literals (a, b) >> mgu rest
+            Just (b, _) -> unify_literals a b >> mgu rest
             _ -> solve <$> get
       _ -> solve <$> get
 
@@ -89,9 +89,9 @@ unifiable :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf t
               IsLiteral lit,
               IsTerm term,
               HasApply atom,
-              Unify (atom, atom) v term
+              Unify atom v term
              ) => lit -> lit -> Bool
-unifiable p q = failing (const False) (const True) (execStateT (unify_literals (p, q)) Map.empty)
+unifiable p q = failing (const False) (const True) (execStateT (unify_literals p q) Map.empty)
 
 -- -------------------------------------------------------------------------
 -- Rename a clause.
@@ -113,7 +113,7 @@ rename pfx cls =
 
 resolvents :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
                IsLiteral lit, JustLiteral lit, Ord lit,
-               HasApply atom, Unify (atom, atom) v term,
+               HasApply atom, Unify atom v term,
                IsTerm term
               ) => Set lit -> Set lit -> lit -> Set lit -> Set lit
 resolvents cl1 cl2 p acc =
@@ -132,7 +132,7 @@ resolvents cl1 cl2 p acc =
 
 resolve_clauses :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
                     IsLiteral lit, JustLiteral lit, Ord lit,
-                    HasApply atom, Unify (atom, atom) v term,
+                    HasApply atom, Unify atom v term,
                     IsTerm term
                    ) => Set lit -> Set lit -> Set lit
 resolve_clauses cls1 cls2 =
@@ -147,7 +147,7 @@ resolve_clauses cls1 cls2 =
 resloop1 :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
              IsLiteral lit, JustLiteral lit, Ord lit,
              HasApply atom,
-             Unify (atom, atom) v term,
+             Unify atom v term,
              IsTerm term
             ) => Set (Set lit) -> Set (Set lit) -> Failing Bool
 resloop1 used unused =
@@ -163,7 +163,7 @@ resloop1 used unused =
 pure_resolution1 :: forall fof atom term v.
                     (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
                      IsFirstOrder fof,
-                     Unify (atom, atom) v term,
+                     Unify atom v term,
                      Ord fof, Pretty fof
                     ) => fof -> Failing Bool
 pure_resolution1 fm = resloop1 Set.empty (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set (Marked Literal fof)))
@@ -171,7 +171,7 @@ pure_resolution1 fm = resloop1 Set.empty (simpcnf id (specialize id (pnf fm) :: 
 resolution1 :: forall m fof atom term predicate v function.
                (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, predicate ~ PredOf atom, function ~ FunOf term,
                 IsFirstOrder fof,
-                Unify (atom, atom) v term, Ord fof, Pretty fof,
+                Unify atom v term, Ord fof, Pretty fof,
                 HasSkolem function v,
                 Monad m
                ) => fof -> SkolemT m (Set (Failing Bool))
@@ -180,7 +180,7 @@ resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_re
 #ifndef NOTESTS
 -- | Simple example that works well.
 davis_putnam_example_formula :: MyFormula
-davis_putnam_example_formula = [fof| ∃ x. ∃ y. ∀ z. ((F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z))) |]
+davis_putnam_example_formula = [fof| ∃ x y. (∀ z. ((F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))) |]
 {-
     exists "x" . exists "y" .for_all "z" $
               (f [x, y] .=>. (f [y, z] .&. f [z, z])) .&.
@@ -203,31 +203,31 @@ test02 =
 class Match a v term where
     match :: Map v term -> a -> Failing (Map v term)
 
-term_match :: forall term v. (IsTerm term, v ~ TVarOf term) => Map v term -> [(term, term)] -> Failing (Map v term)
-term_match env [] = Success env
-term_match env ((p, q) : oth) =
-    foldTerm v fn p
+match_terms :: forall term v. (IsTerm term, v ~ TVarOf term) => Map v term -> [(term, term)] -> Failing (Map v term)
+match_terms env [] = Success env
+match_terms env ((p, q) : oth) =
+    foldTerm vr fn p
     where
-      v x | not (defined env x) = term_match ((x |-> q) env) oth
-          | apply env x == Just q = term_match env oth
-          | otherwise = Failure ["term_match"]
+      vr x | not (defined env x) = match_terms ((x |-> q) env) oth
+           | apply env x == Just q = match_terms env oth
+           | otherwise = fail "match_terms"
       fn f fa =
-          foldTerm v' fn' q
+          foldTerm vr' fn' q
           where
-            fn' g ga | f == g && length fa == length ga = term_match env (zip fa ga ++ oth)
-            fn' _ _ = Failure ["term_match"]
-            v' _ = Failure ["term_match"]
+            fn' g ga | f == g && length fa == length ga = match_terms env (zip fa ga ++ oth)
+            fn' _ _ = fail "match_terms"
+            vr' _ = fail "match_terms"
 
 match_atoms :: (JustApply atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) =>
                Map v term -> (atom, atom) -> Failing (Map v term)
 match_atoms env (a1, a2) =
-    maybe (Failure ["match_atoms"]) id (zipPredicates (\_ pairs -> Just (term_match env pairs)) a1 a2)
+    maybe (Failure ["match_atoms"]) id (zipPredicates (\_ pairs -> Just (match_terms env pairs)) a1 a2)
 
 match_atoms_eq :: (HasApplyAndEquate atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) =>
                   Map v term -> (atom, atom) -> Failing (Map v term)
 match_atoms_eq env (a1, a2) =
-    maybe (Failure ["match_atoms_eq"]) id (zipPredicatesEq (\l1 r1 l2 r2 -> Just (term_match env [(l1, l2), (r1, r2)]))
-                                                           (\_ pairs -> Just (term_match env pairs)) a1 a2)
+    maybe (Failure ["match_atoms_eq"]) id (zipPredicatesEq (\l1 r1 l2 r2 -> Just (match_terms env [(l1, l2), (r1, r2)]))
+                                                           (\_ pairs -> Just (match_terms env pairs)) a1 a2)
 
 match_literals :: forall lit atom term v.
                   (IsLiteral lit, HasApply atom, IsTerm term, Match (atom, atom) v term,
@@ -246,7 +246,7 @@ resolution2 :: forall fof atom term v function m.
                (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
                 IsFirstOrder fof,
                 Ord fof, Pretty fof,
-                Unify (atom, atom) v term,
+                Unify atom v term,
                 Match (atom, atom) v term,
                 HasSkolem function v, Monad m) =>
                fof -> SkolemT m (Set (Failing Bool))
@@ -257,7 +257,7 @@ pure_resolution2 :: forall fof atom term v.
                      IsFirstOrder fof,
                      Ord fof, Pretty fof,
                      HasApply atom,
-                     Unify (atom, atom) v term,
+                     Unify atom v term,
                      Match (atom, atom) v term,
                      IsTerm term
                     ) => fof -> Failing Bool
@@ -266,7 +266,7 @@ pure_resolution2 fm = resloop2 Set.empty (simpcnf id (specialize id (pnf fm) :: 
 resloop2 :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
              IsLiteral lit, JustLiteral lit, Ord lit,
              HasApply atom,
-             Unify (atom, atom) v term,
+             Unify atom v term,
              Match (atom, atom) v term,
              IsTerm term
             ) => Set (Set lit) -> Set (Set lit) -> Failing Bool
@@ -332,7 +332,7 @@ test03 = TestCase $ assertEqual' "Davis-Putnam example 2" expected (runSkolem (r
 presolution :: forall fof atom term v function m.
                (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
                 IsFirstOrder fof, Ord fof, Pretty fof,
-                Unify (atom, atom) v term,
+                Unify atom v term,
                 Match (atom, atom) v term,
                 HasSkolem function v, Monad m
                ) => fof -> SkolemT m (Set (Failing Bool))
@@ -342,7 +342,7 @@ presolution fm =
 pure_presolution :: forall fof atom term v.
                     (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
                      IsFirstOrder fof,
-                     Unify (atom, atom) v term,
+                     Unify atom v term,
                      Match (atom, atom) v term,
                      Ord fof, Pretty fof
                     ) => fof -> Failing Bool
@@ -352,7 +352,7 @@ presloop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf te
              IsLiteral lit, JustLiteral lit, Ord lit,
              HasApply atom,
              Match (atom, atom) v term,
-             Unify (atom, atom) v term,
+             Unify atom v term,
              IsTerm term
             ) => Set (Set lit) -> Set (Set lit) -> Failing Bool
 presloop used unused =
@@ -369,7 +369,7 @@ presloop used unused =
 
 presolve_clauses :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
                      IsLiteral lit, JustLiteral lit, Ord lit,
-                     HasApply atom, Unify (atom, atom) v term,
+                     HasApply atom, Unify atom v term,
                      IsTerm term) =>
                     Set lit -> Set lit -> Set lit
 presolve_clauses cls1 cls2 =
@@ -381,7 +381,7 @@ presolve_clauses cls1 cls2 =
 resolution3 :: forall fof atom term v function m.
                (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
                 IsFirstOrder fof, Ord fof, Pretty fof,
-                Unify (atom, atom) v term,
+                Unify atom v term,
                 Match (atom, atom) v term,
                 HasSkolem function v, Monad m
                ) => fof -> SkolemT m (Set (Failing Bool))
@@ -391,7 +391,7 @@ resolution3 fm =
 pure_resolution3 :: forall fof atom term v.
                     (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
                      IsFirstOrder fof,
-                     Unify (atom, atom) v term,
+                     Unify atom v term,
                      Match (atom, atom) v term,
                      Ord fof, Pretty fof) => fof -> Failing Bool
 pure_resolution3 fm =

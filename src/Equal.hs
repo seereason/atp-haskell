@@ -211,6 +211,9 @@ testEqual03 :: Test
 testEqual03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (p. 241)" (expected, expectedProof) input
     where input = (equalitize wishnu, runSkolem (meson (Just (Depth 30)) (equalitize wishnu)))
           expected :: MyFormula
+          expected = [fof| ∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒(∃x. (x=f (g (x))∧∀x'. (x'=f (g (x'))⇒x=x'))⇔∃y. (y=g (f (y))∧∀y'. (y'=g (f (y'))⇒y=y'))) |]
+          -- expected = [fof| ∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒(∃x. (x=f (g (x))∧∀x'. (x'=f (g (x'))⇒x=x'))⇔∃y. (y=g (f (y))∧∀y'. (y'=g (f (y'))⇒y=y'))) |]
+{-
           expected = [fof| ∀x. (x=x) ∧
                            ∀x. ∀y. ∀z. (x=y∧x=z⇒y=z) ∧
                            ∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1)) ∧
@@ -220,6 +223,7 @@ testEqual03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (
                            ∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1)) ⇒
                                      (∃x. (x=f (g (x))∧∀x'. (x'=f (g (x'))⇒x=x')) ⇔
                                       ∃y. (y=g (f (y))∧∀y'. (y'=g (f (y'))⇒y=y'))) |]
+-}
           expectedProof = Set.fromList [Success (Depth 16), Success (Depth 16)]
 
 -- -------------------------------------------------------------------------

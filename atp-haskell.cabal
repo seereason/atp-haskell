@@ -25,7 +25,7 @@ flag tests-and-instances
   Default: True
 
 Library
-  Build-Depends: applicative-extras, base, containers, hashable, HUnit, mtl, parsec, pretty >= 1.1.2, syb, template-haskell, time
+  Build-Depends: applicative-extras, base, containers, hashable, haskell-src-exts, HUnit, mtl, parsec, pretty >= 1.1.2, syb, template-haskell, time
   GHC-options: -Wall -O2
   if !flag(tests-and-instances)
     CPP-Options: -DNOTESTS
@@ -45,6 +45,7 @@ Library
     -- BDD
     FOL
     Parser
+    ParserTests
     Skolem
     Herbrand
     Unif
@@ -85,5 +86,5 @@ Test-Suite atp-haskell-tests
   Type: exitcode-stdio-1.0
   Hs-Source-Dirs: tests
   Main-Is: Main.hs
-  Build-Depends: applicative-extras, atp-haskell, base, containers, HUnit, time
+  Build-Depends: applicative-extras, atp-haskell, base, containers, haskell-src-exts, HUnit, time
   GHC-options: -Wall -O2

@@ -20,6 +20,7 @@ import Formulas
 --import Prop
 --import Prolog (PrologRule(Prolog))
 import Skolem
+import Debug.Trace
 
 -- | QuasiQuote for a first order formula.  Loading this symbol into the interpreter
 -- and setting -XQuasiQuotes lets you type expressions like [fof| ∃ x. p(x) |]
@@ -48,6 +49,8 @@ def = emptyDef{ identStart = letter
               , reservedOpNames = ["~", "¬", "&", "∧", "|", "∨", "<==>", "⇔", "==>", "⇒", ":-", "::", "*", "/", "+", "-", "∃", "∀"] ++ predicate_infix_symbols
               , reservedNames = ["true", "false", "exists", "forall", "for_all"] ++ constants
               }
+
+-- ~(((p v q) ⊃ (r v s)) ⊃ ((p · ~r) ⊃ s))
 
 m_parens :: forall t t1 t2. Stream t t2 Char => forall a. ParsecT t t1 t2 a -> ParsecT t t1 t2 a
 m_angles :: forall t t1 t2. Stream t t2 Char => forall a. ParsecT t t1 t2 a -> ParsecT t t1 t2 a
@@ -87,11 +90,36 @@ folparser = exprparser folterm
 exprparser :: forall s u m. Stream s m Char => ParsecT s u m MyFormula -> ParsecT s u m MyFormula
 exprparser term = buildExpressionParser table term <?> "expression"
  where
-  table = [ [Prefix (m_reservedOp "~" >> return (.~.)), Prefix (m_reservedOp "¬" >> return (.~.))]
-          , [Infix (m_reservedOp "&" >> return (.&.)) AssocRight, Infix (m_reservedOp "∧" >> return (.&.)) AssocRight]
-          , [Infix (m_reservedOp "|" >> return (.|.)) AssocRight, Infix (m_reservedOp "∨" >> return (.|.)) AssocRight]
-          , [Infix (m_reservedOp "<==>" >> return (.<=>.)) AssocRight, Infix (m_reservedOp "⇔" >> return (.<=>.)) AssocRight]
-          , [Infix (m_reservedOp "==>" >> return (.=>.)) AssocRight, Infix (m_reservedOp "⇒" >> return (.=>.)) AssocRight]
+  table = [ [Prefix (m_reservedOp ".~." >> return (.~.)),
+             Prefix (m_reservedOp "~" >> return (.~.)),
+             Prefix (m_reservedOp "¬" >> return (.~.))]
+
+          , [Prefix existentialPrefix] -- ∀x. ∃y. x=y becomes ∀x. (∃y. (x=y))
+          , [Prefix forallPrefix]
+
+          , [Infix (m_reservedOp ".&." >> return (.&.)) AssocRight,
+             Infix (m_reservedOp "&" >> return (.&.)) AssocRight,
+             Infix (m_reservedOp "∧" >> return (.&.)) AssocRight,
+             Infix (m_reservedOp "/\\" >> return (.&.)) AssocRight,
+             Infix (m_reservedOp "·" >> return (.&.)) AssocRight]
+
+          , [Infix (m_reservedOp ".|." >> return (.|.)) AssocRight,
+             Infix (m_reservedOp "|" >> return (.|.)) AssocRight,
+             Infix (m_reservedOp "∨" >> return (.|.)) AssocRight,
+             Infix (m_reservedOp "\\/" >> return (.|.)) AssocRight,
+             Infix (m_reservedOp "+" >> return (.|.)) AssocRight]
+
+          , [Infix (m_reservedOp ".<=>." >> return (.<=>.)) AssocRight,
+             Infix (m_reservedOp "<==>" >> return (.<=>.)) AssocRight,
+             Infix (m_reservedOp "⇔" >> return (.<=>.)) AssocRight,
+             Infix (m_reservedOp "↔" >> return (.<=>.)) AssocRight,
+             Infix (m_reservedOp "≡" >> return (.<=>.)) AssocRight]
+
+          , [Infix (m_reservedOp ".=>." >> return (.=>.)) AssocRight,
+             Infix (m_reservedOp "==>" >> return (.=>.)) AssocRight,
+             Infix (m_reservedOp "⇒" >> return (.=>.)) AssocRight,
+             Infix (m_reservedOp "→" >> return (.=>.)) AssocRight,
+             Infix (m_reservedOp "⊃" >> return (.=>.)) AssocRight]
           ]
 
 -- propterm :: forall s u m. Stream s m Char => ParsecT s u m (PFormula Prop)
@@ -104,23 +132,20 @@ folterm :: forall s u m. Stream s m Char => ParsecT s u m MyFormula
 folterm = try (m_parens folparser)
        <|> try folpredicate_infix
        <|> folpredicate
-       <|> existentialQuantifier
-       <|> forallQuantifier
        <|> (m_reserved "true" >> return true)
        <|> (m_reserved "false" >> return false)
 
-existentialQuantifier :: forall s u m. Stream s m Char => ParsecT s u m MyFormula
-existentialQuantifier = quantifier "∃" Exists <|> quantifier "exists" Exists
-forallQuantifier :: forall s u m. Stream s m Char => ParsecT s u m MyFormula
-forallQuantifier = quantifier "∀" Forall <|> quantifier "for_all" Forall
+existentialPrefix :: forall s u m. Stream s m Char => ParsecT s u m (MyFormula -> MyFormula)
+existentialPrefix = quantifierPrefix "∃" Exists <|> quantifierPrefix "exists" Exists
+forallPrefix :: forall s u m. Stream s m Char => ParsecT s u m (MyFormula -> MyFormula)
+forallPrefix = quantifierPrefix "∀" Forall <|> quantifierPrefix "for_all" Forall <|> quantifierPrefix "forall" Forall
 
-quantifier :: forall s u m. Stream s m Char => [Char] -> (V -> MyFormula -> MyFormula) -> ParsecT s u m MyFormula
-quantifier name op = do
+quantifierPrefix :: forall s u m. Stream s m Char => [Char] -> (V -> MyFormula -> MyFormula) -> ParsecT s u m (MyFormula -> MyFormula)
+quantifierPrefix name op = do
    m_reservedOp name
    is <- map V <$> many1 m_identifier
    _ <- m_symbol "."
-   fm <- folparser
-   return (foldr op fm is)
+   return (\fm -> foldr op fm is)
 
 predicate_infix_symbols :: [[Char]]
 predicate_infix_symbols = ["=","<",">","<=",">="]

@@ -529,8 +529,8 @@ fixityQuantified :: forall formula. IsQuantified formula => formula -> Fixity
 fixityQuantified fm =
     foldQuantified qu co ne tf at fm
     where
-      qu _ _ _ = Fixity 9 InfixR
-      ne _ = Fixity 5 InfixA
+      qu _ _ _ = Fixity 5 InfixR
+      ne _ = Fixity 6 InfixA
       co _ (:&:) _ = Fixity 4 InfixA
       co _ (:|:) _ = Fixity 3 InfixA
       co _ (:=>:) _ = Fixity 2 InfixR
@@ -539,21 +539,27 @@ fixityQuantified fm =
       at = (fixity :: AtomOf formula -> Fixity)
 
 -- | Implementation of 'Pretty' for 'IsQuantified' types.
-prettyQuantified :: IsQuantified formula => formula -> Doc
+prettyQuantified :: forall fof. IsQuantified fof => fof -> Doc
 prettyQuantified fm0 =
     go rootFixity Unary fm0
     where
       go parentFixity side fm =
-          parenthesize parens braces parentFixity fix side $ foldQuantified qu co ne tf at fm
+          parenthesize parens braces parentFixity fix side $ foldQuantified (\op v p -> qu op [v] p) co ne tf at fm
           where
             fix = fixity fm
-            qu (:!:) x p = text ("∀" ++ prettyShow x ++ ". ") <> go fix RHS p
-            qu (:?:) x p = text ("∃" ++ prettyShow x ++ ". ") <> go fix RHS p
-            ne f = text "¬" <> go fix Unary f
+            -- Collect adjacent similar quantifiers into a single operator: ∀x y z.
+            qu :: Quant -> [VarOf fof] -> fof -> Doc
+            qu op vs p' = foldQuantified (qu' op vs p') (\p op' q -> qu'' op vs (co p op' q)) (qu'' op vs . ne) (qu'' op vs . tf) (qu'' op vs . at) p'
+            qu' :: Quant -> [VarOf fof] -> fof -> Quant -> VarOf fof -> fof -> Doc
+            qu' op vs _ op' v p' | op == op' = qu op (v : vs) p'
+            qu' op vs p _ _ _ = qu'' op vs (go fix RHS p)
+            qu'' op [] d = d
+            qu'' op vs d = text (case op of (:!:) -> "∀"; (:?:) -> "∃") <> fsep (map pPrint (reverse vs)) <> text ". " <> d
             co f (:&:) g = go fix LHS f <> text "∧" <> go fix RHS g
             co f (:|:) g = go fix LHS f <> text "∨" <> go fix RHS g
             co f (:=>:) g = go fix LHS f <> text "⇒" <> go fix RHS g
             co f (:<=>:) g = go fix LHS f <> text "⇔" <> go fix RHS g
+            ne f = text "¬" <> go fix Unary f
             tf = pPrint
             at = pPrint
 
@@ -709,7 +715,7 @@ for_all = quant (:!:)
 exists :: IsQuantified formula => VarOf formula -> formula -> formula
 exists = quant (:?:)
 
--- Irrelevant, because these are always used as prefix operators, never as infix.
+-- | ∀x. x & ∀y. y should group as (∀x. x) & (∀y. y)
 infixr 9 ∀, ∃
 
 -- | ∀ can't be a function when -XUnicodeSyntax is enabled.

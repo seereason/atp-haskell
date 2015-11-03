@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -9,6 +10,7 @@
 module Lib
     ( Failing(Success, Failure)
     , failing
+    , SetLike(slView, slMap, slUnion, slEmpty, slSingleton), slInsert, prettyFoldable
 
     , setAny
     , setAll
@@ -63,13 +65,14 @@ import Data.Generics
 import qualified Data.List as List (map)
 import Data.Map as Map (delete, findMin, insert, lookup, Map, member, singleton)
 import Data.Maybe
-import Data.Sequence as Seq (Seq, viewl, ViewL(EmptyL, (:<)))
+import Data.Monoid ((<>))
+import Data.Sequence as Seq (Seq, viewl, ViewL(EmptyL, (:<)), (><), singleton)
 import Data.Set as Set (delete, empty, fold, fromList, insert, minView, Set, singleton, union)
 import qualified Data.Set as Set (map)
 import Data.Time.Clock (DiffTime, diffUTCTime, getCurrentTime, NominalDiffTime)
 import Prelude hiding (map)
 import System.IO (hPutStrLn, stderr)
-import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
+import Text.PrettyPrint.HughesPJClass (Doc, fsep, punctuate, comma, space, Pretty(pPrint), text)
 #ifndef NOTESTS
 import Test.HUnit (assertEqual, Test(TestCase, TestLabel, TestList))
 #endif
@@ -96,29 +99,50 @@ deriving instance Eq a => Eq (Failing a)
 deriving instance Ord a => Ord (Failing a)
 
 instance Pretty a => Pretty (Failing a) where
-    pPrint (Failure ss) = text (unlines ("Failures:" : map ("  " ++) ss))
+    pPrint (Failure ss) = text (unlines ("Failures:" : List.map ("  " ++) ss))
     pPrint (Success a) = pPrint a
 
 -- | A simple class, slightly more powerful than Foldable, so we can
 -- write functions that operate on the elements of a set or a list.
-class SetLike c where
-    view :: forall a. c a -> Maybe (a, c a)
-    map :: forall a b. Ord b => (a -> b) -> c a -> c b
+class Foldable c => SetLike c where
+    slView :: forall a. c a -> Maybe (a, c a)
+    slMap :: forall a b. Ord b => (a -> b) -> c a -> c b
+    slUnion :: Ord a => c a -> c a -> c a
+    slEmpty :: c a
+    slSingleton :: a -> c a
 
 instance SetLike Set where
-    view = Set.minView
-    map = Set.map
+    slView = Set.minView
+    slMap = Set.map
+    slUnion = Set.union
+    slEmpty = Set.empty
+    slSingleton = Set.singleton
 
 instance SetLike [] where
-    view [] = Nothing
-    view (h : t) = Just (h, t)
-    map = List.map
+    slView [] = Nothing
+    slView (h : t) = Just (h, t)
+    slMap = List.map
+    slUnion = (<>)
+    slEmpty = mempty
+    slSingleton = (: [])
 
 instance SetLike Seq where
-    view s = case viewl s of
+    slView s = case viewl s of
                EmptyL -> Nothing
                h :< t -> Just (h, t)
-    map = fmap
+    slMap = fmap
+    slUnion = (><)
+    slEmpty = mempty
+    slSingleton = Seq.singleton
+
+slInsert :: (SetLike set, Ord a) => a -> set a -> set a
+slInsert x s = slUnion (slSingleton x) s
+
+prettyFoldable :: (Foldable t, Pretty a) => t a -> Doc
+prettyFoldable s = fsep (punctuate (comma <> space) (List.map pPrint (Foldable.foldr (:) [] s)))
+
+--instance (Pretty a, SetLike set) => Pretty (set a) where
+--    pPrint = prettyFoldable
 
 (∅) :: (Monoid (c a), SetLike c) => c a
 (∅) = mempty
@@ -218,7 +242,7 @@ itlist2 :: (SetLike s, SetLike t) =>
            (a -> b -> Failing r -> Failing r) ->
            s a -> t b -> Failing r -> Failing r
 itlist2 f s t r =
-    case (view s, view t) of
+    case (slView s, slView t) of
       (Nothing, Nothing) -> r
       (Just (a, s'), Just (b, t')) ->
           f a b (itlist2 f s' t' r)
@@ -277,8 +301,13 @@ let map f =
   mapf;;
 -}
 
-allpairs :: forall a b c. (Ord c) => (a -> b -> c) -> Set a -> Set b -> Set c
-allpairs f xs ys = Set.fold (\ x zs -> Set.fold (\ y zs' -> Set.insert (f x y) zs') zs ys) Set.empty xs
+-- allpairs :: forall a b c. (Ord c) => (a -> b -> c) -> Set a -> Set b -> Set c
+-- allpairs f xs ys = Set.fold (\ x zs -> Set.fold (\ y zs' -> Set.insert (f x y) zs') zs ys) Set.empty xs
+
+allpairs :: forall a b c set. (SetLike set, Ord c) => (a -> b -> c) -> set a -> set b -> set c
+allpairs f xs ys = Foldable.foldr (\ x zs -> Foldable.foldr (g x) zs ys) slEmpty xs
+    where g :: a -> b -> set c -> set c
+          g x y zs' = slInsert (f x y) zs'
 
 distrib :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
 distrib s1 s2 = allpairs (Set.union) s1 s2
@@ -458,7 +487,7 @@ setmapfilter f s = Set.fold (\ a r -> failing (const r) (`Set.insert` r) (f a)) 
 -- -------------------------------------------------------------------------
 
 optimize :: forall s a b. (SetLike s, Foldable s) => (b -> b -> Ordering) -> (a -> b) -> s a -> Maybe a
-optimize _ _ l | isNothing (view l) = Nothing
+optimize _ _ l | isNothing (slView l) = Nothing
 optimize ord f l = Just (Foldable.maximumBy (ord `on` f) l)
 
 maximize :: (Ord b, SetLike s, Foldable s) => (a -> b) -> s a -> Maybe a

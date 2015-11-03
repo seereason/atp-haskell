@@ -9,7 +9,7 @@ import Data.String (fromString)
 import FOL (vt, fApp, (.=.), pApp, for_all, exists)
 import Formulas
 import Meson (meson)
-import Parser (atp)
+import Parser (fof)
 import Pretty (assertEqual', prettyShow)
 import Prop hiding (nnf)
 import Resolution
@@ -18,15 +18,7 @@ import Tableaux (Depth(Depth), K(K), tab)
 import Test.HUnit
 
 testExtra :: Test
-testExtra = TestList [test01, test05, test06, test07, test00]
-
-test01 = TestList [ TestCase (assertEqual "precedence 1"  [atp| ∀x. (x=x) |]          [atp| ∀x. x=x |])
-                  , TestCase (assertEqual "read 1"        [atp| ∀x. (x=x) |]          (read (show [atp| ∀x. x=x |]) :: MyFormula))
-                  , TestCase $ assertEqual "precedence 2" [atp| ∀x. (P(x) ∧ Q(x)) |] [atp| ∀x. P(x) ∧ Q(x) |]
-                  , TestCase $ assertEqual "read 2"       [atp| ∀x. (P(x) ∧ Q(x)) |] (read (show [atp| ∀x. P(x) ∧ Q(x) |]))
-                  , TestCase $ assertEqual "precedence 3" [atp| (∀x. P(x)) ∧ Q(x) |] [atp| (∀x. P(x)) ∧ Q(x) |]
-                  , TestCase $ assertEqual "read 3"       [atp| (∀x. P(x)) ∧ Q(x) |] (read (show [atp| ∀x. P(x) ∧ Q(x) |]))
-                  ]
+testExtra = TestList [test05, test06, test07, test00]
 
 test05 :: Test
 test05 = TestCase $ assertEqual "Socrates syllogism" expected input
@@ -117,10 +109,10 @@ test00 =
         fm2 = for_all "a" ((.~.)(p[a] .&. (.~.)(p[a]) .&. (for_all "y" (for_all "z" (q[y] .|. r[z]))))) in
     TestList
     [ TestCase $ assertEqual' ("MESON 1")
-                   (show [atp| ∀a. (¬(P(a)∧∀y. (∀z. (Q(y)∨R(z))∧¬P(a)))) |], Success ((K 2, Map.empty),Depth 2))
+                   (show [fof| ∀a. (¬(P(a)∧∀y. (∀z. (Q(y)∨R(z))∧¬P(a)))) |], Success ((K 2, Map.empty),Depth 2))
                    (show fm1, tab Nothing fm1),
       TestCase $ assertEqual' ("MESON 2")
-                   (show [atp| ∀a. (¬(P(a)∧¬P(a)∧∀y. ∀z. (Q(y)∨R(z)))) |], Success ((K 0, Map.empty),Depth 0))
+                   (show [fof| ∀a. (¬(P(a)∧¬P(a)∧∀y. ∀z. (Q(y)∨R(z)))) |], Success ((K 0, Map.empty),Depth 0))
                    (show fm2, tab Nothing fm2) ]
 {-
 i = for_all "a" ((.~.)(p[a] .&. (for_all "y" (for_all "z" (q[y] .|. r[z]) .&. (.~.)(p[a])))))
