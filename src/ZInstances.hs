@@ -105,11 +105,13 @@ instance Pretty Term where
 instance IsString Function where
     fromString = FName
 
+
 instance Pretty Function where
     pPrint (FName s) = text s
 
 instance IsFunction Function where
-    variantFunction f@(FName s) fns | Set.member f fns = variantFunction (fromString (s ++ "'")) fns
+    variantFunction f@(FName s) fns | Set.member f fns = variantFunction (FName (s ++ "'")) fns
+    variantFunction f@(Skolem s) fns | Set.member f fns = variantFunction (Skolem (s ++ "'")) fns
     variantFunction f _ = f
 
 instance IsTerm Term where

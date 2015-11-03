@@ -129,7 +129,7 @@ skolem fm@(Exists v@(V y) p) fns = skolem (subst (M.singleton v fx) p) (S.insert
  where
   xs = fv fm
   f :: Function
-  f = variantFunction (FName(if S.null xs then "c_"++y else "f_"++y)) fns
+  f = variantFunction (Skolem(if S.null xs then "c_"++y else "f_"++y)) fns
   fx = Fn f (map Var (S.toList xs))
 skolem fm@(Forall x p) fns = (Forall x p',fns')
  where
