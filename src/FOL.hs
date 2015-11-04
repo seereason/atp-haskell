@@ -70,7 +70,6 @@ module FOL
     , FOL(R)
     , FOLEQ(AP, Equals)
     , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
-    , MyTerm1, MyAtom1, MyAtom2, MyFormula1
     -- * Tests
     , testFOL
 #endif

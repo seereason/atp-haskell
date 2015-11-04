@@ -28,6 +28,7 @@ module Lit
     , unmarkLiteral
 #ifndef NOTESTS
     , LFormula(T, F, Atom, Not)
+    , Lit(L, lname)
 #endif
     ) where
 
@@ -171,6 +172,8 @@ data LFormula atom
     | Atom atom
     | Not (LFormula atom)
     deriving (Eq, Ord, Read, Show)
+
+data Lit = L {lname :: String} deriving (Eq, Ord)
 
 instance IsAtom atom => IsFormula (LFormula atom) where
     type AtomOf (LFormula atom) = atom

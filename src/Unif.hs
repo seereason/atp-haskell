@@ -71,7 +71,7 @@ unify_term_pair a b =
           then mapM_ (uncurry unify_term_pair) (zip fargs gargs)
           else fail "impossible unification"
 
-istriv :: forall term v f. (IsTerm term, v ~ TVarOf term, f ~ FunOf term) =>
+istriv :: forall term v f. (IsTerm term, v ~ TVarOf term) =>
           v -> term -> StateT (Map v term) Failing Bool
 istriv x t =
     foldTerm vr fn t
