@@ -60,7 +60,7 @@ import Prop (convertToPropositional, foldPropositional', IsPropositional, JustPr
 import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
 import Data.String (IsString(fromString))
-import FOL (FOL, Formula, IsFunction(variantFunction), pApp, Predicate, Term, V)
+import FOL (FOL, QFormula, IsFunction(variantFunction), pApp, Predicate, Term, V)
 import Lib (Marked)
 import Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
 import Prop (Propositional)
@@ -90,7 +90,7 @@ simplify1 fm =
 -- | Concrete formula type for use in unit tests.
 type MyTerm = Term Function V
 type MyAtom = FOL Predicate MyTerm
-type MyFormula = Formula V MyAtom
+type MyFormula = QFormula V MyAtom
 
 instance IsFirstOrder MyFormula
 

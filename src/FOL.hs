@@ -69,7 +69,7 @@ module FOL
     , Predicate
     , FOLAP(AP)
     , FOL(R, Equals)
-    , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
+    , QFormula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     -- * Tests
     , testFOL
 #endif
@@ -575,38 +575,38 @@ showQuantified fm0 =
       parenthesize' _ _ _ fm = parenthesize (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") leafFixity rootFixity Unary fm
 
 #ifndef NOTESTS
-data Formula v atom
+data QFormula v atom
     = F
     | T
     | Atom atom
-    | Not (Formula v atom)
-    | And (Formula v atom) (Formula v atom)
-    | Or (Formula v atom) (Formula v atom)
-    | Imp (Formula v atom) (Formula v atom)
-    | Iff (Formula v atom) (Formula v atom)
-    | Forall v (Formula v atom)
-    | Exists v (Formula v atom)
+    | Not (QFormula v atom)
+    | And (QFormula v atom) (QFormula v atom)
+    | Or (QFormula v atom) (QFormula v atom)
+    | Imp (QFormula v atom) (QFormula v atom)
+    | Iff (QFormula v atom) (QFormula v atom)
+    | Forall v (QFormula v atom)
+    | Exists v (QFormula v atom)
     deriving (Eq, Ord, Data, Typeable, Read)
 
 instance (HasApply atom, IsTerm term,
           term ~ TermOf atom,
           v ~ TVarOf term)
-    => Pretty (Formula v atom) where
+    => Pretty (QFormula v atom) where
     pPrint = prettyQuantified
 
-instance HasBoolean (Formula v atom) where
+instance HasBoolean (QFormula v atom) where
     asBool T = Just True
     asBool F = Just False
     asBool _ = Nothing
     fromBool True = T
     fromBool False = F
 
-instance IsNegatable (Formula v atom) where
+instance IsNegatable (QFormula v atom) where
     naiveNegate = Not
     foldNegation normal inverted (Not x) = foldNegation inverted normal x
     foldNegation normal _ x = normal x
 
-instance IsCombinable (Formula v atom) where
+instance IsCombinable (QFormula v atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
@@ -619,14 +619,14 @@ instance IsCombinable (Formula v atom) where
           Iff a b -> a `iff` b
           _ -> other fm
 
--- The IsFormula instance for Formula
-instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsFormula (Formula v atom) where
-    type AtomOf (Formula v atom) = atom
+-- The IsFormula instance for QFormula
+instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsFormula (QFormula v atom) where
+    type AtomOf (QFormula v atom) = atom
     atomic = Atom
     overatoms = overatomsQuantified
     onatoms = onatomsQuantified
 
-instance (IsFormula (Formula v atom), HasApply atom, v ~ TVarOf (TermOf atom)) => IsPropositional (Formula v atom) where
+instance (IsFormula (QFormula v atom), HasApply atom, v ~ TVarOf (TermOf atom)) => IsPropositional (QFormula v atom) where
     foldPropositional' ho co ne tf at fm =
         case fm of
           And p q -> co p (:&:) q
@@ -635,24 +635,24 @@ instance (IsFormula (Formula v atom), HasApply atom, v ~ TVarOf (TermOf atom)) =
           Iff p q -> co p (:<=>:) q
           _ -> foldLiteral' ho ne tf at fm
 
-instance (IsPropositional (Formula v atom), IsVariable v, IsAtom atom) => IsQuantified (Formula v atom) where
-    type VarOf (Formula v atom) = v
+instance (IsPropositional (QFormula v atom), IsVariable v, IsAtom atom) => IsQuantified (QFormula v atom) where
+    type VarOf (QFormula v atom) = v
     quant (:!:) = Forall
     quant (:?:) = Exists
     foldQuantified qu _co _ne _tf _at (Forall v fm) = qu (:!:) v fm
     foldQuantified qu _co _ne _tf _at (Exists v fm) = qu (:?:) v fm
     foldQuantified _qu co ne tf at fm =
-        foldPropositional' (\_ -> error "IsQuantified Formula") co ne tf at fm
+        foldPropositional' (\_ -> error "IsQuantified QFormula") co ne tf at fm
 
 -- Build a Haskell expression for this formula
-instance IsQuantified (Formula v atom) => Show (Formula v atom) where
+instance IsQuantified (QFormula v atom) => Show (QFormula v atom) where
     show = showQuantified
 
--- Precedence information for Formula
-instance IsQuantified (Formula v atom) => HasFixity (Formula v atom) where
+-- Precedence information for QFormula
+instance IsQuantified (QFormula v atom) => HasFixity (QFormula v atom) where
     fixity = fixityQuantified
 
-instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsLiteral (Formula v atom) where
+instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsLiteral (QFormula v atom) where
     foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
@@ -719,8 +719,8 @@ infixr 9 ∀, ∃
 type MyTerm1 = Term FName V -- MyTerm1 has no Skolem functions
 type MyAtom1 = FOLAP Predicate MyTerm1
 type MyAtom2 = FOL Predicate MyTerm1
-type MyFormula1 = Formula V MyAtom1
-type MyFormula2 = Formula V MyAtom2
+type MyFormula1 = QFormula V MyAtom1
+type MyFormula2 = QFormula V MyAtom2
 
 instance IsFirstOrder MyFormula1
 instance IsFirstOrder MyFormula2
