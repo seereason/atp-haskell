@@ -14,19 +14,18 @@
 
 module Herbrand where
 
-import Control.Applicative.Error (Failing(..))
 import qualified Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace
 
 import DP (dpll)
-import FOL (Arity, functions, HasApply(TermOf), HasApply, IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
+import FOL (Arity, functions, HasApply(TermOf), HasApply, IsFirstOrder, IsTerm(TVarOf, FunOf),
             fApp, lsubst, fv, generalize)
 import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
-import Lib (allpairs, distrib, Marked)
-import Lit (JustLiteral, Literal)
-import Prop (eval, IsPropositional, JustPropositional, Propositional, simpcnf, simpdnf, trivial)
+import Lib (allpairs, distrib)
+import Lit (JustLiteral, LFormula)
+import Prop (eval, JustPropositional, PFormula, simpcnf, simpdnf, trivial)
 import Skolem (HasSkolem(SVarOf), Formula, runSkolem, skolemize)
 
 #ifndef NOTESTS
@@ -36,7 +35,7 @@ import Test.HUnit hiding (tried)
 #endif
 
 -- | Propositional valuation.
-pholds :: (IsPropositional pf, JustPropositional pf) => (AtomOf pf -> Bool) -> pf -> Bool
+pholds :: (JustPropositional pf) => (AtomOf pf -> Bool) -> pf -> Bool
 pholds d fm = eval fm d
 
 -- | Get the constants for Herbrand base, adding nullary one if necessary.
@@ -63,7 +62,7 @@ groundtuples cntms fns n m =
 
 -- | Iterate modifier "mfn" over ground terms till "tfn" fails.
 herbloop :: forall lit atom function v term.
-            (atom ~ AtomOf lit, v ~ VarOf lit, v ~ TVarOf term, term ~ TermOf atom, function ~ FunOf term,
+            (atom ~ AtomOf lit, term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term, v ~ SVarOf function,
              JustLiteral lit,
              HasApply atom,
              IsTerm term) =>
@@ -72,7 +71,7 @@ herbloop :: forall lit atom function v term.
          -> Set (Set lit)
          -> Set term
          -> Set (function, Int)
-         -> [VarOf lit]
+         -> [TVarOf term]
          -> Int
          -> Set (Set lit)
          -> Set [term]
@@ -91,14 +90,14 @@ herbloop mfn tfn fl0 cntms fns fvs n fl tried tuples =
         else herbloop mfn tfn fl0 cntms fns fvs n fl' (Set.insert tup tried) tups
 
 -- | Hence a simple Gilmore-type procedure.
-gilmore_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term, function ~ FunOf term,
+gilmore_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term, v ~ SVarOf function,
                  JustLiteral lit, Ord lit,
                  HasApply atom,
                  IsTerm term) =>
                 Set (Set lit)
              -> Set term
              -> Set (function, Int)
-             -> [VarOf lit]
+             -> [TVarOf term]
              -> Int
              -> Set (Set lit)
              -> Set [term]
@@ -114,15 +113,15 @@ gilmore :: forall fof atom term v function.
             atom ~ AtomOf fof,
             term ~ TermOf atom,
             function ~ FunOf term,
-            v ~ VarOf fof,
+            v ~ TVarOf term,
             v ~ SVarOf function) =>
            fof -> Int
 gilmore fm =
-  let (sfm :: Marked Propositional fof) = runSkolem (skolemize id ((.~.) (generalize fm))) in
+  let (sfm :: PFormula atom) = runSkolem (skolemize id ((.~.) (generalize fm))) in
   let fvs = Set.toList (overatoms (\ a s -> Set.union s (fv (atomic a :: fof))) sfm (Set.empty))
       (consts,fns) = herbfuns sfm in
   let cntms = Set.map (\ (c,_) -> fApp c []) consts in
-  Set.size (gilmore_loop (simpdnf id sfm :: Set (Set (Marked Literal (Marked Propositional fof)))) cntms fns (fvs) 0 (Set.singleton Set.empty) Set.empty Set.empty)
+  Set.size (gilmore_loop (simpdnf id sfm :: Set (Set (LFormula atom))) cntms fns (fvs) 0 (Set.singleton Set.empty) Set.empty Set.empty)
 
 #ifndef NOTESTS
 -- | First example and a little tracing.
@@ -210,7 +209,7 @@ let p20 = gilmore
 dp_mfn :: Ord b => Set (Set a) -> (a -> b) -> Set (Set b) -> Set (Set b)
 dp_mfn cjs0 ifn cjs = Set.union (Set.map (Set.map ifn) cjs0) cjs
 
-dp_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf lit, v ~ TVarOf term,
+dp_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term, v ~ SVarOf function,
             JustLiteral lit, Ord lit,
             HasApply atom,
             IsTerm term) =>
@@ -230,15 +229,15 @@ davisputnam :: forall formula atom term v function.
                 atom ~ AtomOf formula,
                 term ~ TermOf atom,
                 function ~ FunOf term,
-                v ~ VarOf formula,
+                v ~ TVarOf term,
                 v ~ SVarOf function) =>
                formula -> Int
 davisputnam fm =
-  let (sfm :: Marked Propositional formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
+  let (sfm :: PFormula atom) = runSkolem (skolemize id ((.~.)(generalize fm))) in
   let fvs = Set.toList (overatoms (\ a s -> Set.union (fv (atomic a :: formula)) s) sfm Set.empty)
       (consts,fns) = herbfuns sfm in
   let cntms = Set.map (\ (c,_) -> fApp c []) consts in
-  Set.size (dp_loop (simpcnf id sfm :: Set (Set (Marked Literal formula))) cntms fns fvs 0 Set.empty Set.empty Set.empty)
+  Set.size (dp_loop (simpcnf id sfm :: Set (Set (LFormula atom))) cntms fns fvs 0 Set.empty Set.empty Set.empty)
 
 {-
 -- | Show how much better than the Gilmore procedure this can be.
@@ -255,21 +254,21 @@ davisputnam' :: forall formula atom term v function.
                  atom ~ AtomOf formula,
                  term ~ TermOf atom,
                  function ~ FunOf term,
-                 v ~ VarOf formula,
+                 v ~ TVarOf term,
                  v ~ SVarOf function) =>
                 formula -> formula -> formula -> Int
 davisputnam' _ _ fm =
-    let (sfm :: Marked Propositional formula) = runSkolem (skolemize id ((.~.)(generalize fm))) in
+    let (sfm :: PFormula atom) = runSkolem (skolemize id ((.~.)(generalize fm))) in
     let fvs = Set.toList (overatoms (\ (a :: AtomOf formula) s -> Set.union (fv (atomic a :: formula)) s) sfm Set.empty)
         consts :: Set (function, Arity)
         fns :: Set (function, Arity)
         (consts,fns) = herbfuns sfm in
     let cntms :: Set (TermOf (AtomOf formula))
         cntms = Set.map (\ (c,_) -> fApp c []) consts in
-    Set.size (dp_refine_loop (simpcnf id sfm :: Set (Set (Marked Literal formula))) cntms fns fvs 0 Set.empty Set.empty Set.empty)
+    Set.size (dp_refine_loop (simpcnf id sfm :: Set (Set (LFormula atom))) cntms fns fvs 0 Set.empty Set.empty Set.empty)
 
 -- | Try to cut out useless instantiations in final result.
-dp_refine_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term, function ~ FunOf term,
+dp_refine_loop :: (atom ~ AtomOf lit, term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term, v ~ SVarOf function,
                    JustLiteral lit, Ord lit,
                    IsTerm term,
                    HasApply atom) =>
@@ -286,11 +285,11 @@ dp_refine_loop cjs0 cntms fns fvs n cjs tried tuples =
     let tups = dp_loop cjs0 cntms fns fvs n cjs tried tuples in
     dp_refine cjs0 fvs tups Set.empty
 
-dp_refine :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term,
+dp_refine :: (atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term,
               HasApply atom,
               JustLiteral lit, Ord lit,
               IsTerm term
-             ) => Set (Set lit) -> [VarOf lit] -> Set [term] -> Set [term] -> Set [term]
+             ) => Set (Set lit) -> [TVarOf term] -> Set [term] -> Set [term] -> Set [term]
 dp_refine cjs0 fvs dknow need =
     case Set.minView dknow of
       Nothing -> need

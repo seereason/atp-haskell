@@ -25,7 +25,7 @@ import DefCNF (NumAtom(ai, ma), defcnfs)
 import Formulas (IsFormula(AtomOf), IsNegatable, (.~.), negative, positive, negate, negated)
 import Lib (Failing(Success, Failure), failing, allpairs, minimize, maximize, defined, (|->), setmapfilter, flatten)
 import Prelude hiding (negate, pure)
-import Prop (trivial, IsPropositional, JustPropositional)
+import Prop (trivial, JustPropositional)
 import PropExamples (Knows(K))
 #ifndef NOTESTS
 import Prop (PFormula)
@@ -50,14 +50,6 @@ dp clauses
     try2 = failing (const try3) dp (affirmative_negative_rule clauses)
     try3 :: Bool
     try3 = dp (resolution_rule clauses)
-{-
-      case one_literal_rule clauses >>= dp of
-        Success x -> Success x
-        Failure _ ->
-            case affirmative_negative_rule clauses >>= dp of
-              Success x -> Success x
-              Failure _ -> resolution_rule clauses >>= dp
--}
 
 one_literal_rule :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
 one_literal_rule clauses =
@@ -103,11 +95,11 @@ resolution_rule clauses = resolve_on p clauses
       Just p = minimize (resolution_blowup clauses) pvs
 
 -- | Davis-Putnam satisfiability tester.
-dpsat :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
+dpsat :: (JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
 dpsat = dp . defcnfs
 
 -- | Davis-Putnam tautology checker.
-dptaut :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
+dptaut :: (JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
 dptaut = not . dpsat . negate
 
 #ifndef NOTESTS
@@ -155,12 +147,10 @@ posneg_count cls l =
       n = Set.size(Set.filter (Set.member (negate l)) cls) in
   m + n
 
-dpllsat :: (IsPropositional pf, AtomOf pf ~ Knows Integer, JustPropositional pf, Ord pf) =>
-           pf -> Bool
+dpllsat :: (JustPropositional pf, Ord pf, AtomOf pf ~ Knows Integer) => pf -> Bool
 dpllsat = dpll . defcnfs
 
-dplltaut :: (IsPropositional pf, AtomOf pf ~ Knows Integer, JustPropositional pf, Ord pf) =>
-            pf -> Bool
+dplltaut :: (JustPropositional pf, Ord pf, AtomOf pf ~ Knows Integer) => pf -> Bool
 dplltaut = not . dpllsat . negate
 
 #ifndef NOTESTS
@@ -170,7 +160,7 @@ test02 = TestCase (assertEqual "dplltaut(prime 11)" True (dplltaut (prime 11 :: 
 #endif
 
 -- | Iterative implementation with explicit trail instead of recursion.
-dpli :: forall pf. (IsPropositional pf, Ord pf) => Set (pf, TrailMix) -> Set (Set pf) -> Bool
+dpli :: (IsNegatable formula, Ord formula) => Set (formula, TrailMix) -> Set (Set formula) -> Bool
 dpli trail cls =
   let (cls', trail') = unit_propagate (cls, trail) in
   if Set.member Set.empty cls' then
@@ -178,10 +168,10 @@ dpli trail cls =
       Just ((p,Guessed), tt) -> dpli (Set.insert (negate p, Deduced) tt) cls
       _ -> False
   else
-      case unassigned cls (trail' :: Set (pf, TrailMix)) of
+      case unassigned cls (trail' {-:: Set (pf, TrailMix)-}) of
         s | Set.null s -> True
         ps -> let Just p = maximize (posneg_count cls') ps in
-              dpli (Set.insert (p :: pf, Guessed) trail') cls
+              dpli (Set.insert (p {-:: pf-}, Guessed) trail') cls
 
 data TrailMix = Guessed | Deduced deriving (Eq, Ord)
 
@@ -220,17 +210,14 @@ backtrack trail =
     Just ((_p,Deduced), tt) -> backtrack tt
     _ -> trail
 
-dplisat :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) =>
-           pf -> Bool
+dplisat :: (JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
 dplisat = dpli Set.empty . defcnfs
 
-dplitaut :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) =>
-            pf -> Bool
+dplitaut :: (JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
 dplitaut = not . dplisat . negate
 
 -- | With simple non-chronological backjumping and learning.
-dplb :: forall a. (IsNegatable a, Ord a) =>
-        Set (a, TrailMix) -> Set (Set a) -> Bool
+dplb :: (IsNegatable formula, Ord formula) => Set (formula, TrailMix) -> Set (Set formula) -> Bool
 dplb trail cls =
   let (cls',trail') = unit_propagate (cls,trail) in
   if Set.member Set.empty cls' then
@@ -255,12 +242,10 @@ backjump cls p trail =
         if Set.member Set.empty cls' then backjump cls p tt else trail
     _ -> trail
 
-dplbsat :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) =>
-           pf -> Bool
+dplbsat :: (JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
 dplbsat = dplb Set.empty . defcnfs
 
-dplbtaut :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) =>
-            pf -> Bool
+dplbtaut :: (JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
 dplbtaut = not . dplbsat . negate
 
 #ifndef NOTESTS

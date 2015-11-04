@@ -55,15 +55,13 @@ import FOL (exists, fApp, for_all, functions, fv, HasApply(TermOf, PredOf), IsFi
 import Formulas ((.~.), (.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)), IsFormula(AtomOf), negate, false, true, atomic)
 import Lib (setAny, distrib)
 import Prelude hiding (negate)
-import Prop (convertToPropositional, foldPropositional', IsPropositional, JustPropositional, psimplify1, trivial)
+import Prop (convertToPropositional, foldPropositional', IsPropositional, JustPropositional, PFormula, psimplify1, trivial)
 #ifndef NOTESTS
 import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
 import Data.String (IsString(fromString))
 import FOL (FOL, QFormula, IsFunction(variantFunction), pApp, Predicate, Term, V)
-import Lib (Marked)
 import Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
-import Prop (Propositional)
 import Test.HUnit
 #endif
 
@@ -115,8 +113,8 @@ instance HasSkolem Function where
 
  -- | A first order logic formula type with an equality predicate and skolem functions.
 type Formula = QFormula V SkAtom
-type SkTerm = Term Function V
 type SkAtom = FOL Predicate SkTerm
+type SkTerm = Term Function V
 
 instance IsFirstOrder Formula
 
@@ -389,7 +387,7 @@ askolemize = skolem . nnf . simplify
 -- will have already turned all the existential quantifiers into
 -- skolem functions.  For this reason we can safely convert to any
 -- instance of IsPropositional.
-specialize :: (IsQuantified fof, IsPropositional pf, JustPropositional pf) => (AtomOf fof -> AtomOf pf) -> fof -> pf
+specialize :: (IsQuantified fof, JustPropositional pf) => (AtomOf fof -> AtomOf pf) -> fof -> pf
 specialize ca fm =
     convertToPropositional (error "specialize failure") ca (specialize' fm)
     where
@@ -417,7 +415,7 @@ prettySkolem prettyFunction = foldSkolem prettyFunction (\v n -> text "sK" <> br
 
 test04 :: Test
 test04 = TestCase $ assertEqual "skolemize 1 (p. 150)" expected input
-    where input = runSkolem (skolemize id fm) :: Marked Propositional Formula
+    where input = runSkolem (skolemize id fm) :: PFormula SkAtom
           fm :: Formula
           fm = exists "y" (pApp ("<") [vt "x", vt "y"] .=>.
                            for_all "u" (exists "v" (pApp ("<") [fApp "*" [vt "x", vt "u"],  fApp "*" [vt "y", vt "v"]])))
@@ -428,7 +426,7 @@ test05 :: Test
 test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
     where p = "P"
           q = "Q"
-          input = runSkolem (skolemize id fm) :: Marked Propositional Formula
+          input = runSkolem (skolemize id fm) :: PFormula SkAtom
           fm :: Formula
           fm = for_all "x" ((pApp p [vt "x"]) .=>.
                             (exists "y" (exists "z" ((pApp q [vt "y"]) .|.
@@ -439,19 +437,18 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
                        ((.~.)(pApp q [vt "z"]))))
 #endif
 
--- Versions of the normal form functions that leave quantifiers in place.
-simpdnf' :: (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-             IsFirstOrder fof, Ord fof) => fof -> Set (Set fof)
+-- | Versions of the normal form functions that leave quantifiers in place.
+simpdnf' :: (IsFirstOrder fof, Ord fof,
+             atom ~ AtomOf fof, term ~ TermOf atom, function ~ FunOf term,
+             v ~ VarOf fof, v ~ TVarOf term) =>
+            fof -> Set (Set fof)
 simpdnf' fm =
-    {-t2 $-}
-    foldQuantified (\_ _ _ -> go) (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) ({-t1-}fm)
+    foldQuantified (\_ _ _ -> go) (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
       tf False = Set.empty
       tf True = Set.singleton Set.empty
       go = let djs = Set.filter (not . trivial) (purednf' (nnf fm)) in
            Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
-      -- t1 x = trace ("simpdnf' (" ++ prettyShow x) x
-      -- t2 x = trace ("simpdnf' (" ++ prettyShow fm ++ ") -> " ++ prettyShow x) x
 
 purednf' :: (IsQuantified fof, Ord fof) => fof -> Set (Set fof)
 purednf' fm =

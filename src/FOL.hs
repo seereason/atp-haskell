@@ -1061,12 +1061,12 @@ fv fm =
       at = fva
 
 fvp :: (IsPropositional formula, JustPropositional formula, HasApply atom, IsTerm term, Ord v,
-        atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term)
+        atom ~ AtomOf formula, term ~ TermOf atom, v ~ TVarOf term)
        => formula -> Set v
 fvp fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
 
 fvl :: (IsLiteral formula, JustLiteral formula, HasApply atom, IsTerm term,
-        atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term)
+        atom ~ AtomOf formula, term ~ TermOf atom, v ~ TVarOf term)
        => formula -> Set v
 fvl fm = overatoms (\a s -> Set.union (fva a) s) fm mempty
 
@@ -1128,7 +1128,6 @@ tsubst sfn tm =
 lsubst :: (JustLiteral lit, HasApply atom, IsTerm term,
            atom ~ AtomOf lit,
            term ~ TermOf atom,
-           v ~ VarOf lit,
            v ~ TVarOf term) =>
           Map v term -> lit -> lit
 lsubst subfn fm =

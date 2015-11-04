@@ -29,7 +29,7 @@ import Data.Bool (bool)
 import Data.List as List (map)
 import Data.Map as Map
 import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
-import FOL (HasApply(TermOf), HasApplyAndEquate, IsQuantified(VarOf), IsTerm(..), JustApply, tsubst, V, zipApplys, zipEquates)
+import FOL (HasApply(TermOf), HasApplyAndEquate, IsTerm(..), JustApply, tsubst, V, zipApplys, zipEquates)
 import Formulas (IsFormula(AtomOf))
 import Lib (Failing)
 import Lit (IsLiteral, zipLiterals')
@@ -107,7 +107,7 @@ unify_and_apply eqs =
 
 -- | Unify literals
 unify_literals :: (IsLiteral lit, HasApply atom, Unify atom v term,
-                   atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term) =>
+                   atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
                   lit -> lit -> StateT (Map v term) Failing ()
 unify_literals f1 f2 =
     maybe err id (zipLiterals' ho ne tf at f1 f2)

@@ -28,8 +28,7 @@ import Data.List as List
 import Data.Map as Map hiding (fromList)
 import Data.Set as Set
 import Formulas as P
-import Lib (Marked)
-import Lit (IsLiteral, JustLiteral, Literal, unmarkLiteral)
+import Lit (convertLiteral, IsLiteral, JustLiteral, LFormula)
 import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), text)
 import Prop (foldPropositional, IsPropositional(foldPropositional'), JustPropositional,
              list_conj, list_disj, nenf, simpcnf)
@@ -105,7 +104,7 @@ max_varindex atom n = max n (ai atom)
 
 -- | Overall definitional CNF.
 defcnf1 :: forall pf. (IsPropositional pf, JustPropositional pf, NumAtom (AtomOf pf), Ord pf) => pf -> pf
-defcnf1 fm = list_conj (Set.map (list_disj . Set.map unmarkLiteral) (mk_defcnf id maincnf fm))
+defcnf1 = list_conj . Set.map (list_disj . Set.map (convertLiteral id)) . (mk_defcnf id maincnf :: pf -> Set (Set (LFormula (AtomOf pf))))
 
 mk_defcnf :: forall pf lit.
              (IsPropositional pf, JustPropositional pf,
@@ -135,7 +134,7 @@ END_INTERACTIVE;;
 
 test02 :: Test
 test02 =
-    let input = strings (mk_defcnf id maincnf testfm :: Set (Set (Marked Literal (PFormula Atom))))
+    let input = strings (mk_defcnf id maincnf testfm :: Set (Set (LFormula Atom)))
         expected = [["p_3"],
                     ["p_2","¬p"],
                     ["p_2","¬p_1"],
@@ -154,9 +153,9 @@ strings ss = sortBy (compare `on` length) . sort . Set.toList $ Set.map (sort . 
 
 -- | Version tweaked to exploit initial structure.
 defcnf2 :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> pf
-defcnf2 fm = list_conj (Set.map (list_disj . Set.map unmarkLiteral) (defcnfs fm))
+defcnf2 fm = list_conj (Set.map (list_disj . Set.map (convertLiteral id)) (defcnfs fm))
 
-defcnfs :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Set (Set (Marked Literal pf))
+defcnfs :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Set (Set (LFormula (AtomOf pf)))
 defcnfs fm = mk_defcnf id andcnf fm
 
 andcnf :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
@@ -186,8 +185,8 @@ subcnf sfn op p q (_fm,defs,n) =
   (op fm1 fm2, defs2, n2)
 
 -- | Version that guarantees 3-CNF.
-defcnf3 :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> pf
-defcnf3 = list_conj . Set.map (list_disj . Set.map unmarkLiteral) . mk_defcnf id andcnf3
+defcnf3 :: forall pf. (JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> pf
+defcnf3 = list_conj . Set.map (list_disj . Set.map (convertLiteral id)) . (mk_defcnf id andcnf3 :: pf -> Set (Set (LFormula (AtomOf pf))))
 
 andcnf3 :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => (pf, Map pf pf, Integer) -> (pf, Map pf pf, Integer)
 andcnf3 trip@(fm,_defs,_n) =
@@ -199,7 +198,7 @@ andcnf3 trip@(fm,_defs,_n) =
 #ifndef NOTESTS
 test03 :: Test
 test03 =
-    let input = strings (mk_defcnf id andcnf3 testfm :: Set (Set (Marked Literal (PFormula Atom))))
+    let input = strings (mk_defcnf id andcnf3 testfm :: Set (Set (LFormula Atom)))
         expected = [["p_2"],
                     ["s"],
                     ["p_2","¬p"],

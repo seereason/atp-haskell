@@ -28,11 +28,8 @@ module Prop
     , showPropositional
     , onatomsPropositional
     , overatomsPropositional
-    -- * Formula marker types and restricted formula classes
-    , Propositional
+    -- * Restricted propositional formula classes
     , JustPropositional
-    , markPropositional
-    , unmarkPropositional
     -- * Interpretation of formulas.
     , eval
     , atoms
@@ -258,33 +255,13 @@ instance IsPropositional formula => IsPropositional (Marked mk formula) where
         where
           co' lhs op rhs = co (Mark lhs) op (Mark rhs)
 
--- | The formula marker types
-data Propositional
-deriving instance Data Propositional
-
-instance Show formula => Show (Marked Propositional formula) where
-    show (Mark x) = "markPropositional (" ++ show x ++ ")"
-
-instance Eq formula => Eq (Marked Propositional formula) where
-    Mark a == Mark b = a == b
-
-instance Ord formula => Ord (Marked Propositional formula)where
-    compare (Mark a) (Mark b) = compare a b
-
 -- | Class that indicates a formula type *only* supports Propositional
 -- features - no quantifiers.
 class IsPropositional formula => JustPropositional formula
 
-instance IsPropositional formula => JustPropositional (Marked Propositional formula)
 -- A 'Literal' formula can safely be used wherever a 'Propositional'
 -- formula can.
 instance IsPropositional formula => JustPropositional (Marked Literal formula)
-
-markPropositional :: IsPropositional lit => lit -> Marked Propositional lit
-markPropositional fm = convertToPropositional (error "markPropositional") id fm
-
-unmarkPropositional :: IsPropositional pf => Marked Propositional pf -> pf
-unmarkPropositional fm = convertPropositional id fm
 
 #ifndef NOTESTS
 instance IsAtom atom => JustPropositional (PFormula atom)
