@@ -5,7 +5,6 @@ import Language.Haskell.Exts hiding (Pretty)
 import Language.Haskell.Exts.Parser -- (parseExp)
 import Parser (fof)
 import Pretty (assertEqual', Pretty, prettyShow)
-import Skolem (MyFormula)
 import Test.HUnit
 
 t :: (Eq a, Pretty a) => String -> a -> a -> Test

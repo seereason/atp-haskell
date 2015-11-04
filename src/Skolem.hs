@@ -60,7 +60,7 @@ import Prop (convertToPropositional, foldPropositional', IsPropositional, JustPr
 import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
 import Data.String (IsString(fromString))
-import FOL (FOLEQ, Formula, IsFunction(variantFunction), pApp, Predicate, Term, V)
+import FOL (FOL, Formula, IsFunction(variantFunction), pApp, Predicate, Term, V)
 import Lib (Marked)
 import Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
 import Prop (Propositional)
@@ -89,7 +89,7 @@ simplify1 fm =
 #ifndef NOTESTS
 -- | Concrete formula type for use in unit tests.
 type MyTerm = Term Function V
-type MyAtom = FOLEQ Predicate MyTerm
+type MyAtom = FOL Predicate MyTerm
 type MyFormula = Formula V MyAtom
 
 instance IsFirstOrder MyFormula

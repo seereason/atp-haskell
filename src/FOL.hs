@@ -67,8 +67,8 @@ module FOL
     , FName(FName)
     , Term(Var, FApply)
     , Predicate
-    , AP(AP)
-    , FOLEQ(AP', Equals)
+    , FOLAP(AP)
+    , FOL(R, Equals)
     , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     -- * Tests
     , testFOL
@@ -158,9 +158,9 @@ class (IsString function, Ord function, Pretty function, Show function) => IsFun
 type Arity = Int
 
 #ifndef NOTESTS
--- | A simple type to use as the function parameter of Term, AP, etc.
--- The only reason to use this instead of String is to get nicer
--- pretty printing.
+-- | A simple type to use as the function parameter of Term.  The only
+-- reason to use this instead of String is to get nicer pretty
+-- printing.
 newtype FName = FName String deriving (Eq, Ord)
 
 instance IsFunction FName where
@@ -410,57 +410,57 @@ instance Pretty Predicate where
 instance IsPredicate Predicate
 
 -- | First order logic formula atom type.
-data AP predicate term = AP predicate [term] deriving (Eq, Ord, Data, Typeable, Read)
+data FOLAP predicate term = AP predicate [term] deriving (Eq, Ord, Data, Typeable, Read)
 
-instance (IsPredicate predicate, IsTerm term) => JustApply (AP predicate term)
+instance (IsPredicate predicate, IsTerm term) => JustApply (FOLAP predicate term)
 
-instance (IsPredicate predicate, IsTerm term) => IsAtom (AP predicate term)
+instance (IsPredicate predicate, IsTerm term) => IsAtom (FOLAP predicate term)
 
-instance (IsPredicate predicate, IsTerm term) => Pretty (AP predicate term) where
+instance (IsPredicate predicate, IsTerm term) => Pretty (FOLAP predicate term) where
     pPrint = foldApply prettyApply
 
-instance (IsPredicate predicate, IsTerm term) => HasApply (AP predicate term) where
-    type PredOf (AP predicate term) = predicate
-    type TermOf (AP predicate term) = term
+instance (IsPredicate predicate, IsTerm term) => HasApply (FOLAP predicate term) where
+    type PredOf (FOLAP predicate term) = predicate
+    type TermOf (FOLAP predicate term) = term
     applyPredicate = AP
     foldApply' _ f (AP p ts) = f p ts
     overterms f r (AP _ ts) = foldr f r ts
     onterms f (AP p ts) = AP p (map f ts)
 
-instance (IsPredicate predicate, IsTerm term, Show predicate, Show term) => Show (AP predicate term) where
+instance (IsPredicate predicate, IsTerm term, Show predicate, Show term) => Show (FOLAP predicate term) where
     show = foldApply (\p ts -> showApply (p :: predicate) (ts :: [term]))
 
-instance HasFixity (AP predicate term) where
+instance HasFixity (FOLAP predicate term) where
     fixity _ = Fixity 6 InfixN
 
-data FOLEQ predicate term = AP' predicate [term] | Equals term term deriving (Eq, Ord, Data, Typeable, Read)
+data FOL predicate term = R predicate [term] | Equals term term deriving (Eq, Ord, Data, Typeable, Read)
 
-instance (IsPredicate predicate, IsTerm term) => IsAtom (FOLEQ predicate term)
+instance (IsPredicate predicate, IsTerm term) => IsAtom (FOL predicate term)
 
-instance (HasApply (FOLEQ predicate term),
-          HasApplyAndEquate (FOLEQ predicate term),
-          IsTerm term) => Pretty (FOLEQ predicate term) where
+instance (HasApply (FOL predicate term),
+          HasApplyAndEquate (FOL predicate term),
+          IsTerm term) => Pretty (FOL predicate term) where
     pPrint = foldEquate prettyEquate prettyApply
 
-instance (IsPredicate predicate, IsTerm term) => HasApply (FOLEQ predicate term) where
-    type PredOf (FOLEQ predicate term) = predicate
-    type TermOf (FOLEQ predicate term) = term
-    applyPredicate = AP'
-    foldApply' _ f (AP' p ts) = f p ts
+instance (IsPredicate predicate, IsTerm term) => HasApply (FOL predicate term) where
+    type PredOf (FOL predicate term) = predicate
+    type TermOf (FOL predicate term) = term
+    applyPredicate = R
+    foldApply' _ f (R p ts) = f p ts
     foldApply' d _ x = d x
     overterms = overtermsEq
     onterms = ontermsEq
 
-instance (IsPredicate predicate, IsTerm term, Show predicate, Show term) => Show (FOLEQ predicate term) where
+instance (IsPredicate predicate, IsTerm term, Show predicate, Show term) => Show (FOL predicate term) where
     show = foldEquate (\t1 t2 -> showEquate (t1 :: term) (t2 :: term))
                       (\p ts -> showApply (p :: predicate) (ts :: [term]))
 
-instance (IsPredicate predicate, IsTerm term) => HasApplyAndEquate (FOLEQ predicate term) where
+instance (IsPredicate predicate, IsTerm term) => HasApplyAndEquate (FOL predicate term) where
     equate lhs rhs = Equals lhs rhs
     foldEquate eq _ (Equals lhs rhs) = eq lhs rhs
-    foldEquate _ ap (AP' p ts) = ap p ts
+    foldEquate _ ap (R p ts) = ap p ts
 
-instance HasFixity (FOLEQ predicate term) where
+instance HasFixity (FOL predicate term) where
     fixity _ = Fixity 6 InfixN
 #endif
 
@@ -717,8 +717,8 @@ infixr 9 ∀, ∃
 #ifndef NOTESTS
 -- | Concrete types for use in unit tests.
 type MyTerm1 = Term FName V -- MyTerm1 has no Skolem functions
-type MyAtom1 = AP Predicate MyTerm1
-type MyAtom2 = FOLEQ Predicate MyTerm1
+type MyAtom1 = FOLAP Predicate MyTerm1
+type MyAtom2 = FOL Predicate MyTerm1
 type MyFormula1 = Formula V MyAtom1
 type MyFormula2 = Formula V MyAtom2
 

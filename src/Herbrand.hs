@@ -27,7 +27,7 @@ import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib, Marked)
 import Lit (JustLiteral, Literal)
 import Prop (eval, IsPropositional, JustPropositional, Propositional, simpcnf, simpdnf, trivial)
-import Skolem (HasSkolem(SVarOf), runSkolem, skolemize)
+import Skolem (HasSkolem(SVarOf), MyFormula, runSkolem, skolemize)
 
 #ifndef NOTESTS
 import Parser(fof)
