@@ -40,8 +40,7 @@ import Parser (fof)
 import Pretty (assertEqual', Pretty)
 import Prop
 import Skolem
-import Tableaux (unify_literals)
-import Unif (solve, Unify)
+import Unif (solve, Unify, unify_literals)
 
 #ifndef NOTESTS
 import Data.List as List (map)

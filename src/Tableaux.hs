@@ -17,10 +17,7 @@
 {-# OPTIONS_GHC -Wall #-}
 
 module Tableaux
-    ( unify_literals
-    , unify_atoms
-    , unify_atoms_eq
-    , prawitz
+    ( prawitz
     , K(K)
     , tab
 #ifndef NOTESTS
@@ -34,10 +31,9 @@ import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
-import Debug.Trace (trace)
 import FOL (asubst, exists, fApp, foldQuantified, for_all, fv, generalize, HasApply(TermOf),
-            HasApply, HasApplyAndEquate, JustApply, IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
-            pApp, Quant((:!:)), subst, V, vt, zipApplys, zipEquates)
+            HasApply, IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
+            pApp, Quant((:!:)), subst, vt)
 import Formulas
 import Lib
 import Lit
@@ -45,37 +41,12 @@ import Prelude hiding (compare)
 import Pretty (assertEqual', Pretty(pPrint), prettyShow, text)
 import Prop (Propositional, simpdnf, unmarkPropositional)
 import Skolem (askolemize, HasSkolem(SVarOf, toSkolem), runSkolem, skolemize)
-import Unif (Unify(unify), unify_terms)
+import Unif (Unify, unify_literals)
 #ifndef NOTESTS
 import Herbrand (davisputnam)
-import Skolem (MyFormula, MyAtom, MyTerm)
+import Skolem (MyFormula, MyTerm)
 import Test.HUnit hiding (State)
 #endif
-
--- | Unify literals (just pretend the toplevel relation is a function).
-unify_literals :: (IsLiteral lit, HasApply atom, Unify atom v term,
-                   atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term) =>
-                  lit -> lit -> StateT (Map v term) Failing ()
-unify_literals f1 f2 =
-    maybe err id (zipLiterals' ho ne tf at f1 f2)
-    where
-      ho _ _ = Nothing
-      ne p q = Just $ unify_literals p q
-      tf p q = if p == q then Just (unify_terms []) else Nothing
-      at a1 a2 = Just $ unify a1 a2
-      err = fail "Can't unify literals"
-
-unify_atoms :: (JustApply atom, term ~ TermOf atom, v ~ TVarOf term) =>
-               (atom, atom) -> StateT (Map v term) Failing ()
-unify_atoms (a1, a2) =
-    maybe (fail "unify_atoms") id (zipApplys (\_ tpairs -> Just (unify_terms tpairs)) a1 a2)
-
-unify_atoms_eq :: (HasApplyAndEquate atom, term ~ TermOf atom, v ~ TVarOf term) =>
-                  atom -> atom -> StateT (Map v term) Failing ()
-unify_atoms_eq a1 a2 =
-    maybe (fail "unify_atoms") id (zipEquates (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
-                                              (\_ tpairs -> Just (unify_terms tpairs))
-                                              a1 a2)
 
 -- | Unify complementary literals.
 unify_complements :: (IsLiteral lit, HasApply atom, Unify atom v term,
@@ -126,9 +97,6 @@ prawitz fm =
 -- -------------------------------------------------------------------------
 -- Examples.
 -- -------------------------------------------------------------------------
-
-instance Unify MyAtom V MyTerm where
-    unify = unify_atoms_eq
 
 p20 :: Test
 p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input

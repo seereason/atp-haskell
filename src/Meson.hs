@@ -32,8 +32,7 @@ import Parser (fof)
 import Prolog (PrologRule(Prolog), renamerule)
 import Prop (list_conj, Propositional, simpcnf)
 import Skolem (askolemize, HasSkolem(SVarOf), pnf, SkolemT, simpdnf', specialize)
-import Tableaux (unify_literals)
-import Unif (Unify)
+import Unif (Unify, unify_literals)
 
 #ifndef NOTESTS
 import Data.Monoid ((<>))

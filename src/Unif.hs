@@ -13,6 +13,9 @@
 module Unif
     ( Unify(unify)
     , unify_terms
+    , unify_literals
+    , unify_atoms
+    , unify_atoms_eq
     , solve
     , fullunify
     , unify_and_apply
@@ -26,11 +29,13 @@ import Data.Bool (bool)
 import Data.List as List (map)
 import Data.Map as Map
 import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
-import FOL (IsTerm(..), tsubst)
+import FOL (HasApply(TermOf), HasApplyAndEquate, IsQuantified(VarOf), IsTerm(..), JustApply, tsubst, V, zipApplys, zipEquates)
+import Formulas (IsFormula(AtomOf))
 import Lib (Failing)
+import Lit (IsLiteral, zipLiterals')
 #ifndef NOTESTS
 import Lib (Failing(Success, Failure))
-import Skolem (MyTerm)
+import Skolem (MyAtom, MyTerm)
 import Test.HUnit hiding (State)
 #endif
 
@@ -71,7 +76,7 @@ unify_term_pair a b =
           then mapM_ (uncurry unify_term_pair) (zip fargs gargs)
           else fail "impossible unification"
 
-istriv :: forall term v f. (IsTerm term, v ~ TVarOf term) =>
+istriv :: forall term v. (IsTerm term, v ~ TVarOf term) =>
           v -> term -> StateT (Map v term) Failing Bool
 istriv x t =
     foldTerm vr fn t
@@ -100,6 +105,31 @@ unify_and_apply :: (IsTerm term, v ~ TVarOf term, f ~ FunOf term) =>
 unify_and_apply eqs =
     fullunify eqs >>= \i -> return $ List.map (\ (t1, t2) -> (tsubst i t1, tsubst i t2)) eqs
 
+-- | Unify literals
+unify_literals :: (IsLiteral lit, HasApply atom, Unify atom v term,
+                   atom ~ AtomOf lit, term ~ TermOf atom, v ~ VarOf lit, v ~ TVarOf term) =>
+                  lit -> lit -> StateT (Map v term) Failing ()
+unify_literals f1 f2 =
+    maybe err id (zipLiterals' ho ne tf at f1 f2)
+    where
+      ho _ _ = Nothing
+      ne p q = Just $ unify_literals p q
+      tf p q = if p == q then Just (unify_terms []) else Nothing
+      at a1 a2 = Just $ unify a1 a2
+      err = fail "Can't unify literals"
+
+unify_atoms :: (JustApply atom, term ~ TermOf atom, v ~ TVarOf term) =>
+               (atom, atom) -> StateT (Map v term) Failing ()
+unify_atoms (a1, a2) =
+    maybe (fail "unify_atoms") id (zipApplys (\_ tpairs -> Just (unify_terms tpairs)) a1 a2)
+
+unify_atoms_eq :: (HasApplyAndEquate atom, term ~ TermOf atom, v ~ TVarOf term) =>
+                  atom -> atom -> StateT (Map v term) Failing ()
+unify_atoms_eq a1 a2 =
+    maybe (fail "unify_atoms") id (zipEquates (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
+                                              (\_ tpairs -> Just (unify_terms tpairs))
+                                              a1 a2)
+
 --unify_and_apply' :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) => [(term, term)] -> Failing [(term, term)]
 --unify_and_apply' eqs =
 --    mapM app eqs
@@ -107,6 +137,10 @@ unify_and_apply eqs =
 --          app (t1, t2) = fullunify eqs >>= \i -> return $ (tsubst i t1, tsubst i t2)
 
 #ifndef NOTESTS
+
+instance Unify MyAtom V MyTerm where
+    unify = unify_atoms_eq
+
 test01, test02, test03, test04 :: Test
 test01 = TestCase (assertEqual "Unify test 1"
                      (Success [(f [f [z],g [y]],
