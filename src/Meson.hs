@@ -2,7 +2,6 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
@@ -15,34 +14,27 @@ module Meson
     ( meson1
     , meson2
     , meson
-#ifndef NOTESTS
     , testMeson
-#endif
     ) where
 
 import Control.Monad.State (execStateT)
 import Data.Map as Map
+import Data.Monoid ((<>))
 import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (generalize, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf), IsTerm(FunOf, TVarOf))
-import Formulas ((.~.), false, IsFormula(AtomOf), negative)
+import FOL (exists, fApp, for_all, generalize, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf), IsTerm(FunOf, TVarOf), pApp, vt)
+import Formulas ((.&.), (.|.), (.=>.), (.~.), false, IsFormula(AtomOf), negative)
 import Lib (Depth(Depth), deepen)
 import Lit (JustLiteral, LFormula)
 import Parser (fof)
+import Pretty (assertEqual', prettyShow)
 import Prolog (PrologRule(Prolog), renamerule)
 import Prop (list_conj, PFormula, simpcnf)
-import Skolem (askolemize, HasSkolem(SVarOf), pnf, SkolemT, simpdnf', specialize)
-import Unif (Unify, unify_literals)
-
-#ifndef NOTESTS
-import Data.Monoid ((<>))
-import FOL (exists, fApp, for_all, pApp, vt)
-import Formulas ((.&.), (.|.), (.=>.))
-import Pretty (assertEqual', prettyShow)
 import Resolution (davis_putnam_example_formula)
-import Skolem (Formula, runSkolem, toSkolem)
+import Skolem (askolemize, Formula, HasSkolem(SVarOf), pnf, runSkolem, SkolemT, simpdnf', specialize, toSkolem)
 import Tableaux (K(K), tab)
 import Test.HUnit
+import Unif (Unify, unify_literals)
 
 test00 :: Test
 test00 =
@@ -165,7 +157,6 @@ tab <<~p /\ (p \/ q) /\ (r \/ s) /\ (~q \/ t \/ u) /\
       (~s \/ ~v) /\ (~s \/ ~w) ==> false>>;;
 END_INTERACTIVE;;
 -}
-#endif
 
 -- -------------------------------------------------------------------------
 -- Generation of contrapositives.
@@ -346,7 +337,6 @@ meson :: (IsFirstOrder fof, Unify atom v term, HasSkolem function, Monad m, Ord 
          Maybe Depth -> fof -> SkolemT m function (Set (Failing Depth))
 meson = meson2
 
-#ifndef NOTESTS
 {-
 -- -------------------------------------------------------------------------
 -- The Los problem (depth 20) and the Steamroller (depth 53) --- lengthier.
@@ -747,4 +737,3 @@ END_INTERACTIVE;;
 
 testMeson :: Test
 testMeson = TestLabel "Meson" (TestList [test00, test01, test02])
-#endif

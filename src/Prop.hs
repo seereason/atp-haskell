@@ -4,7 +4,6 @@
 
 {-# OPTIONS_GHC -Wall #-}
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -65,13 +64,11 @@ module Prop
     , cnf'
     , cnf_
     , trivial
-#ifndef NOTESTS
     -- * Instance
     , Prop(P, pname)
     , PFormula(F, T, Atom, Not, And, Or, Imp, Iff)
     -- * Tests
     , testProp
-#endif
     ) where
 
 import Data.Foldable as Foldable (null)
@@ -79,30 +76,23 @@ import Data.Generics (Data, Typeable)
 import Data.List as List (map, intercalate)
 import Data.Map as Map (Map)
 import Data.Monoid ((<>))
-import Data.Set as Set (empty, filter, intersection, isProperSubsetOf, map,
+import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map,
                         minView, partition, Set, singleton, toAscList, union)
-import Formulas (atom_union, binop,
+import Data.String (IsString(fromString))
+import Formulas ((¬), (∧), (∨), atom_union, binop,
                  BinOp((:&:), (:|:), (:=>:), (:<=>:)),
                  HasBoolean(fromBool, asBool), true, false,
                  IsAtom,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination),
                  IsFormula(AtomOf, atomic, overatoms, onatoms),
                  IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive)
-import Lib (distrib, fpf, setAny)
-import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral)
+import Lib ((|=>), distrib, fpf, setAny)
+import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral, LFormula)
 import Prelude hiding (negate, null)
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
-               parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
+               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
 import Text.PrettyPrint.HughesPJClass (braces, parens, vcat)
-#ifndef NOTESTS
-import Data.Set as Set (fromList)
-import Data.String (IsString(fromString))
-import Formulas ((¬), (∧), (∨))
-import Lib ((|=>))
-import Lit (LFormula)
-import Pretty (leafFixity)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
-#endif
 
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
@@ -246,18 +236,7 @@ overatomsPropositional f fof r0 =
       co p _ q = overatomsPropositional f p (overatomsPropositional f q r0)
       ne fof' = overatomsPropositional f fof' r0
 
----------------------------
--- Restricted formula class
----------------------------
-
--- | Class that indicates a formula type *only* supports Propositional
--- features - no quantifiers.
-class IsPropositional formula => JustPropositional formula
-
-instance IsAtom atom => JustPropositional (PFormula atom)
-instance IsPropositional (LFormula atom) => JustPropositional (LFormula atom)
-
-#ifndef NOTESTS
+-- | An instance of IsPredicate.
 data Prop = P {pname :: String} deriving (Eq, Ord)
 
 -- Because of the IsString instance, the Show instance can just be a String.
@@ -282,6 +261,7 @@ instance Pretty Prop where
 instance HasFixity Prop where
     fixity _ = leafFixity
 
+-- | An instance of IsPropositional.
 data PFormula atom
     = F
     | T
@@ -353,7 +333,12 @@ instance IsAtom atom => IsLiteral (PFormula atom) where
 
 instance IsAtom atom => Pretty (PFormula atom) where
     pPrint = prettyPropositional
-#endif
+
+-- | Class that indicates a formula type *only* supports Propositional
+-- features - it has no way to represent quantifiers.
+class IsPropositional formula => JustPropositional formula
+
+instance IsAtom atom => JustPropositional (PFormula atom)
 
 -- | Interpretation of formulas.
 eval :: JustPropositional pf => pf -> (AtomOf pf -> Bool) -> Bool
@@ -423,7 +408,6 @@ transpose []             = []
 transpose ([]   : xss)   = transpose xss
 transpose ((x:xs) : xss) = (x : [h | (h:_) <- xss]) : transpose (xs : [ t | (_:t) <- xss])
 
-#ifndef NOTESTS
 -- | Tests precedence handling in pretty printer.
 test00 :: Test
 test00 = TestCase $ assertEqual "parenthesization" expected (List.map prettyShow input)
@@ -535,13 +519,11 @@ test12 :: Test
 test12 = TestCase $ assertEqual "tautology 3 (p. 41)" False (tautology $ p .|. q .=>. q .|. (p .<=>. q)) where (p, q) = (Atom (P "p"), Atom (P "q"))
 test13 :: Test
 test13 = TestCase $ assertEqual "tautology 4 (p. 41)" True (tautology $ (p .|. q) .&. ((.~.)(p .&. q)) .=>. ((.~.)p .<=>. q)) where (p, q) = (Atom (P "p"), Atom (P "q"))
-#endif
 
 -- | Substitution operation.
 psubst :: IsPropositional formula => Map (AtomOf formula) formula -> formula -> formula
 psubst subfn fm = onatoms (\ p -> maybe (atomic p) id (fpf subfn p)) fm
 
-#ifndef NOTESTS
 -- Example
 test14 :: Test
 test14 =
@@ -596,7 +578,6 @@ test21 = TestCase $ assertEqual "Equivalences (p. 47)" expected input
               , (p .<=>. q) .<=>. ((p .=>. q) .=>. (q .=>. p) .=>. false) .=>. false ]
           expected = [True, True, True, True, True]
           (p, q) = (Atom (P "p"), Atom (P "q"))
-#endif
 
 -- | Dualization.
 dual :: JustPropositional pf => pf -> pf
@@ -610,13 +591,11 @@ dual fm =
       co p (:|:) q = dual p .&. dual q
       co _ _ _ = error "Formula involves connectives .=>. or .<=>."
 
-#ifndef NOTESTS
 -- Example.
 test22 :: Test
 test22 = TestCase $ assertEqual "Dual (p. 49)" expected input
     where input = dual (Atom (P "p") .|. ((.~.) (Atom (P "p"))))
           expected = And (Atom (P {pname = "p"})) (Not (Atom (P {pname = "p"})))
-#endif
 
 -- | Routine simplification.
 psimplify :: IsPropositional formula => formula -> formula
@@ -661,7 +640,6 @@ psimplify1 fm =
       simplifyNotCombine _ _ _ = fm
       simplifyNotAtom x = (.~.) (atomic x)
 
-#ifndef NOTESTS
 -- Example.
 test23 :: Test
 test23 = TestCase $ assertEqual "psimplify 1 (p. 50)" expected input
@@ -677,7 +655,6 @@ test24 = TestCase $ assertEqual "psimplify 2 (p. 51)" expected input
           expected = true
           x = Atom (P "x")
           y = Atom (P "y")
-#endif
 
 -- | Negation normal form.
 
@@ -701,7 +678,6 @@ nnf1 fm = foldPropositional nnfCombine nnfNegate fromBool (\_ -> fm) fm
       nnfNotCombine p (:=>:) q = nnf1 p .&. nnf1 ((.~.) q)
       nnfNotCombine p (:<=>:) q = (nnf1 p .&. nnf1 ((.~.) q)) .|. nnf1 ((.~.) p) .&. nnf1 q
 
-#ifndef NOTESTS
 -- Example of NNF function in action.
 
 test25 :: Test
@@ -726,7 +702,6 @@ test26 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           q = Atom (P "q")
           r = Atom (P "r")
           s = Atom (P "s")
-#endif
 
 nenf :: IsPropositional formula => formula -> formula
 nenf = nenf' . psimplify
@@ -747,7 +722,6 @@ nenf' fm =
       co' p (:=>:) q = nenf' p .&. nenf' ((.~.) q)
       co' p (:<=>:) q = nenf' p .<=>. nenf' ((.~.) q) -- really?  how is this asymmetrical?
 
-#ifndef NOTESTS
 -- Some tautologies remarked on.
 
 test27 :: Test
@@ -766,7 +740,6 @@ test28 = TestCase $ assertEqual "nnf 1 (p. 53)" expected input
           q = Atom (P "q")
           p' = Atom (P "p'")
           q' = Atom (P "q'")
-#endif
 
 dnfSet :: (JustPropositional pf, Ord pf) => pf -> pf
 dnfSet fm =
@@ -794,7 +767,6 @@ list_disj :: (Foldable t, HasBoolean formula, IsCombinable formula) => t formula
 list_disj l | null l = false
 list_disj l = foldl1 (.|.) l
 
-#ifndef NOTESTS
 -- This is only used in the test below, its easier to match lists than sets.
 dnfList :: JustPropositional pf => pf -> pf
 dnfList fm =
@@ -861,7 +833,6 @@ test30 = TestCase $ assertEqual "dnf 2 (p. 56)" expected input
                       ((((((p .&. q) .&. r) .&. s) .&. t) .&. u) .&. ((.~.) v))) .|.
                      ((((((p .&. q) .&. r) .&. s) .&. t) .&. u) .&. v)
           [p, q, r, s, t, u, v] = List.map (Atom . P) ["p", "q", "r", "s", "t", "u", "v"]
-#endif
 
 -- | DNF via distribution.
 distrib1 :: IsPropositional formula => formula -> formula
@@ -906,7 +877,7 @@ rawdnf fm =
     Or p q -> Or (rawdnf p) (rawdnf q)
     _ -> fm
 -}
-#ifndef NOTESTS
+
 -- Example.
 
 test31 :: Test
@@ -919,7 +890,6 @@ test31 = TestCase $ assertEqual "rawdnf (p. 58)" (prettyShow expected) (prettySh
                      ((atomic (P "p")) .&. ((.~.)(atomic (P "r"))) .|.
                       ((atomic (P "q")) .&. (atomic (P "r"))) .&. ((.~.)(atomic (P "r"))))
           (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
-#endif
 
 purednf :: (JustPropositional pf,
             IsLiteral lit, JustLiteral lit, Ord lit) => (AtomOf pf -> AtomOf lit) -> pf -> Set (Set lit)
@@ -931,7 +901,6 @@ purednf ca fm =
       co p (:|:) q = union (purednf ca p) (purednf ca q)
       co _ _ _ = l2f fm
 
-#ifndef NOTESTS
 -- Example.
 
 test32 :: Test
@@ -947,7 +916,6 @@ test32 = TestCase $ assertEqual "purednf (p. 58)" expected (purednf id fm)
           p = atomic (P "p")
           q = atomic (P "q")
           r = atomic (P "r")
-#endif
 
 -- | Filtering out trivial disjuncts (in this guise, contradictory).
 trivial :: (Ord lit, IsNegatable lit) => Set lit -> Bool
@@ -955,7 +923,6 @@ trivial lits =
     let (pos, neg) = Set.partition positive lits in
     (not . null . Set.intersection neg . Set.map (.~.)) pos
 
-#ifndef NOTESTS
 -- Example.
 test33 :: Test
 test33 = TestCase $ assertEqual "trivial" expected (Set.filter (not . trivial) (purednf id fm))
@@ -968,7 +935,6 @@ test33 = TestCase $ assertEqual "trivial" expected (Set.filter (not . trivial) (
           p = atomic (P "p") :: PFormula Prop
           q = atomic (P "q") :: PFormula Prop
           r = atomic (P "r") :: PFormula Prop
-#endif
 
 -- | With subsumption checking, done very naively (quadratic).
 simpdnf :: (JustPropositional pf,
@@ -986,7 +952,6 @@ simpdnf ca fm =
 dnf :: forall pf. (JustPropositional pf, Ord pf) => pf -> pf
 dnf fm = (list_disj . Set.toAscList . Set.map list_conj . Set.map (Set.map (convertLiteral id :: LFormula (AtomOf pf) -> pf)) . simpdnf id) fm
 
-#ifndef NOTESTS
 -- Example. (p. 56)
 test34 :: Test
 test34 = TestCase $ assertEqual "dnf (p. 56)" expected input
@@ -994,7 +959,6 @@ test34 = TestCase $ assertEqual "dnf (p. 56)" expected input
           expected = ("(p∧¬r)∨(q∧r∧¬p)",True)
           fm = let (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r")) in
                (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
-#endif
 
 -- | Conjunctive normal form (CNF) by essentially the same code. (p. 60)
 purecnf :: (IsPropositional pf, JustPropositional pf,
@@ -1017,7 +981,6 @@ cnf_ ca = list_conj . Set.map (list_disj . Set.map (convertLiteral ca))
 cnf' :: forall pf. (IsPropositional pf, JustPropositional pf, Ord pf) => pf -> pf
 cnf' fm = (list_conj . Set.map list_disj . Set.map (Set.map (convertLiteral id :: LFormula (AtomOf pf) -> pf)) . simpcnf id) fm
 
-#ifndef NOTESTS
 -- Example. (p. 61)
 test35 :: Test
 test35 = TestCase $ assertEqual "cnf (p. 61)" expected input
@@ -1035,4 +998,3 @@ testProp = TestLabel "Prop" $
                      test21, test22, test23, test24, test25,
                      test26, test27, test28, test29, test30,
                      test31, test32, test33, test34, test35]
-#endif

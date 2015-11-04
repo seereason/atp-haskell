@@ -4,38 +4,30 @@
 --
 -- Copyright (co) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, RankNTypes, ScopedTypeVariables, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, RankNTypes, ScopedTypeVariables, TypeSynonymInstances #-}
 {-# OPTIONS_GHC -Wall #-}
 
 module Equal
     ( function_congruence
     , equalitize
-#ifndef NOTESTS
     -- * Tests
     , wishnu
     , testEqual
-#endif
     ) where
 
 import Data.List as List (foldr, map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
-import Formulas ((∧), (⇒), IsFormula(AtomOf, atomic), atom_union)
-import FOL ((.=.), functions, HasApply(TermOf, PredOf, applyPredicate), HasApplyAndEquate(foldEquate),
-            IsQuantified(..), (∀), IsTerm(..))
-import Lib ((∅))
+import Formulas ((.&.), (.=>.), (∧), (⇒), IsFormula(AtomOf, atomic), atom_union)
+import FOL ((∃), (∀), (.=.), functions, HasApply(TermOf, PredOf, applyPredicate),
+            HasApplyAndEquate(foldEquate), IsQuantified(..), IsTerm(..), pApp)
+import Lib ((∅), Depth(Depth), Failing (Success, Failure))
+import Meson (meson)
 import Parser (fof)
 import Prelude hiding ((*))
-#ifndef NOTESTS
-import FOL ((∃), pApp)
-import Formulas ((.&.), (.=>.))
-import Lib (Depth(Depth), Failing (Success, Failure))
-import Meson (meson)
 import Pretty (assertEqual')
 import Skolem (runSkolem, Formula)
-import Tableaux ()
 import Test.HUnit
-#endif
 
 -- is_eq :: (IsQuantified fof atom v, IsAtomWithEquate atom p term) => fof -> Bool
 -- is_eq = foldFirstOrder (\ _ _ _ -> False) (\ _ -> False) (\ _ -> False) (foldAtomEq (\ _ _ -> False) (\ _ -> False) (\ _ _ -> True))
@@ -123,8 +115,6 @@ equalitize fm =
                         (Set.fold (Set.union . predicate_congruence) equivalence_axioms otherPreds)
                         (functions fm)
       (eqPreds, otherPreds) = Set.partition (foldEquate (\_ _ -> True) (\_ _ -> False)) (predicates fm)
-
-#ifndef NOTESTS
 
 -- -------------------------------------------------------------------------
 -- Example.
@@ -258,8 +248,6 @@ testEqual04 = TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expecte
 
 testEqual :: Test
 testEqual = TestLabel "Equal" (TestList [testEqual01, testEqual02, testEqual03, testEqual04])
-
-#endif
 
 -- -------------------------------------------------------------------------
 -- Other variants not mentioned in book.

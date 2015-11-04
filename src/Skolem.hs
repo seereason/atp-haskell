@@ -2,7 +2,6 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -36,34 +35,30 @@ module Skolem
     , specialize
     , simpdnf'
     , simpcnf'
-#ifndef NOTESTS
     -- * Instances
     , Function(Fn, Skolem)
     , Formula, SkTerm, SkAtom
     -- * Tests
     , testSkolem
-#endif
     ) where
 
 import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT, get, modify)
+import Data.Generics (Data, Typeable)
 import Data.List as List (map)
 import Data.Map as Map (singleton)
+import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, insert, isProperSubsetOf, map, member, notMember, Set, singleton, toAscList, union)
-import FOL (exists, fApp, for_all, functions, fv, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf, foldQuantified),
-            IsTerm(TVarOf, FunOf), IsVariable, quant, Quant((:?:), (:!:)), subst, variant, vt)
+import Data.String (IsString(fromString))
+import FOL (exists, fApp, for_all, FOL, functions, fv, HasApply(TermOf, PredOf), IsFirstOrder,
+            IsFunction(variantFunction), IsQuantified(VarOf, foldQuantified), IsTerm(TVarOf, FunOf),
+            IsVariable, Predicate, QFormula, pApp, quant, Quant((:?:), (:!:)), subst, Term, V, variant, vt)
 import Formulas ((.~.), (.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)), IsFormula(AtomOf), negate, false, true, atomic)
 import Lib (setAny, distrib)
 import Prelude hiding (negate)
-import Prop (convertToPropositional, foldPropositional', IsPropositional, JustPropositional, PFormula, psimplify1, trivial)
-#ifndef NOTESTS
-import Data.Generics (Data, Typeable)
-import Data.Monoid ((<>))
-import Data.String (IsString(fromString))
-import FOL (FOL, QFormula, IsFunction(variantFunction), pApp, Predicate, Term, V)
 import Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
+import Prop (convertToPropositional, foldPropositional', IsPropositional, JustPropositional, PFormula, psimplify1, trivial)
 import Test.HUnit
-#endif
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.
 simplify :: IsFirstOrder formula => formula -> formula
@@ -84,7 +79,6 @@ simplify1 fm =
     where
       qu _ x p = if member x (fv p) then fm else p
 
-#ifndef NOTESTS
 -- | A function type that is an instance of HasSkolem
 data Function
     = Fn String
@@ -111,7 +105,7 @@ instance HasSkolem Function where
     foldSkolem _ sk (Skolem v n) = sk v n
     foldSkolem other _ f = other f
 
- -- | A first order logic formula type with an equality predicate and skolem functions.
+-- | A first order logic formula type with an equality predicate and skolem functions.
 type Formula = QFormula V SkAtom
 type SkAtom = FOL Predicate SkTerm
 type SkTerm = Term Function V
@@ -125,7 +119,6 @@ test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ prettyShow fm) expected
           expected = prettyShow ((for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: Formula)
           fm :: Formula
           fm = (for_all "x" (for_all "y" (pApp "P" [vt "x"] .|. (pApp "P" [vt "y"] .&. false)))) .=>. exists "z" (pApp "Q" [])
-#endif
 
 -- | Negation normal form for first order formulas
 nnf :: IsFirstOrder formula => formula -> formula
@@ -150,7 +143,6 @@ nnf1 fm =
       coNot p (:=>:) q = nnf1 p .&. nnf1 ((.~.) q)
       coNot p (:<=>:) q = (nnf1 p .&. nnf1 ((.~.) q)) .|. (nnf1 ((.~.) p) .&. nnf1 q)
 
-#ifndef NOTESTS
 -- Example of NNF function in action.
 test02 :: Test
 test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
@@ -163,7 +155,6 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
                        for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: Formula)
           fm :: Formula
           fm = (for_all "x" (pApp p [vt "x"])) .=>. ((exists "y" (pApp q [vt "y"])) .<=>. exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"]))
-#endif
 
 -- | Prenex normal form.
 pnf :: (atom ~ AtomOf formula, term ~ TermOf atom, predicate ~ PredOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
@@ -217,7 +208,6 @@ pullq (l,r) fm qu op x y p q =
       q' = if r then subst (Map.singleton y (vt z)) q else q in
   qu z (pullquants (op p' q'))
 
-#ifndef NOTESTS
 -- Example.
 
 test03 :: Test
@@ -234,7 +224,6 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" (prettyShow expected) (prettyShow
           fm :: Formula
           fm = (for_all "x" (pApp p [vt "x"]) .|. (pApp r [vt "y"])) .=>.
                exists "y" (exists "z" ((pApp q [vt "y"]) .|. ((.~.)(exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"])))))
-#endif
 
 -- -------------------------------------------------------------------------
 -- State monad for generating Skolem functions and constants.
@@ -411,8 +400,6 @@ skolemize ca fm = (specialize ca . pnf) <$> askolemize fm
 prettySkolem :: HasSkolem function => (function -> Doc) -> function -> Doc
 prettySkolem prettyFunction = foldSkolem prettyFunction (\v n -> text "sK" <> brackets (pPrint v <> if n == 1 then mempty else (text "." <> pPrint (show n))))
 
-#ifndef NOTESTS
-
 test04 :: Test
 test04 = TestCase $ assertEqual "skolemize 1 (p. 150)" expected input
     where input = runSkolem (skolemize id fm) :: PFormula SkAtom
@@ -435,7 +422,6 @@ test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
                      ((pApp q [fApp (Skolem "y" 1) []]) .|.
                       (((.~.)(pApp p [vt "z"])) .|.
                        ((.~.)(pApp q [vt "z"]))))
-#endif
 
 -- | Versions of the normal form functions that leave quantifiers in place.
 simpdnf' :: (IsFirstOrder fof, Ord fof,
@@ -477,7 +463,5 @@ purecnf' :: (atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, v ~
              IsFirstOrder fof, Ord fof) => fof -> Set (Set fof)
 purecnf' fm = Set.map (Set.map negate) (purednf' (nnf ((.~.) fm)))
 
-#ifndef NOTESTS
 testSkolem :: Test
 testSkolem = TestLabel "Skolem" (TestList [test01, test02, test03, test04, test05])
-#endif

@@ -1,6 +1,5 @@
 -- | Backchaining procedure for Horn clauses, and toy Prolog implementation.
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -16,9 +15,7 @@ import FOL (fvl, HasApply(TermOf), IsTerm(TVarOf), lsubst, vt)
 -- import Lib (deepen)
 import Lit (IsLiteral, JustLiteral)
 import Formulas (IsFormula(AtomOf))
-#ifndef NOTESTS
 import Test.HUnit
-#endif
 
 data PrologRule lit = Prolog (Set lit) lit deriving (Eq, Ord)
 
@@ -203,7 +200,5 @@ prolog badrules
 END_INTERACTIVE;;
 -}
 
-#ifndef NOTESTS
 testProlog :: Test
 testProlog = TestLabel "Prolog" (TestList [])
-#endif

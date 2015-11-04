@@ -4,7 +4,6 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -59,7 +58,6 @@ module FOL
     , generalize
     -- * Substitution
     , subst, substq, asubst, tsubst, lsubst
-#ifndef NOTESTS
     , bool_interp
     , mod_interp
     -- * Instances
@@ -73,33 +71,25 @@ module FOL
     , FTerm, ApAtom, EqAtom, ApFormula, EqFormula
     -- * Tests
     , testFOL
-#endif
     ) where
 
 import Data.Data (Data)
 --import Data.Function (on)
-import Data.Map as Map (insert, lookup, Map)
+import Data.Map as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
-import Data.Set as Set (difference, empty, fold, insert, member, Set, singleton, union, unions)
+import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Formulas ((.~.), BinOp(..), binop, false, HasBoolean(..), IsAtom, IsCombinable(..), IsFormula(..),
-                 onatoms, prettyBool, true)
+                 IsNegatable(..), onatoms, prettyBool, true)
 import Lib (setAny, tryApplyD, undefine, (|->))
-import Lit (foldLiteral, IsLiteral, JustLiteral)
+import Lit (foldLiteral, IsLiteral(foldLiteral'), JustLiteral)
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
                leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
-import Prop (foldPropositional, IsPropositional, JustPropositional)
+import Prop (foldPropositional, IsPropositional(foldPropositional'), JustPropositional)
 import Text.PrettyPrint (parens, braces, brackets, punctuate, comma, fcat, fsep, space)
-#ifndef NOTESTS
-import Data.Map as Map (empty, fromList)
-import Data.Set as Set (fromList)
-import Formulas (IsNegatable(..))
-import Lit (foldLiteral')
-import Prop (foldPropositional')
 import Test.HUnit
-#endif
 
 ---------------
 -- VARIABLES --
@@ -125,7 +115,6 @@ variants v0 =
 showVariable :: IsVariable v => v -> String
 showVariable v = show (prettyShow v)
 
-#ifndef NOTESTS
 newtype V = V String deriving (Eq, Ord, Data, Typeable, Read)
 
 instance IsVariable String where
@@ -144,7 +133,6 @@ instance Show V where
 
 instance Pretty V where
     pPrint (V s) = text s
-#endif
 
 ---------------
 -- FUNCTIONS --
@@ -158,7 +146,6 @@ class (IsString function, Ord function, Pretty function, Show function) => IsFun
 
 type Arity = Int
 
-#ifndef NOTESTS
 -- | A simple type to use as the function parameter of Term.  The only
 -- reason to use this instead of String is to get nicer pretty
 -- printing.
@@ -173,7 +160,6 @@ instance IsString FName where fromString = FName
 instance Show FName where show (FName s) = s
 
 instance Pretty FName where pPrint (FName s) = text s
-#endif
 
 -----------
 -- TERMS --
@@ -231,7 +217,6 @@ showTerm = foldTerm showVariable showFunctionApply
 showFunctionApply :: (v ~ TVarOf term, function ~ FunOf term, IsTerm term) => function -> [term] -> String
 showFunctionApply f ts = "fApp (" <> show f <> ")" <> show (brackets (fsep (punctuate (comma <> space) (map (text . show) ts))))
 
-#ifndef NOTESTS
 data Term function v
     = Var v
     | FApply function [Term function v]
@@ -266,7 +251,6 @@ test00 = TestCase $ assertEqual "print an expression"
                                 (prettyShow (fApp "sqrt" [fApp "-" [fApp "1" [],
                                                                      fApp "cos" [fApp "power" [fApp "+" [Var "x", Var "y"],
                                                                                                fApp "2" []]]]] :: Term FName V))
-#endif
 
 ---------------
 -- PREDICATE --
@@ -387,8 +371,6 @@ convertEquate :: (HasApplyAndEquate atom1, HasApplyAndEquate atom2) =>
                  (PredOf atom1 -> PredOf atom2) -> (TermOf atom1 -> TermOf atom2) -> atom1 -> atom2
 convertEquate cp ct = foldEquate (\t1 t2 -> equate (ct t1) (ct t2)) (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
-#ifndef NOTESTS
-
 -- | A predicate type with no distinct equality.
 data Predicate = NamedPred String
     deriving (Eq, Ord, Data, Typeable, Read)
@@ -463,7 +445,6 @@ instance (IsPredicate predicate, IsTerm term) => HasApplyAndEquate (FOL predicat
 
 instance HasFixity (FOL predicate term) where
     fixity _ = Fixity 6 InfixN
-#endif
 
 --------------
 -- FORMULAS --
@@ -563,7 +544,6 @@ showQuantified fm0 =
             at = show
       parenthesize' _ _ _ fm = parenthesize (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") leafFixity rootFixity Unary fm
 
-#ifndef NOTESTS
 data QFormula v atom
     = F
     | T
@@ -649,7 +629,6 @@ instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsLiteral (QFormula v atom
           Atom a -> at a
           Not p -> ne p
           _ -> ho fm
-#endif
 
 -- | Combine two formulas if they are similar.
 zipQuantified :: IsQuantified formula =>
@@ -703,7 +682,6 @@ infixr 9 ∀, ∃
 (∃) :: IsQuantified formula => VarOf formula -> formula -> formula
 (∃) = exists
 
-#ifndef NOTESTS
 -- | Concrete types for use in unit tests.
 type FTerm = Term FName V -- A term type with no Skolem functions
 type ApAtom = FOLAP Predicate FTerm
@@ -715,7 +693,6 @@ instance IsFirstOrder ApFormula
 instance IsFirstOrder EqFormula
 
 instance JustApply ApAtom
-#endif
 
 -- | Special case of applying a subfunction to the top *terms*.
 onformula :: (IsFormula formula, atom ~ AtomOf formula, HasApply atom) => ((TermOf atom) -> (TermOf atom)) -> formula -> formula
@@ -977,7 +954,6 @@ holds (mod_interp 3) undefined <<forall x. x = 0 ==> 1 = 0>>;;
 END_INTERACTIVE;;
 -}
 
-#ifndef NOTESTS
 -- | Examples of particular interpretations.
 bool_interp :: Interp FName Predicate Bool
 bool_interp =
@@ -1033,7 +1009,6 @@ test06 :: Test
 test06 = TestCase $ assertEqual "holds mod test 5 (p. 129)" expected input
     where input = holds (mod_interp 3) (Map.empty :: Map V Int) (for_all "x" (vt "x" .=. fApp "0" [] .=>. fApp "1" [] .=. fApp "0" []) :: EqFormula)
           expected = False
-#endif
 
 -- Free variables in terms and formulas.
 
@@ -1074,7 +1049,6 @@ fvt tm = foldTerm singleton (\_ args -> unions (map fvt args)) tm
 generalize :: IsFirstOrder formula => formula -> formula
 generalize fm = Set.fold for_all fm (fv fm)
 
-#ifndef NOTESTS
 test07 :: Test
 test07 = TestCase $ assertEqual "variant 1 (p. 133)" expected input
     where input = variant "x" (Set.fromList ["y", "z"]) :: V
@@ -1087,7 +1061,6 @@ test09 :: Test
 test09 = TestCase $ assertEqual "variant 3 (p. 133)" expected input
     where input = variant "x" (Set.fromList ["x", "x'"]) :: V
           expected = "x''"
-#endif
 
 -- | Substitution in formulas, with variable renaming.
 subst :: (IsFirstOrder formula, term ~ TermOf (AtomOf formula), v ~ VarOf formula) => Map v term -> formula -> formula
@@ -1137,7 +1110,6 @@ substq subfn qu x p =
            then variant x (fv (subst (undefine x subfn) p)) else x in
   qu x' (subst ((x |-> vt x') subfn) p)
 
-#ifndef NOTESTS
 -- Examples.
 
 test10 :: Test
@@ -1162,4 +1134,3 @@ testFOL :: Test
 testFOL = TestLabel "FOL" (TestList [test00, test01, test02, test03, test04,
                                      test05, test06, test07, test08, test09,
                                      test10, test11])
-#endif

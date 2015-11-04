@@ -2,7 +2,6 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -20,9 +19,7 @@ module Tableaux
     ( prawitz
     , K(K)
     , tab
-#ifndef NOTESTS
     , testTableaux
-#endif
     ) where
 
 import Control.Monad.RWS (RWS)
@@ -36,18 +33,15 @@ import FOL (asubst, exists, fApp, foldQuantified, for_all, fv, generalize, HasAp
             pApp, Quant((:!:)), subst, vt)
 import Formulas ((.~.), (.&.), (.=>.), (.<=>.), (.|.), atomic, BinOp((:&:), (:|:)),
                  HasBoolean(asBool), IsFormula(AtomOf), onatoms, overatoms, positive)
+import Herbrand (davisputnam)
 import Lib ((|=>), allpairs, deepen, Depth(Depth), distrib, evalRS, Failing(Success, Failure), failing, settryfind, tryfindM)
 import Lit (IsLiteral, JustLiteral, LFormula)
 import Prelude hiding (compare)
 import Pretty (assertEqual', Pretty(pPrint), prettyShow, text)
 import Prop (PFormula, simpdnf)
-import Skolem (askolemize, HasSkolem(SVarOf, toSkolem), runSkolem, simpdnf', skolemize)
-import Unif (Unify, unify_literals)
-#ifndef NOTESTS
-import Herbrand (davisputnam)
-import Skolem (Formula, SkTerm)
+import Skolem (askolemize, Formula, HasSkolem(SVarOf, toSkolem), runSkolem, simpdnf', skolemize, SkTerm)
 import Test.HUnit hiding (State)
-#endif
+import Unif (Unify, unify_literals)
 
 -- | Unify complementary literals.
 unify_complements :: (IsLiteral lit, HasApply atom, Unify atom v term,
@@ -95,7 +89,6 @@ prawitz fm =
       fvs = overatoms (\ a s -> Set.union (fv (atomic a :: formula)) s) pf (Set.empty :: Set v)
       pf = runSkolem (skolemize id ((.~.)(generalize fm))) :: PFormula atom
 
-#ifndef NOTESTS
 -- -------------------------------------------------------------------------
 -- Examples.
 -- -------------------------------------------------------------------------
@@ -108,13 +101,11 @@ p20 = TestCase $ assertEqual' "p20 - prawitz (p. 175)" expected input
                (exists "x" (exists "y" (pApp "P" [vt "x"] .&. pApp "Q" [vt "y"]))) .=>. (exists "z" (pApp "R" [vt "z"]))
           input = prawitz fm
           expected = 2
-#endif
 
 -- -------------------------------------------------------------------------
 -- Comparison of number of ground instances.
 -- -------------------------------------------------------------------------
 
-#ifndef NOTESTS
 compare :: (IsFirstOrder formula, Ord formula, Unify atom v term, HasSkolem function, Show formula,
             atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
             v ~ TVarOf term, v ~ SVarOf function) =>
@@ -171,7 +162,6 @@ let p60 = compare
 
 END_INTERACTIVE;;
 -}
-#endif
 
 newtype K = K Int deriving (Eq, Ord, Show)
 
@@ -183,7 +173,6 @@ instance Pretty K where
     pPrint (K n) = text ("K" ++ show n)
 
 -- | More standard tableau procedure, effectively doing DNF incrementally.  (p. 177)
-#if 1
 tableau :: forall formula atom term v function.
            (IsFirstOrder formula, Unify atom v term,
             atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term) =>
@@ -219,53 +208,12 @@ tableau fms n0 =
                         (return . Success)
             tryLit :: formula -> formula -> RWS () () () (Failing (K, Map v term))
             tryLit fm' l = failing (return . Failure) (\env' -> cont (k, env')) (execStateT (unify_complements fm' l) env)
-#else
-tableau :: forall formula atom term v function.
-           (IsFirstOrder formula, Unify atom v term,
-            atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term) =>
-           [formula] -> Depth -> Failing (K, Map v term)
-tableau fms n0 =
-    go (fms, [], n0) Success (K 0, Map.empty)
-    where
-      go :: ([formula], [formula], Depth)
-         -> ((K, Map v term) -> Failing (K, Map v term))
-         -> (K, Map v term)
-         -> Failing (K, Map v term)
-      go (_, _, n) _ (_, _) | n < Depth 0 = Failure ["no proof at this level"]
-      go ([], _, _) _ (_, _) =  Failure ["tableau: no proof"]
-      go (fm : unexp, lits, n) cont (k, env) =
-          foldQuantified qu co (\_ -> go2 fm unexp) (\_ -> go2 fm unexp) (\_ -> go2 fm unexp) fm
-          where
-            qu :: Quant -> v -> formula -> Failing (K, Map v term)
-            qu (:!:) x p =
-                let y = vt (fromString (prettyShow k))
-                    p' = subst (x |=> y) p in
-                go ([p'] ++ unexp ++ [for_all x p],lits,pred n) cont (succ k, env)
-            qu _ _ _ = go2 fm unexp
-            co p (:&:) q =
-                go (p : q : unexp,lits,n) cont (k, env)
-            co p (:|:) q =
-                go (p : unexp,lits,n) (go (q : unexp,lits,n) cont) (k, env)
-            co _ _ _ = go2 fm unexp
-
-            go2 :: formula -> [formula] -> Failing (K, Map v term)
-            go2 fm' unexp =
-                case tryfind (tryLit fm') lits of
-                  Failure _ -> go (unexp, fm' : lits, n) cont (k, env)
-                  Success x -> Success x
-            tryLit :: formula -> formula -> Failing (K, Map v term)
-            tryLit fm' l = failing Failure (\env' -> cont (k, env')) (execStateT (unify_complements fm' l) env)
-#endif
 
 tabrefute :: (IsFirstOrder formula, Unify atom v term,
               atom ~ AtomOf formula, term ~ TermOf atom, v ~ TVarOf term) =>
              Maybe Depth -> [formula] -> Failing ((K, Map v term), Depth)
 tabrefute limit fms =
-#if 1
     let r = deepen (\n -> (,n) <$> evalRS (tableau fms n) () ()) (Depth 0) limit in
-#else
-    let r = deepen (\n -> (,n) <$> tableau fms n) (Depth 0) limit in
-#endif
     failing Failure (Success . fst) r
 
 tab :: (IsFirstOrder formula, Unify atom v term, Pretty formula, HasSkolem function,
@@ -276,7 +224,6 @@ tab limit fm =
   let sfm = runSkolem (askolemize((.~.)(generalize fm))) in
   if asBool sfm == Just False then (error "Tableaux.tab") else tabrefute limit [sfm]
 
-#ifndef NOTESTS
 p38 :: Test
 p38 =
     let [p, r] = [pApp "P", pApp "R"] :: [[SkTerm] -> Formula]
@@ -331,7 +278,7 @@ let p38 = tab
      (exists z w. P[vt "z"] .&. R(x,w) .&. R(w,z))))>>;;
 END_INTERACTIVE;;
 -}
-#endif
+
 -- -------------------------------------------------------------------------
 -- Try to split up the initial formula first; often a big improvement.
 -- -------------------------------------------------------------------------
@@ -346,7 +293,6 @@ splittab fm =
           -- simpdnf' :: PFormula atom -> Set (Set (LFormula atom))
           -- simpdnf' = simpdnf id
 
-#ifndef NOTESTS
 {-
 -- -------------------------------------------------------------------------
 -- Example: the Andrews challenge.
@@ -712,4 +658,3 @@ let davis_putnam_example = time splittab
 
 testTableaux :: Test
 testTableaux = TestLabel "Tableaux" (TestList [p20, p19, p38])
-#endif

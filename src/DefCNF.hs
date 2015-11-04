@@ -2,7 +2,6 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -19,27 +18,20 @@ module DefCNF
     -- * Instance
     , Atom(N)
     -- * Tests
-#ifndef NOTESTS
     , testDefCNF
-#endif
     ) where
 
+import Data.Function (on)
 import Data.List as List
 import Data.Map as Map hiding (fromList)
 import Data.Set as Set
 import Formulas as P
 import Lit (convertLiteral, IsLiteral, JustLiteral, LFormula)
-import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), text)
-import Prop (foldPropositional, IsPropositional(foldPropositional'), JustPropositional,
-             list_conj, list_disj, nenf, simpcnf)
-#ifndef NOTESTS
-import Data.Function (on)
-import Pretty (assertEqual', prettyShow)
-import Prop (cnf', Prop(P), PFormula)
+import Pretty (assertEqual', HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
+import Prop (cnf', foldPropositional, IsPropositional(foldPropositional'), JustPropositional,
+             list_conj, list_disj, nenf, PFormula, Prop(P), simpcnf)
 import Test.HUnit
-#endif
 
-#ifndef NOTESTS
 -- | Example (p. 74)
 test01 :: Test
 test01 =
@@ -50,7 +42,6 @@ test01 =
     TestCase $ assertEqual' "cnf test (p. 74)"
                  ((p∨q∨r)∧(p∨(¬)q∨(¬)r)∧(q∨(¬)p∨(¬)r)∧(r∨(¬)p∨(¬)q))
                  (cnf' (p .<=>. (q .<=>. r)) :: PFormula Prop)
-#endif
 
 class NumAtom atom where
     ma :: Integer -> atom
@@ -120,7 +111,6 @@ mk_defcnf ca fn fm =
   let (deflist :: [pf]) = Map.elems defs in
   Set.unions (List.map (simpcnf ca :: pf -> Set (Set lit)) (fm'' : deflist))
 
-#ifndef NOTESTS
 testfm :: PFormula Atom
 testfm = let (p, q, r, s) = (atomic (N "p" 0), atomic (N "q" 0), atomic (N "r" 0), atomic (N "s" 0)) in
      (p .|. (q .&. ((.~.) r))) .&. s
@@ -149,7 +139,6 @@ test02 =
 
 strings :: Pretty a => Set (Set a) -> [[String]]
 strings ss = sortBy (compare `on` length) . sort . Set.toList $ Set.map (sort . Set.toList . Set.map prettyShow) ss
-#endif
 
 -- | Version tweaked to exploit initial structure.
 defcnf2 :: (IsPropositional pf, JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> pf
@@ -195,7 +184,6 @@ andcnf3 trip@(fm,_defs,_n) =
       co p (:&:) q = subcnf andcnf3 (.&.) p q trip
       co _ _ _ = maincnf trip
 
-#ifndef NOTESTS
 test03 :: Test
 test03 =
     let input = strings (mk_defcnf id andcnf3 testfm :: Set (Set (LFormula Atom)))
@@ -211,4 +199,3 @@ test03 =
 
 testDefCNF :: Test
 testDefCNF = TestLabel "DefCNF" (TestList [test01, test02, test03])
-#endif

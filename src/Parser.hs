@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, NoMonomorphismRestriction, FlexibleContexts, FlexibleInstances, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
+{-# LANGUAGE NoMonomorphismRestriction, FlexibleContexts, FlexibleInstances, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
 module Parser where
 
 -- Parsing expressions and statements

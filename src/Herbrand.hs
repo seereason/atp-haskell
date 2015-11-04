@@ -2,7 +2,6 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
@@ -18,21 +17,17 @@ import qualified Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace
-
 import DP (dpll)
 import FOL (Arity, functions, HasApply(TermOf), HasApply, IsFirstOrder, IsTerm(TVarOf, FunOf),
             fApp, lsubst, fv, generalize)
 import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib)
 import Lit (JustLiteral, LFormula)
-import Prop (eval, JustPropositional, PFormula, simpcnf, simpdnf, trivial)
-import Skolem (HasSkolem(SVarOf), Formula, runSkolem, skolemize)
-
-#ifndef NOTESTS
 import Parser(fof)
 import Pretty (prettyShow)
+import Prop (eval, JustPropositional, PFormula, simpcnf, simpdnf, trivial)
+import Skolem (Formula, HasSkolem(SVarOf), runSkolem, skolemize)
 import Test.HUnit hiding (tried)
-#endif
 
 -- | Propositional valuation.
 pholds :: (JustPropositional pf) => (AtomOf pf -> Bool) -> pf -> Bool
@@ -123,7 +118,6 @@ gilmore fm =
   let cntms = Set.map (\ (c,_) -> fApp c []) consts in
   Set.size (gilmore_loop (simpdnf id sfm :: Set (Set (LFormula atom))) cntms fns (fvs) 0 (Set.singleton Set.empty) Set.empty Set.empty)
 
-#ifndef NOTESTS
 -- | First example and a little tracing.
 test01 :: Test
 test01 =
@@ -202,8 +196,6 @@ let p20 = gilmore
    ==> (exists x y. P(x) /\ Q(y)) ==> (exists z. R(z))>>;;
 
 -}
-#endif
-
 
 -- | The Davis-Putnam procedure for first order logic.
 dp_mfn :: Ord b => Set (Set a) -> (a -> b) -> Set (Set b) -> Set (Set b)
@@ -314,7 +306,5 @@ let p29 = davisputnam'
 END_INTERACTIVE;;
 -}
 
-#ifndef NOTESTS
 testHerbrand :: Test
 testHerbrand = TestLabel "Herbrand" (TestList [test01, p24, p45])
-#endif

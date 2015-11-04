@@ -2,7 +2,6 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -21,32 +20,27 @@ module Resolution
     , resolution3
     , presolution
     -- , matchAtomsEq
-#ifndef NOTESTS
     , davis_putnam_example_formula
     , testResolution
-#endif
     ) where
 
 import Control.Monad.State (execStateT, get, StateT)
+import Data.List as List (map)
 import Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Set as Set
+import Data.String (fromString)
 import FOL
 import Formulas
 import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
             Failing(..), failing, (|->), setAll, setAny, settryfind)
 import Lit
 import Parser (fof)
-import Pretty (assertEqual', Pretty)
+import Pretty (assertEqual', Pretty, prettyShow)
 import Prop
 import Skolem
-import Unif (solve, Unify, unify_literals)
-
-#ifndef NOTESTS
-import Data.List as List (map)
-import Data.String (fromString)
 import Test.HUnit
-import Pretty (prettyShow)
+import Unif (solve, Unify, unify_literals)
 
 -- | Barber's paradox is an example of why we need factoring.
 test01 :: Test
@@ -66,7 +60,6 @@ test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p
           -- x = vt (fromString "x")
           -- b = vt (fromString "b")
           -- fx = fApp (Skolem "x" 1)
-#endif
 
 -- | MGU of a set of literals.
 mgu :: forall lit atom term v.
@@ -158,7 +151,6 @@ resolution1 :: forall m fof atom term v function.
                fof -> SkolemT m function (Set (Failing Bool))
 resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_resolution1 . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
-#ifndef NOTESTS
 -- | Simple example that works well.
 davis_putnam_example_formula :: Formula
 davis_putnam_example_formula = [fof| ∃ x y. (∀ z. ((F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))) |]
@@ -175,7 +167,6 @@ test02 =
     TestCase $ assertEqual "Davis-Putnam example 1" expected (runSkolem (resolution1 davis_putnam_example_formula))
         where
           expected = Set.singleton (Success True)
-#endif
 
 -- -------------------------------------------------------------------------
 -- Matching of terms and literals.
@@ -292,12 +283,10 @@ subsumes_clause cls1 cls2 =
                                                     Success env' -> subsume env' clt
                                                     Failure msgs -> Failure msgs) cls2
 
-#ifndef NOTESTS
 test03 :: Test
 test03 = TestCase $ assertEqual' "Davis-Putnam example 2" expected (runSkolem (resolution2 davis_putnam_example_formula))
         where
           expected = Set.singleton (Success True)
-#endif
 
 -- | Positive (P1) resolution.
 presolution :: forall fof atom term v function m.
@@ -354,7 +343,6 @@ pure_resolution3 :: forall fof atom term v.
 pure_resolution3 fm =
     uncurry resloop2 (Set.partition (setAny positive) (simpcnf id (specialize id (pnf fm) :: PFormula atom) :: Set (Set (LFormula atom))))
 
-#ifndef NOTESTS
 instance Match (SkAtom, SkAtom) V SkTerm where
     match = match_atoms_eq
 
@@ -1120,4 +1108,3 @@ los =
 
 testResolution :: Test
 testResolution = TestLabel "Resolution" (TestList [test01, test02, test03, gilmore_1, p1, los])
-#endif

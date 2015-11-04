@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -52,9 +51,7 @@ module Lib
     , setmapfilter
     , (∅)
     , deepen, Depth(Depth)
-#ifndef NOTESTS
     , testLib
-#endif
     ) where
 
 import Control.Applicative.Error (Failing (Success, Failure))
@@ -75,9 +72,7 @@ import Debug.Trace (trace)
 import Prelude hiding (map)
 import System.IO (hPutStrLn, stderr)
 import Text.PrettyPrint.HughesPJClass (Doc, fsep, punctuate, comma, space, Pretty(pPrint), text)
-#ifndef NOTESTS
 import Test.HUnit (assertEqual, Test(TestCase, TestLabel, TestList))
-#endif
 
 failing :: ([String] -> b) -> (a -> b) -> Failing a -> b
 failing f _ (Failure errs) = f errs
@@ -317,12 +312,10 @@ allpairs f xs ys = Foldable.foldr (\ x zs -> Foldable.foldr (g x) zs ys) slEmpty
 distrib :: Ord a => Set (Set a) -> Set (Set a) -> Set (Set a)
 distrib s1 s2 = allpairs (Set.union) s1 s2
 
-#ifndef NOTESTS
 test01 :: Test
 test01 = TestCase $ assertEqual "allpairs" expected input
     where input = allpairs (,) (Set.fromList [1,2,3]) (Set.fromList [4,5,6])
           expected = Set.fromList [(1,4),(1,5),(1,6),(2,4),(2,5),(2,6),(3,4),(3,5),(3,6)] :: Set (Int, Int)
-#endif
 
 {-
 let rec distinctpairs l =
@@ -462,7 +455,6 @@ evalRS action r s = fst $ evalRWS action r s
 runRS :: RWS r () s a -> r -> s -> (a, s)
 runRS action r s = (\(a, s', _w) -> (a, s')) $ runRWS action r s
 
-#ifndef NOTESTS
 test02 :: Test
 test02 =
     TestCase $
@@ -472,7 +464,6 @@ test02 =
       (tryfind (\x -> if x == 3
                       then Success 3
                       else Failure ["test02"]) ([1..] :: [Int]))
-#endif
 
 settryfind :: (t -> Failing a) -> Set t -> Failing a
 settryfind f l =
@@ -1000,7 +991,5 @@ instance Enum Depth where
 instance Pretty Depth where
     pPrint = text . show
 
-#ifndef NOTESTS
 testLib :: Test
 testLib = TestLabel "Lib" (TestList [test01])
-#endif

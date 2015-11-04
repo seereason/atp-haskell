@@ -1,7 +1,6 @@
 -- | 'IsLiteral' is a subclass of formulas that support negation and
 -- have true and false elements.
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -23,19 +22,15 @@ module Lit
     , fixityLiteral
     , prettyLiteral
     , showLiteral
-#ifndef NOTESTS
     , LFormula(T, F, Atom, Not)
     , Lit(L, lname)
-#endif
     ) where
 
 import Data.Monoid ((<>))
-import Formulas (HasBoolean(..), IsAtom, IsNegatable(..), IsFormula(atomic, AtomOf), (.~.))
+import Formulas ((.~.), HasBoolean(..), IsAtom, IsNegatable(..), IsFormula(atomic, AtomOf), overatoms, onatoms)
+import Formulas ()
 import Prelude hiding (negate, null)
 import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
-#ifndef NOTESTS
-import Formulas (overatoms, onatoms)
-#endif
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- forms.  They support negation and must include True and False elements.
@@ -133,7 +128,6 @@ overatomsLiteral f fm r0 =
         where
           ne fm' = overatomsLiteral f fm' r0
 
-#ifndef NOTESTS
 -- | Example of a 'JustLiteral' type.
 data LFormula atom
     = F
@@ -177,4 +171,3 @@ instance IsAtom atom => HasFixity (LFormula atom) where
 
 instance IsAtom atom => Pretty (LFormula atom) where
     pPrint = prettyLiteral
-#endif

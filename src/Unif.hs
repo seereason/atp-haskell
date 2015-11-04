@@ -3,7 +3,6 @@
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
 {-# OPTIONS -Wall #-}
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -19,9 +18,7 @@ module Unif
     , solve
     , fullunify
     , unify_and_apply
-#ifndef NOTESTS
     , testUnif
-#endif
     ) where
 
 import Control.Monad.State -- (evalStateT, runStateT, State, StateT, get)
@@ -31,13 +28,10 @@ import Data.Map as Map
 import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
 import FOL (HasApply(TermOf), HasApplyAndEquate, IsTerm(..), JustApply, tsubst, V, zipApplys, zipEquates)
 import Formulas (IsFormula(AtomOf))
-import Lib (Failing)
-import Lit (IsLiteral, zipLiterals')
-#ifndef NOTESTS
 import Lib (Failing(Success, Failure))
+import Lit (IsLiteral, zipLiterals')
 import Skolem (SkAtom, SkTerm)
 import Test.HUnit hiding (State)
-#endif
 
 -- | Main unification procedure.
 class Unify a v term where
@@ -136,8 +130,6 @@ unify_atoms_eq a1 a2 =
 --        where
 --          app (t1, t2) = fullunify eqs >>= \i -> return $ (tsubst i t1, tsubst i t2)
 
-#ifndef NOTESTS
-
 instance Unify SkAtom V SkTerm where
     unify = unify_atoms_eq
 
@@ -193,4 +185,3 @@ END_INTERACTIVE;;
 
 testUnif :: Test
 testUnif = TestLabel "Unif" (TestList [test01, test02, test03, test04])
-#endif

@@ -2,7 +2,6 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -16,9 +15,7 @@ module PropExamples
     , mk_knows, mk_knows2
     , prime
     , ramsey
-#ifndef NOTESTS
     , testPropExamples
-#endif
     ) where
 
 import Data.Bits (Bits, shiftR)
@@ -27,12 +24,9 @@ import Data.Set as Set
 import Prelude hiding (sum)
 import Formulas
 import Lib (allsets)
-import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), text)
+import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
 import Prop
-#ifndef NOTESTS
-import Pretty (prettyShow)
 import Test.HUnit
-#endif
 
 -- | Generate assertion equivalent to R(s,t) <= n for the Ramsey number R(s,t)
 ramsey :: (IsPropositional pf, AtomOf pf ~ Knows Integer, Ord pf) =>
@@ -54,7 +48,6 @@ instance Num a => HasFixity (Knows a) where
 
 instance IsAtom (Knows Integer)
 
-#ifndef NOTESTS
 -- Some currently tractable examples. (p. 36)
 test01 :: Test
 test01 = TestList [TestCase (assertEqual "ramsey 3 3 4"
@@ -62,7 +55,6 @@ test01 = TestList [TestCase (assertEqual "ramsey 3 3 4"
                                          (prettyShow (ramsey 3 3 4 :: PFormula (Knows Integer)))),
                    TestCase (assertEqual "tautology (ramsey 3 3 5)" False (tautology (ramsey 3 3 5 :: PFormula (Knows Integer)))),
                    TestCase (assertEqual "tautology (ramsey 3 3 6)" True (tautology (ramsey 3 3 6 :: PFormula (Knows Integer))))]
-#endif
 
 -- | Half adder.  (p. 66)
 halfsum :: forall formula. IsCombinable formula => formula -> formula -> formula
@@ -104,7 +96,6 @@ mk_knows x i = atomic (K x i Nothing)
 mk_knows2 :: (IsPropositional formula, AtomOf formula ~ Knows a) => String -> a -> a -> formula
 mk_knows2 x i j = atomic (K x i (Just j))
 
-#ifndef NOTESTS
 test02 :: Test
 test02 =
     let [x, y, out, c] = List.map mk_knows ["X", "Y", "OUT", "C"] :: [Integer -> PFormula (Knows Integer)] in
@@ -114,7 +105,6 @@ test02 =
                            ((out 1 .<=>. ((x 1 .<=>. ((.~.) (y 1))) .<=>. ((.~.) (c 1)))) .&.
                             (c 2 .<=>. ((x 1 .&. y 1) .|. ((x 1 .|. y 1) .&. c 1)))))
                           (ripplecarry x y c out 2 :: PFormula (Knows Integer)))
-#endif
 
 -- | Special case with 0 instead of c(0).
 ripplecarry0 :: (IsPropositional formula, Ord formula, Ord a, Num a, Enum a) =>
@@ -239,7 +229,6 @@ prime p =
   let (n :: Integer) = bitlength p in
   (.~.) (multiplier m u v out (n - 1) .&. congruent_to out p (max n (2 * n - 2)))
 
-#ifndef NOTESTS
 -- Examples. (p. 72)
 
 type F = PFormula (Knows Integer)
@@ -252,4 +241,3 @@ test03 =
 
 testPropExamples :: Test
 testPropExamples = TestLabel "PropExamples" (TestList [test01, test02, test03])
-#endif

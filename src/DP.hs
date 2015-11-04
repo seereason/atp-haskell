@@ -2,7 +2,6 @@
 --
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -13,9 +12,7 @@ module DP
     , dpli, dplisat, dplitaut
     , dpll, dpllsat, dplltaut
     , dplb, dplbsat, dplbtaut
-#ifndef NOTESTS
     , testDP
-#endif
     ) where
 
 import Data.Map as Map (empty, Map)
@@ -25,13 +22,10 @@ import DefCNF (NumAtom(ai, ma), defcnfs)
 import Formulas (IsFormula(AtomOf), IsNegatable, (.~.), negative, positive, negate, negated)
 import Lib (Failing(Success, Failure), failing, allpairs, minimize, maximize, defined, (|->), setmapfilter, flatten)
 import Prelude hiding (negate, pure)
-import Prop (trivial, JustPropositional)
-import PropExamples (Knows(K))
-#ifndef NOTESTS
-import Prop (PFormula)
-import PropExamples (prime)
+import Prop (trivial, JustPropositional, PFormula)
+import PropExamples (Knows(K), prime)
+import PropExamples ()
 import Test.HUnit
-#endif
 
 instance NumAtom (Knows Integer) where
     ma n = K "p" n Nothing
@@ -102,12 +96,10 @@ dpsat = dp . defcnfs
 dptaut :: (JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
 dptaut = not . dpsat . negate
 
-#ifndef NOTESTS
 -- Examples.
 
 test01 :: Test
 test01 = TestCase (assertEqual "dptaut(prime 11) p. 84" True (dptaut (prime 11 :: PFormula (Knows Integer))))
-#endif
 
 -- | The same thing but with the DPLL procedure. (p. 84)
 dpll :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Bool
@@ -153,11 +145,9 @@ dpllsat = dpll . defcnfs
 dplltaut :: (JustPropositional pf, Ord pf, AtomOf pf ~ Knows Integer) => pf -> Bool
 dplltaut = not . dpllsat . negate
 
-#ifndef NOTESTS
 -- Example.
 test02 :: Test
 test02 = TestCase (assertEqual "dplltaut(prime 11)" True (dplltaut (prime 11 :: PFormula (Knows Integer))))
-#endif
 
 -- | Iterative implementation with explicit trail instead of recursion.
 dpli :: (IsNegatable formula, Ord formula) => Set (formula, TrailMix) -> Set (Set formula) -> Bool
@@ -248,7 +238,6 @@ dplbsat = dplb Set.empty . defcnfs
 dplbtaut :: (JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
 dplbtaut = not . dplbsat . negate
 
-#ifndef NOTESTS
 -- | Examples.
 test03 :: Test
 test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" True (dplitaut (prime 101 :: PFormula (Knows Integer)))),
@@ -256,4 +245,3 @@ test03 = TestList [TestCase (assertEqual "dplitaut(prime 101)" True (dplitaut (p
 
 testDP :: Test
 testDP = TestLabel "DP" (TestList [test01, test02, test03])
-#endif
