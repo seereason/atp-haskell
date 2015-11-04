@@ -26,6 +26,7 @@ module Lit
     , Lit(L, lname)
     ) where
 
+import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
 import Formulas ((.~.), HasBoolean(..), IsAtom, IsNegatable(..), IsFormula(atomic, AtomOf), overatoms, onatoms)
 import Formulas ()
@@ -84,8 +85,8 @@ convertLiteral ca fm = foldLiteral (\fm' -> (.~.) (convertLiteral ca fm')) fromB
 
 -- | Convert any formula to a literal, passing non-IsLiteral
 -- structures to the first argument (typically a call to error.)
-convertToLiteral :: (IsLiteral formula, JustLiteral lit
-                    ) => (formula -> lit) -> (AtomOf formula -> AtomOf lit) -> formula -> lit
+convertToLiteral :: (IsLiteral formula, JustLiteral lit) =>
+                    (formula -> lit) -> (AtomOf formula -> AtomOf lit) -> formula -> lit
 convertToLiteral ho ca fm = foldLiteral' ho (\fm' -> (.~.) (convertToLiteral ho ca fm')) fromBool (atomic . ca) fm
 
 fixityLiteral :: JustLiteral lit => lit -> Fixity
@@ -134,7 +135,7 @@ data LFormula atom
     | T
     | Atom atom
     | Not (LFormula atom)
-    deriving (Eq, Ord, Read, Show)
+    deriving (Eq, Ord, Read, Show, Data, Typeable)
 
 data Lit = L {lname :: String} deriving (Eq, Ord)
 

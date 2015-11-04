@@ -85,10 +85,10 @@ import Formulas ((.~.), BinOp(..), binop, false, HasBoolean(..), IsAtom, IsCombi
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (foldLiteral, IsLiteral(foldLiteral'), JustLiteral)
 import Prelude hiding (pred)
-import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
-               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
+import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity), prettyShow, text)
 import Prop (foldPropositional, IsPropositional(foldPropositional'), JustPropositional)
-import Text.PrettyPrint (parens, braces, brackets, punctuate, comma, fcat, fsep, space)
+import Text.PrettyPrint (parens, brackets, punctuate, comma, fcat, fsep, space)
+import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel(PrettyLevel))
 import Test.HUnit
 
 ---------------
@@ -349,8 +349,9 @@ isEquate :: HasApplyAndEquate atom => atom -> Bool
 isEquate = foldEquate (\_ _ -> True) (\_ _ -> False)
 
 -- | Format the infix equality predicate applied to two terms.
-prettyEquate :: IsTerm term => term -> term -> Doc
-prettyEquate t1 t2 = pPrint t1 <> text "=" <> pPrint t2
+prettyEquate :: IsTerm term => PrettyLevel -> Rational -> term -> term -> Doc
+prettyEquate d _r t1 t2 =
+    maybeParens (d > PrettyLevel atomPrec) $ pPrintPrec (PrettyLevel atomPrec) 0 t1 <> text "=" <> pPrintPrec (PrettyLevel atomPrec) 0 t2
 
 -- | Implementation of 'overterms' for 'HasApply' types.
 overtermsEq :: HasApplyAndEquate atom => ((TermOf atom) -> r -> r) -> r -> atom -> r
@@ -423,7 +424,7 @@ instance (IsPredicate predicate, IsTerm term) => IsAtom (FOL predicate term)
 instance (HasApply (FOL predicate term),
           HasApplyAndEquate (FOL predicate term),
           IsTerm term) => Pretty (FOL predicate term) where
-    pPrint = foldEquate prettyEquate prettyApply
+    pPrintPrec d r = foldEquate (prettyEquate d r) prettyApply
 
 instance (IsPredicate predicate, IsTerm term) => HasApply (FOL predicate term) where
     type PredOf (FOL predicate term) = predicate
@@ -499,50 +500,59 @@ fixityQuantified fm =
       at = (fixity :: AtomOf formula -> Fixity)
 
 -- | Implementation of 'Pretty' for 'IsQuantified' types.
-prettyQuantified :: forall fof. IsQuantified fof => fof -> Doc
-prettyQuantified fm0 =
-    go rootFixity Unary fm0
+prettyQuantified :: forall fof. IsQuantified fof => PrettyLevel -> Rational -> fof -> Doc
+prettyQuantified d r fm =
+    foldQuantified (\op v p -> qu op [v] p) co ne tf at fm
     where
-      go parentFixity side fm =
-          parenthesize parens braces parentFixity fix side $ foldQuantified (\op v p -> qu op [v] p) co ne tf at fm
-          where
-            fix = fixity fm
-            -- Collect adjacent similar quantifiers into a single operator: ∀x y z.
-            qu :: Quant -> [VarOf fof] -> fof -> Doc
-            qu op vs p' = foldQuantified (qu' op vs p') (\p op' q -> qu'' op vs (co p op' q)) (qu'' op vs . ne) (qu'' op vs . tf) (qu'' op vs . at) p'
-            qu' :: Quant -> [VarOf fof] -> fof -> Quant -> VarOf fof -> fof -> Doc
-            qu' op vs _ op' v p' | op == op' = qu op (v : vs) p'
-            qu' op vs p _ _ _ = qu'' op vs (go fix RHS p)
-            qu'' op [] d = d
-            qu'' op vs d = text (case op of (:!:) -> "∀"; (:?:) -> "∃") <> fsep (map pPrint (reverse vs)) <> text ". " <> d
-            co f (:&:) g = go fix LHS f <> text "∧" <> go fix RHS g
-            co f (:|:) g = go fix LHS f <> text "∨" <> go fix RHS g
-            co f (:=>:) g = go fix LHS f <> text "⇒" <> go fix RHS g
-            co f (:<=>:) g = go fix LHS f <> text "⇔" <> go fix RHS g
-            ne f = text "¬" <> go fix Unary f
-            tf = pPrint
-            at = pPrint
+      -- Collect similarly quantified variables
+      qu :: Quant -> [VarOf fof] -> fof -> Doc
+      qu op vs p' = foldQuantified (qu' op vs p') (\_ _ _ -> qu'' op vs p') (\_ -> qu'' op vs p') (\_ -> qu'' op vs p') (\_ -> qu'' op vs p') p'
+      qu' :: Quant -> [VarOf fof] -> fof -> Quant -> VarOf fof -> fof -> Doc
+      qu' op vs _ op' v p' | op == op' = qu op (v : vs) p'
+      qu' op vs p _ _ _ = qu'' op vs p
+      qu'' :: Quant -> [VarOf fof] -> fof -> Doc
+      qu'' _op [] p = prettyQuantified d r p
+      qu'' op vs p = maybeParens (d > PrettyLevel quantPrec) $ text (case op of (:!:) -> "∀"; (:?:) -> "∃") <> fsep (map pPrint (reverse vs)) <> text ". " <> prettyQuantified (PrettyLevel quantPrec) 0 p
+      co :: fof -> BinOp -> fof -> Doc
+      co p (:&:) q = maybeParens (d > PrettyLevel andPrec) $ prettyQuantified (PrettyLevel andPrec) 0 p <> text "∧" <>  prettyQuantified (PrettyLevel andPrec) 0 q
+      co p (:|:) q = maybeParens (d > PrettyLevel orPrec) $ prettyQuantified (PrettyLevel orPrec) 0 p <> text "∨" <> prettyQuantified (PrettyLevel orPrec) 0 q
+      co p (:=>:) q = maybeParens (d > PrettyLevel impPrec) $ prettyQuantified (PrettyLevel impPrec) 0 p <> text "⇒" <> prettyQuantified (PrettyLevel impPrec) 0 q
+      co p (:<=>:) q = maybeParens (d > PrettyLevel iffPrec) $ prettyQuantified (PrettyLevel iffPrec) 0 p <> text "⇔" <> prettyQuantified (PrettyLevel iffPrec) 0 q
+      ne p = maybeParens (d > PrettyLevel notPrec) $ text "¬" <> prettyQuantified (PrettyLevel notPrec) 0 p
+      tf x = maybeParens (d > PrettyLevel boolPrec) $ pPrint x
+      at x = pPrintPrec d r x -- maybeParens (d > PrettyLevel atomPrec) $ pPrint x
 
--- | Implementation of 'Show' for 'IsQuantified' types.  For clarity, show
--- methods fully parenthesize
-showQuantified :: IsQuantified formula => formula -> String
-showQuantified fm0 =
-    go rootFixity Unary fm0
+boolPrec :: Int
+boolPrec = 14
+notPrec :: Int
+notPrec = 12
+atomPrec :: Int
+atomPrec = 10
+andPrec :: Int
+andPrec = 8
+orPrec :: Int
+orPrec = 6
+impPrec :: Int
+impPrec = 4
+iffPrec :: Int
+iffPrec = 2
+quantPrec :: Int
+quantPrec = 0
+
+-- | Implementation of 'showsPrec' for 'IsQuantified' types.
+showQuantified :: IsQuantified formula => Int -> formula -> ShowS
+showQuantified d fm =
+    foldQuantified qu co ne tf at fm
     where
-      go parentFixity side fm =
-          parenthesize' parentFixity fix side $ foldQuantified qu co ne tf at fm
-          where
-            fix = fixity fm
-            qu (:!:) x p = "for_all " ++ show x <> " " <> go fix RHS p
-            qu (:?:) x p = "exists " ++ show x <> " " <> go fix RHS p
-            ne f = "(.~.) (" <> go fix Unary f ++ ")" -- parenthesization of prefix operators is sketchy
-            co f (:&:) g = go fix LHS f <> " .&. " <> go fix RHS g
-            co f (:|:) g = go fix LHS f <> " .|. " <> go fix RHS g
-            co f (:=>:) g = go fix LHS f <> " .=>. " <> go fix RHS g
-            co f (:<=>:) g = go fix LHS f <> " .<=>. " <> go fix RHS g
-            tf = show
-            at = show
-      parenthesize' _ _ _ fm = parenthesize (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") leafFixity rootFixity Unary fm
+      qu (:!:) x p = showParen (d > quantPrec) $ showString "for_all " . showString (show x) . showString " " . showQuantified (quantPrec) p
+      qu (:?:) x p = showParen (d > quantPrec) $ showString "exists " . showString (show x) . showString " " . showQuantified (quantPrec) p
+      co p (:&:) q = showParen (d > andPrec) $ showQuantified andPrec p . showString " .&. " . showQuantified andPrec q
+      co p (:|:) q = showParen (d > orPrec) $ showQuantified orPrec p . showString " .|. " . showQuantified orPrec q
+      co p (:=>:) q = showParen (d > impPrec) $ showQuantified impPrec p . showString " .=>. " . showQuantified impPrec q
+      co p (:<=>:) q = showParen (d > iffPrec) $ showQuantified iffPrec p . showString " .<=>. " . showQuantified iffPrec q
+      ne p = showParen (d > notPrec) $ showString "(.~.) " . showQuantified (succ notPrec) p -- parenthesization of prefix operators is sketchy
+      tf x = showParen (d > boolPrec) $ showsPrec boolPrec x
+      at x = showParen (d > atomPrec) $ showsPrec atomPrec x
 
 data QFormula v atom
     = F
@@ -557,11 +567,8 @@ data QFormula v atom
     | Exists v (QFormula v atom)
     deriving (Eq, Ord, Data, Typeable, Read)
 
-instance (HasApply atom, IsTerm term,
-          term ~ TermOf atom,
-          v ~ TVarOf term)
-    => Pretty (QFormula v atom) where
-    pPrint = prettyQuantified
+instance (HasApply atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) => Pretty (QFormula v atom) where
+    pPrintPrec = prettyQuantified
 
 instance HasBoolean (QFormula v atom) where
     asBool T = Just True
@@ -615,7 +622,7 @@ instance (IsPropositional (QFormula v atom), IsVariable v, IsAtom atom) => IsQua
 
 -- Build a Haskell expression for this formula
 instance IsQuantified (QFormula v atom) => Show (QFormula v atom) where
-    show = showQuantified
+    showsPrec = showQuantified
 
 -- Precedence information for QFormula
 instance IsQuantified (QFormula v atom) => HasFixity (QFormula v atom) where

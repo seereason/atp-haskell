@@ -9,7 +9,7 @@
 
 module Pretty
     ( (<>)
-    , Pretty(pPrint)
+    , Pretty(pPrint, pPrintPrec)
     , module Text.PrettyPrint.HughesPJClass
     , HasFixity(fixity)
     , Side(LHS, RHS, Unary)
@@ -29,7 +29,7 @@ import GHC.Stack
 import Language.Haskell.TH.Syntax (maxPrecedence)
 import Language.Haskell.TH.Ppr (noPrec, Precedence)
 import Test.HUnit (Assertion, assertFailure)
-import Text.PrettyPrint.HughesPJClass (brackets, comma, Doc, fsep, hcat, nest, Pretty(pPrint), prettyShow, punctuate, text)
+import Text.PrettyPrint.HughesPJClass (brackets, comma, Doc, fsep, hcat, nest, Pretty(pPrint, pPrintPrec), prettyShow, punctuate, text)
 
 data Associativity
     = InfixL  -- Left-associative - a-b-c == (a-b)-c

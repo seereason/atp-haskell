@@ -48,36 +48,37 @@ testParser =
                 , t "read 1" (show (ParseOk (Paren (App (App (Var (UnQual (Ident "for_all"))) (Lit (String "x")))
                                                     (Paren (InfixApp (Paren (Lit (String "x"))) (QVarOp (UnQual (Symbol ".=.")))
                                                             (Paren (Lit (String "x")))))))))
-                             (show (parseExp (show [fof| ∀x. x=x |])))
-                , t "read 2" (show (ParseOk (Paren (InfixApp
-                                                    (Paren (App
-                                                            (App (Var (UnQual (Ident "for_all"))) (Lit (String "x")))
-                                                            (Paren (App (App
-                                                                         (Var (UnQual (Ident "pApp")))
-                                                                         (Paren (App
-                                                                                 (Var (UnQual (Ident "fromString")))
-                                                                                 (Lit (String "P")))))
-                                                                    (List [Lit (String "x")])))))
-                                                    (QVarOp (UnQual (Symbol ".&.")))
-                                                    (Paren (App
-                                                            (App
-                                                             (Var (UnQual (Ident "pApp")))
-                                                             (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "Q")))))
-                                                            (List [Lit (String "x")])))))))
+                             (show (parseExp (show [fof| ∀x. (x=x) |])))
+                , t "read 2" (show (ParseOk (InfixApp
+                                               (Paren (InfixApp
+                                                         (App (Var (UnQual (Ident "for_all"))) (Lit (String "x")))
+                                                           (QVarOp (UnQual (Symbol ".")))
+                                                           (App
+                                                              (App
+                                                                 (Var (UnQual (Ident "pApp")))
+                                                                 (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "P")))))
+                                                              (List [Lit (String "x")]))))
+                                               (QVarOp (UnQual (Symbol ".&.")))
+                                               (App
+                                                  (App
+                                                     (Var (UnQual (Ident "pApp")))
+                                                     (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "Q")))))
+                                                  (List [Lit (String "x")])))))
                              (show (parseExp (show [fof| ∀x. P(x) ∧ Q(x) |])))
-                , t "read 3" (show (ParseOk (Paren (InfixApp (Paren (App
-                                                                     (App (Var (UnQual (Ident "for_all"))) (Lit (String "x")))
-                                                                     (Paren (App (App
-                                                                                  (Var (UnQual (Ident "pApp")))
-                                                                                  (Paren (App
-                                                                                          (Var (UnQual (Ident "fromString")))
-                                                                                          (Lit (String "P")))))
-                                                                             (List [Lit (String "x")])))))
-                                                    (QVarOp (UnQual (Symbol ".&.")))
-                                                    (Paren (App
+                , t "read 3" (show (ParseOk (InfixApp
+                                               (Paren (InfixApp
+                                                         (App (Var (UnQual (Ident "for_all"))) (Lit (String "x")))
+                                                         (QVarOp (UnQual (Symbol ".")))
+                                                         (App
                                                             (App
-                                                             (Var (UnQual (Ident "pApp")))
-                                                             (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "Q")))))
-                                                            (List [Lit (String "x")])))))))
+                                                               (Var (UnQual (Ident "pApp")))
+                                                               (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "P")))))
+                                                            (List [Lit (String "x")]))))
+                                               (QVarOp (UnQual (Symbol ".&.")))
+                                               (App
+                                                  (App
+                                                     (Var (UnQual (Ident "pApp")))
+                                                     (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "Q")))))
+                                                  (List [Lit (String "x")])))))
                              (show (parseExp (show [fof| ∀x. P(x) ∧ Q(x) |])))
                 ])

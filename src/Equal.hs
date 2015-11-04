@@ -193,8 +193,7 @@ testEqual02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expected
 --    fromString = fApp . fromString
 
 wishnu :: Formula
-wishnu = equalitize [fof| (∃ x. ((x = f(g(x))) ∧ ∀ x'. ((x' = f(g(x'))) ⇒ (x = x')))) ⇔
-                          (∃ y. ((y = g(f(y))) ∧ ∀ y'. ((y' = g(f(y'))) ⇒ (y = y')))) |]
+wishnu = equalitize [fof| ∃x. (x=f(g(x)) ∧ ∀x'. x'=f(g(x')) ⇒ x=x') ⇔ ∃y. (y=g(f(y)) ∧ ∀y'. (y'=g(f(y')) ⇒ y=y')) |]
 
 -- This takes 0.7 seconds on my machine.
 testEqual03 :: Test

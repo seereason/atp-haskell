@@ -17,7 +17,11 @@ module ATP
     , module Prolog
     , module Meson
     , module Equal
+    , module Text.PrettyPrint.HughesPJClass
     ) where
+
+import Data.String ({-instances-})
+import Text.PrettyPrint.HughesPJClass hiding ((<>))
 
 import Lib
 import Pretty

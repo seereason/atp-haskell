@@ -141,7 +141,7 @@ zipPropositional co ne tf at fm1 fm2 =
       at' a1 = foldPropositional (\_ _ _ -> Nothing) (\_ -> Nothing) (\_ -> Nothing)     (at a1)     fm2
 
 -- | Convert any instance of 'JustPropositional' to any 'IsPropositional' formula.
-convertPropositional :: (IsPropositional pf1, JustPropositional pf1, IsPropositional pf2) =>
+convertPropositional :: (JustPropositional pf1, IsPropositional pf2) =>
                         (AtomOf pf1 -> AtomOf pf2) -- ^ Convert an atomic formula
                      -> pf1 -> pf2
 convertPropositional ca pf =
@@ -156,7 +156,7 @@ convertPropositional ca pf =
 
 -- | Convert any instance of 'IsPropositional' to a 'JustPropositional' formula.  Typically the
 -- ho (higher order) argument calls error if it encounters something it can't handle.
-convertToPropositional :: (IsPropositional formula, IsPropositional pf, JustPropositional pf) =>
+convertToPropositional :: (IsPropositional formula, JustPropositional pf) =>
                           (formula -> pf)               -- ^ Convert a higher order formula
                        -> (AtomOf formula -> AtomOf pf) -- ^ Convert an atomic formula
                        -> formula -> pf
