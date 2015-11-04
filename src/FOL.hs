@@ -272,9 +272,9 @@ test00 = TestCase $ assertEqual "print an expression"
 -- PREDICATE --
 ----------------
 
--- | A predicate is the thing we apply to a list of 'IsTerm's to get
+-- | A predicate is the thing we apply to a list of 'IsTerm's to make
 -- an 'IsAtom'.
-class (Eq predicate, Ord predicate, Show predicate, IsString predicate, Pretty predicate, HasBoolean predicate) => IsPredicate predicate
+class (Eq predicate, Ord predicate, Show predicate, IsString predicate, Pretty predicate) => IsPredicate predicate
 
 ---------------------------
 -- ATOM (Atomic Formula) --
@@ -389,41 +389,26 @@ convertEquate cp ct = foldEquate (\t1 t2 -> equate (ct t1) (ct t2)) (\p1 ts1 -> 
 
 #ifndef NOTESTS
 
--- | This Predicate type includes an distinct Equals constructor, so
--- that we can use it to build an atoms with HasApplyAndEquate.
-data Predicate
-    = TP
-    | FP
-    | NamedPred String
+-- | A predicate type with no distinct equality.
+data Predicate = NamedPred String
     deriving (Eq, Ord, Data, Typeable, Read)
 
-instance HasBoolean Predicate where
-    fromBool True = TP
-    fromBool False = FP
-    asBool TP = Just True
-    asBool FP = Just False
-    asBool _ = Nothing
-
 instance IsString Predicate where
-    fromString "True" = error "bad predicate name: True"
-    fromString "False" = error "bad predicate name: True"
-    fromString "=" = error "bad predicate name: True"
+    -- fromString "True" = error "bad predicate name: True"
+    -- fromString "False" = error "bad predicate name: True"
+    -- fromString "=" = error "bad predicate name: True"
     fromString s = NamedPred s
 
+instance Show Predicate where
+    show (NamedPred s) = "fromString " ++ show s
+
 instance Pretty Predicate where
-    pPrint TP = error "Use of True as a prefix predicate is prohibited"
-    pPrint FP = error "Use of False as a prefix predicate is prohibited"
     pPrint (NamedPred "=") = error "Use of = as a predicate name is prohibited"
     pPrint (NamedPred "True") = error "Use of True as a predicate name is prohibited"
     pPrint (NamedPred "False") = error "Use of False as a predicate name is prohibited"
     pPrint (NamedPred s) = text s
 
-instance Pretty Predicate => IsPredicate Predicate
-
-instance Show Predicate where
-    show TP = "true"
-    show FP = "false"
-    show (NamedPred s) = "fromString " ++ show s
+instance IsPredicate Predicate
 
 -- | First order logic formula atom type.
 data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable, Read)

@@ -65,7 +65,8 @@ module Prop
     , dnf
     , purecnf
     , simpcnf
-    , cnf', cnf_
+    , cnf'
+    , cnf_
     , trivial
 #ifndef NOTESTS
     -- * Instance
@@ -493,19 +494,11 @@ test03 = TestCase $ assertEqual "Build Formula 3"
 
 -- Example of use.
 
-instance HasBoolean String where
-    asBool "True" = Just True
-    asBool "False" = Just False
-    asBool _ = Nothing
-    fromBool = show
-
-instance IsAtom String
-
 test04 :: Test
 test04 = TestCase $ assertEqual "fixity tests" expected input
     where (input, expected) = unzip (List.map (\ (fm, flag) -> (eval fm v0, flag)) pairs)
           v0 x = error $ "v0: " ++ show x
-          pairs :: [(PFormula String, Bool)]
+          pairs :: [(PFormula Prop, Bool)]
           pairs =
               [ ( true .&. false .=>. false .&. true,  True)
               , ( true .&. true  .=>. true  .&. false, False)
@@ -1046,15 +1039,6 @@ simpcnf ca fm =
       tf True = singleton Set.empty
       go = let cjs = Set.filter (not . trivial) (purecnf ca fm) in
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
-
-{-
-instance (IsLiteral lit atom, JustLiteral lit) => IsPropositional (Set (Set lit)) where
-    foldPropositional' ho co tf at fm =
-        case Set.minView fm of
-          Nothing -> tf False
-          Just (s, ss) | Set.null s && Set.null ss -> tf True
-          Just (s, ss) -> co
--}
 
 cnf_ :: (IsPropositional pf, Ord pf, IsLiteral lit, JustLiteral lit) => (AtomOf lit -> AtomOf pf) -> Set (Set lit) -> pf
 cnf_ ca = list_conj . Set.map (list_disj . Set.map (convertLiteral ca))
