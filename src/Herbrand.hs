@@ -21,7 +21,7 @@ import Data.String (IsString(..))
 import Debug.Trace
 
 import DP (dpll)
-import FOL (Arity, functions, HasApply(TermOf, PredOf), HasApply, IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
+import FOL (Arity, functions, HasApply(TermOf), HasApply, IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
             fApp, lsubst, fv, generalize)
 import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib, Marked)
@@ -30,11 +30,8 @@ import Prop (eval, IsPropositional, JustPropositional, Propositional, simpcnf, s
 import Skolem (HasSkolem(SVarOf), runSkolem, skolemize)
 
 #ifndef NOTESTS
-import FOL (exists, for_all, pApp, V, vt)
-import Formulas ((.=>.), (.&.), (.|.))
 import Parser(fof)
 import Pretty (prettyShow)
-import Skolem (MyFormula, MyTerm)
 import Test.HUnit hiding (tried)
 #endif
 
@@ -161,6 +158,7 @@ p24 =
 -- 2 ground instances tried; 57 items in list
 -- 3 ground instances tried; 84 items in list
 -- 4 ground instances tried; 405 items in list
+p45fm :: MyFormula
 p45fm =      [fof| (((forall x.
                       ((P(x) & (forall y. ((G(y) & H(x,y)) ==> J(x,y)))) ==>
                        (forall y. ((G(y) & H(x,y)) ==> R(y))))) &
@@ -170,6 +168,7 @@ p45fm =      [fof| (((forall x.
                         ((forall y. (H(x,y) ==> L(y))) &
                          (forall y. ((G(y) & H(x,y)) ==> J(x,y)))))))) ==>
                     (exists x. (P(x) & (~(exists y. (G(y) & H(x,y))))))) |]
+p45 :: Test
 p45 = TestLabel "gilmore p45" $ TestCase $ assertEqual "gilmore p45" 5 (gilmore p45fm)
 {-
 let p24 = gilmore
@@ -251,7 +250,7 @@ END_INTERACTIVE;;
 -}
 
 -- | Show how few of the instances we really need. Hence unification!
-davisputnam' :: forall formula atom predicate term v function.
+davisputnam' :: forall formula atom term v function.
                 (IsFirstOrder formula, Ord formula, HasSkolem function,
                  atom ~ AtomOf formula,
                  term ~ TermOf atom,

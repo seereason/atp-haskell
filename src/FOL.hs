@@ -67,8 +67,8 @@ module FOL
     , FName(FName)
     , Term(Var, FApply)
     , Predicate
-    , FOL(R)
-    , FOLEQ(AP, Equals)
+    , AP(AP)
+    , FOLEQ(AP', Equals)
     , Formula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     -- * Tests
     , testFOL
@@ -158,7 +158,7 @@ class (IsString function, Ord function, Pretty function, Show function) => IsFun
 type Arity = Int
 
 #ifndef NOTESTS
--- | A simple type to use as the function parameter of Term, FOL, etc.
+-- | A simple type to use as the function parameter of Term, AP, etc.
 -- The only reason to use this instead of String is to get nicer
 -- pretty printing.
 newtype FName = FName String deriving (Eq, Ord)
@@ -410,30 +410,30 @@ instance Pretty Predicate where
 instance IsPredicate Predicate
 
 -- | First order logic formula atom type.
-data FOL predicate term = R predicate [term] deriving (Eq, Ord, Data, Typeable, Read)
+data AP predicate term = AP predicate [term] deriving (Eq, Ord, Data, Typeable, Read)
 
-instance (IsPredicate predicate, IsTerm term) => JustApply (FOL predicate term)
+instance (IsPredicate predicate, IsTerm term) => JustApply (AP predicate term)
 
-instance (IsPredicate predicate, IsTerm term) => IsAtom (FOL predicate term)
+instance (IsPredicate predicate, IsTerm term) => IsAtom (AP predicate term)
 
-instance (IsPredicate predicate, IsTerm term) => Pretty (FOL predicate term) where
+instance (IsPredicate predicate, IsTerm term) => Pretty (AP predicate term) where
     pPrint = foldApply prettyApply
 
-instance (IsPredicate predicate, IsTerm term) => HasApply (FOL predicate term) where
-    type PredOf (FOL predicate term) = predicate
-    type TermOf (FOL predicate term) = term
-    applyPredicate = R
-    foldApply' _ f (R p ts) = f p ts
-    overterms f r (R _ ts) = foldr f r ts
-    onterms f (R p ts) = R p (map f ts)
+instance (IsPredicate predicate, IsTerm term) => HasApply (AP predicate term) where
+    type PredOf (AP predicate term) = predicate
+    type TermOf (AP predicate term) = term
+    applyPredicate = AP
+    foldApply' _ f (AP p ts) = f p ts
+    overterms f r (AP _ ts) = foldr f r ts
+    onterms f (AP p ts) = AP p (map f ts)
 
-instance (IsPredicate predicate, IsTerm term, Show predicate, Show term) => Show (FOL predicate term) where
+instance (IsPredicate predicate, IsTerm term, Show predicate, Show term) => Show (AP predicate term) where
     show = foldApply (\p ts -> showApply (p :: predicate) (ts :: [term]))
 
-instance HasFixity (FOL predicate term) where
+instance HasFixity (AP predicate term) where
     fixity _ = Fixity 6 InfixN
 
-data FOLEQ predicate term = AP predicate [term] | Equals term term deriving (Eq, Ord, Data, Typeable, Read)
+data FOLEQ predicate term = AP' predicate [term] | Equals term term deriving (Eq, Ord, Data, Typeable, Read)
 
 instance (IsPredicate predicate, IsTerm term) => IsAtom (FOLEQ predicate term)
 
@@ -445,8 +445,8 @@ instance (HasApply (FOLEQ predicate term),
 instance (IsPredicate predicate, IsTerm term) => HasApply (FOLEQ predicate term) where
     type PredOf (FOLEQ predicate term) = predicate
     type TermOf (FOLEQ predicate term) = term
-    applyPredicate = AP
-    foldApply' _ f (AP p ts) = f p ts
+    applyPredicate = AP'
+    foldApply' _ f (AP' p ts) = f p ts
     foldApply' d _ x = d x
     overterms = overtermsEq
     onterms = ontermsEq
@@ -458,7 +458,7 @@ instance (IsPredicate predicate, IsTerm term, Show predicate, Show term) => Show
 instance (IsPredicate predicate, IsTerm term) => HasApplyAndEquate (FOLEQ predicate term) where
     equate lhs rhs = Equals lhs rhs
     foldEquate eq _ (Equals lhs rhs) = eq lhs rhs
-    foldEquate _ ap (AP p ts) = ap p ts
+    foldEquate _ ap (AP' p ts) = ap p ts
 
 instance HasFixity (FOLEQ predicate term) where
     fixity _ = Fixity 6 InfixN
@@ -717,7 +717,7 @@ infixr 9 ∀, ∃
 #ifndef NOTESTS
 -- | Concrete types for use in unit tests.
 type MyTerm1 = Term FName V -- MyTerm1 has no Skolem functions
-type MyAtom1 = FOL Predicate MyTerm1
+type MyAtom1 = AP Predicate MyTerm1
 type MyAtom2 = FOLEQ Predicate MyTerm1
 type MyFormula1 = Formula V MyAtom1
 type MyFormula2 = Formula V MyAtom2
