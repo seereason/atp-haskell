@@ -20,22 +20,22 @@ import Extra (testExtra)
 import System.Exit (exitWith, ExitCode(ExitSuccess, ExitFailure))
 
 main :: IO Counts
-main = runTestTT (TestList  [testLib,
-                             testProp,
-                             testPropExamples,
-                             testDefCNF,
-                             testDP,
-                             testFOL,
-                             testSkolem,
-                             testParser,
-                             testHerbrand,
-                             testUnif,
-                             testTableaux,
-                             testResolution,
-                             testProlog,
-                             testMeson,
-                             testEqual,
-                             testExtra
+main = runTestTT (TestList  [TestLabel "Lib" testLib,
+                             TestLabel "Prop" testProp,
+                             TestLabel "PropExamples" testPropExamples,
+                             TestLabel "DefCNF" testDefCNF,
+                             TestLabel "DP" testDP,
+                             TestLabel "FOL" testFOL,
+                             TestLabel "Skolem" testSkolem,
+                             TestLabel "Parser" testParser,
+                             TestLabel "Herbrand" testHerbrand,
+                             TestLabel "Unif" testUnif,
+                             TestLabel "Tableaux" testTableaux,
+                             TestLabel "Resolution" testResolution,
+                             TestLabel "Prolog" testProlog,
+                             TestLabel "Meson" testMeson,
+                             TestLabel "Equal" testEqual,
+                             TestLabel "Extra" testExtra
                              ]) >>= doCounts
     where
       doCounts counts' = exitWith (if errors counts' /= 0 || failures counts' /= 0 then ExitFailure 1 else ExitSuccess)

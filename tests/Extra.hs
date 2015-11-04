@@ -113,7 +113,7 @@ test00 =
                    (show [fof| ∀a. (¬(P(a)∧∀y. (∀z. (Q(y)∨R(z))∧¬P(a)))) |], Success ((K 2, Map.empty),Depth 2))
                    (show fm1, tab Nothing fm1),
       TestCase $ assertEqual' ("MESON 2")
-                   (show [fof| ∀a. (¬(P(a)∧¬P(a)∧∀y. ∀z. (Q(y)∨R(z)))) |], Success ((K 0, Map.empty),Depth 0))
+                   (show [fof| ∀a. (¬(P(a)∧¬P(a)∧∀y. (∀z. (Q(y)∨R(z))))) |], Success ((K 0, Map.empty),Depth 0))
                    (show fm2, tab Nothing fm2) ]
 {-
 i = for_all "a" ((.~.)(p[a] .&. (for_all "y" (for_all "z" (q[y] .|. r[z]) .&. (.~.)(p[a])))))

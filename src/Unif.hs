@@ -52,8 +52,7 @@ instance Unify a v term => Unify (Seq a) v term where
           (x :< xs', y :< ys') -> unify x y >> unify xs' ys'
           _ -> fail "unify - Seq list length mismatch"
 
-unify_terms :: (v ~ TVarOf term, f ~ FunOf term, IsTerm term) =>
-               [(term,term)] -> StateT (Map v term) Failing ()
+unify_terms :: (IsTerm term, v ~ TVarOf term) => [(term,term)] -> StateT (Map v term) Failing ()
 unify_terms = mapM_ (uncurry unify_term_pair)
 
 unify_term_pair :: forall term v f. (IsTerm term, v ~ TVarOf term, f ~ FunOf term) =>
