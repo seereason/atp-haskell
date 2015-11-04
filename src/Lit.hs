@@ -127,7 +127,7 @@ onatomsLiteral :: JustLiteral lit => (AtomOf lit -> lit) -> lit -> lit
 onatomsLiteral f fm =
     foldLiteral ne tf at fm
     where
-      ne p = onatomsLiteral f p
+      ne p = (.~.) (onatomsLiteral f p)
       tf flag = fromBool flag
       at x = f x
 
