@@ -33,11 +33,11 @@ fof = QuasiQuoter
 
 -- parseProlog :: forall s lit. Stream s Identity Char => s -> PrologRule lit
 -- parseProlog str = either (error . show) id $ parse prologparser "" str
-parseFOL :: Stream String Identity Char => String -> MyFormula
+parseFOL :: Stream String Identity Char => String -> Formula
 parseFOL str = either (error . show) id $ parse folparser "" str
 -- parsePL :: forall s. Stream s Identity Char => s -> PFormula Prop
 -- parsePL str = either (error . show) id $ parse propparser "" str
-parseFOLTerm :: forall s. Stream s Identity Char => s -> MyTerm
+parseFOLTerm :: forall s. Stream s Identity Char => s -> SkTerm
 parseFOLTerm str = either (error . show) id $ parse folsubterm "" str
 
 def :: forall s u m. Stream s m Char => GenLanguageDef s u m
@@ -83,10 +83,10 @@ TokenParser{ parens = m_parens
 
 -- propparser :: forall s u m. Stream s m Char => ParsecT s u m (PFormula Prop)
 -- propparser = exprparser propterm
-folparser :: forall s u m. Stream s m Char => ParsecT s u m MyFormula
+folparser :: forall s u m. Stream s m Char => ParsecT s u m Formula
 folparser = exprparser folterm
 
-exprparser :: forall s u m. Stream s m Char => ParsecT s u m MyFormula -> ParsecT s u m MyFormula
+exprparser :: forall s u m. Stream s m Char => ParsecT s u m Formula -> ParsecT s u m Formula
 exprparser term = buildExpressionParser table term <?> "expression"
  where
   table = [ [Prefix (m_reservedOp ".~." >> return (.~.)),
@@ -130,19 +130,19 @@ exprparser term = buildExpressionParser table term <?> "expression"
 --        <|> (m_reserved "true" >> return true)
 --        <|> (m_reserved "false" >> return false)
 
-folterm :: forall s u m. Stream s m Char => ParsecT s u m MyFormula
+folterm :: forall s u m. Stream s m Char => ParsecT s u m Formula
 folterm = try (m_parens folparser)
        <|> try folpredicate_infix
        <|> folpredicate
        <|> (m_reserved "true" >> return true)
        <|> (m_reserved "false" >> return false)
 
-existentialPrefix :: forall s u m. Stream s m Char => ParsecT s u m (MyFormula -> MyFormula)
+existentialPrefix :: forall s u m. Stream s m Char => ParsecT s u m (Formula -> Formula)
 existentialPrefix = quantifierPrefix "∃" Exists <|> quantifierPrefix "exists" Exists
-forallPrefix :: forall s u m. Stream s m Char => ParsecT s u m (MyFormula -> MyFormula)
+forallPrefix :: forall s u m. Stream s m Char => ParsecT s u m (Formula -> Formula)
 forallPrefix = quantifierPrefix "∀" Forall <|> quantifierPrefix "for_all" Forall <|> quantifierPrefix "forall" Forall
 
-quantifierPrefix :: forall s u m. Stream s m Char => [Char] -> (V -> MyFormula -> MyFormula) -> ParsecT s u m (MyFormula -> MyFormula)
+quantifierPrefix :: forall s u m. Stream s m Char => [Char] -> (V -> Formula -> Formula) -> ParsecT s u m (Formula -> Formula)
 quantifierPrefix name op = do
    m_reservedOp name
    is <- map V <$> many1 m_identifier
@@ -152,7 +152,7 @@ quantifierPrefix name op = do
 predicate_infix_symbols :: [[Char]]
 predicate_infix_symbols = ["=","<",">","<=",">="]
 
-folpredicate_infix :: forall s u m. Stream s m Char => ParsecT s u m MyFormula
+folpredicate_infix :: forall s u m. Stream s m Char => ParsecT s u m Formula
 folpredicate_infix = choice (map (try . app) predicate_infix_symbols)
  where
   app op@"=" = do
@@ -166,40 +166,40 @@ folpredicate_infix = choice (map (try . app) predicate_infix_symbols)
    y <- folsubterm
    return (pApp (fromString op :: Predicate) [x,y])
 
-folpredicate :: forall s u m. Stream s m Char => ParsecT s u m MyFormula
+folpredicate :: forall s u m. Stream s m Char => ParsecT s u m Formula
 folpredicate = do
    p <- m_identifier <|> m_symbol "|--"
    xs <- option [] (m_parens (sepBy1 folsubterm (m_symbol ",")))
    return (pApp (fromString p :: Predicate) xs)
 
-folfunction :: forall s u m. Stream s m Char => ParsecT s u m MyTerm
+folfunction :: forall s u m. Stream s m Char => ParsecT s u m SkTerm
 folfunction = do
    fname <- m_identifier
    xs <- m_parens (sepBy1 folsubterm (m_symbol ","))
    return (fApp (fromString fname :: Function) xs)
 
-folconstant_numeric :: forall t t1 t2. Stream t t2 Char => ParsecT t t1 t2 MyTerm
+folconstant_numeric :: forall t t1 t2. Stream t t2 Char => ParsecT t t1 t2 SkTerm
 folconstant_numeric = do
    i <- m_integer
    return (fApp (fromString (show i) :: Function) [])
 
-folconstant_reserved :: forall t t1 t2. Stream t t2 Char => String -> ParsecT t t1 t2 MyTerm
+folconstant_reserved :: forall t t1 t2. Stream t t2 Char => String -> ParsecT t t1 t2 SkTerm
 folconstant_reserved str = do
    m_reserved str
    return (fApp (fromString str :: Function) [])
 
-folconstant :: forall t t1 t2. Stream t t2 Char => ParsecT t t1 t2 MyTerm
+folconstant :: forall t t1 t2. Stream t t2 Char => ParsecT t t1 t2 SkTerm
 folconstant = do
    name <- m_angles m_identifier
    return (fApp (fromString name :: Function) [])
 
-folsubterm :: forall s u m. Stream s m Char => ParsecT s u m MyTerm
+folsubterm :: forall s u m. Stream s m Char => ParsecT s u m SkTerm
 folsubterm = folfunction_infix <|> folsubterm_prefix
 
 constants :: [[Char]]
 constants = ["nil"]
 
-folsubterm_prefix :: forall s u m. Stream s m Char => ParsecT s u m MyTerm
+folsubterm_prefix :: forall s u m. Stream s m Char => ParsecT s u m SkTerm
 folsubterm_prefix =
    m_parens folfunction_infix
    <|> try folfunction
@@ -208,7 +208,7 @@ folsubterm_prefix =
    <|> folconstant
    <|> (fmap (Var . V) m_identifier)
 
-folfunction_infix :: forall s u m. Stream s m Char => ParsecT s u m MyTerm
+folfunction_infix :: forall s u m. Stream s m Char => ParsecT s u m SkTerm
 folfunction_infix = buildExpressionParser table folsubterm_prefix <?> "expression"
  where
   table = [ [Infix (m_reservedOp "::" >> return (\x y -> fApp (fromString "::" :: Function) [x,y])) AssocRight]

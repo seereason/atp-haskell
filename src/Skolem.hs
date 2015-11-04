@@ -39,7 +39,7 @@ module Skolem
 #ifndef NOTESTS
     -- * Instances
     , Function(Fn, Skolem)
-    , MyTerm, MyAtom, MyFormula
+    , Formula, SkTerm, SkAtom
     -- * Tests
     , testSkolem
 #endif
@@ -87,19 +87,45 @@ simplify1 fm =
       qu _ x p = if member x (fv p) then fm else p
 
 #ifndef NOTESTS
--- | Concrete formula type for use in unit tests.
-type MyTerm = Term Function V
-type MyAtom = FOL Predicate MyTerm
-type MyFormula = QFormula V MyAtom
+-- | A function type that is an instance of HasSkolem
+data Function
+    = Fn String
+    | Skolem V Int
+    deriving (Eq, Ord, Data, Typeable, Read)
 
-instance IsFirstOrder MyFormula
+instance IsFunction Function where
+    variantFunction f fns | Set.notMember f fns = f
+    variantFunction (Fn s) fns = variantFunction (fromString (s ++ "'")) fns
+    variantFunction (Skolem v n) fns = variantFunction (Skolem v (succ n)) fns
+
+instance IsString Function where
+    fromString = Fn
+
+instance Show Function where
+    show = showSkolem
+
+instance Pretty Function where
+    pPrint = prettySkolem (\(Fn s) -> text s)
+
+instance HasSkolem Function where
+    type SVarOf Function = V
+    toSkolem = Skolem
+    foldSkolem _ sk (Skolem v n) = sk v n
+    foldSkolem other _ f = other f
+
+ -- | A first order logic formula type with an equality predicate and skolem functions.
+type Formula = QFormula V SkAtom
+type SkTerm = Term Function V
+type SkAtom = FOL Predicate SkTerm
+
+instance IsFirstOrder Formula
 
 -- Example.
 test01 :: Test
 test01 = TestCase $ assertEqual ("simplify (p. 140) " ++ prettyShow fm) expected input
     where input = prettyShow (simplify fm)
-          expected = prettyShow ((for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: MyFormula)
-          fm :: MyFormula
+          expected = prettyShow ((for_all "x" (pApp "P" [vt "x"])) .=>. (pApp "Q" []) :: Formula)
+          fm :: Formula
           fm = (for_all "x" (for_all "y" (pApp "P" [vt "x"] .|. (pApp "P" [vt "y"] .&. false)))) .=>. exists "z" (pApp "Q" [])
 #endif
 
@@ -136,8 +162,8 @@ test02 = TestCase $ assertEqual "nnf (p. 140)" expected input
           expected = exists "x" ((.~.)(pApp p [vt "x"])) .|.
                      ((exists "y" (pApp q [vt "y"]) .&. exists "z" ((pApp p [vt "z"]) .&. (pApp q [vt "z"]))) .|.
                       (for_all "y" ((.~.)(pApp q [vt "y"])) .&.
-                       for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: MyFormula)
-          fm :: MyFormula
+                       for_all "z" (((.~.)(pApp p [vt "z"])) .|. ((.~.)(pApp q [vt "z"])))) :: Formula)
+          fm :: Formula
           fm = (for_all "x" (pApp p [vt "x"])) .=>. ((exists "y" (pApp q [vt "y"])) .<=>. exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"]))
 #endif
 
@@ -206,8 +232,8 @@ test03 = TestCase $ assertEqual "pnf (p. 144)" (prettyShow expected) (prettyShow
                                  ((((.~.)(pApp p [vt "x"])) .&. ((.~.)(pApp r [vt "y"]))) .|.
                                   ((pApp q [vt "x"]) .|.
                                    (((.~.)(pApp p [vt "z"])) .|.
-                                    ((.~.)(pApp q [vt "z"])))))) :: MyFormula
-          fm :: MyFormula
+                                    ((.~.)(pApp q [vt "z"])))))) :: Formula
+          fm :: Formula
           fm = (for_all "x" (pApp p [vt "x"]) .|. (pApp r [vt "y"])) .=>.
                exists "y" (exists "z" ((pApp q [vt "y"]) .|. ((.~.)(exists "z" (pApp p [vt "z"] .&. pApp q [vt "z"])))))
 #endif
@@ -384,42 +410,15 @@ skolemize :: (IsFirstOrder formula,
              (AtomOf formula -> AtomOf pf) -> formula -> StateT (SkolemState function) m pf
 skolemize ca fm = (specialize ca . pnf) <$> askolemize fm
 
-#ifndef NOTESTS
--- | A function type that is an instance of HasSkolem
-data Function
-    = Fn String
-    | Skolem V Int
-    deriving (Eq, Ord, Data, Typeable, Read)
-
-instance IsFunction Function where
-    variantFunction f fns | Set.notMember f fns = f
-    variantFunction (Fn s) fns = variantFunction (fromString (s ++ "'")) fns
-    variantFunction (Skolem v n) fns = variantFunction (Skolem v (succ n)) fns
-
-instance IsString Function where
-    fromString = Fn
-
-instance Show Function where
-    show = showSkolem
-
 prettySkolem :: HasSkolem function => (function -> Doc) -> function -> Doc
 prettySkolem prettyFunction = foldSkolem prettyFunction (\v n -> text "sK" <> brackets (pPrint v <> if n == 1 then mempty else (text "." <> pPrint (show n))))
 
-instance Pretty Function where
-    pPrint = prettySkolem (\(Fn s) -> text s)
-
-instance HasSkolem Function where
-    type SVarOf Function = V
-    toSkolem = Skolem
-    foldSkolem _ sk (Skolem v n) = sk v n
-    foldSkolem other _ f = other f
-
--- Example.
+#ifndef NOTESTS
 
 test04 :: Test
 test04 = TestCase $ assertEqual "skolemize 1 (p. 150)" expected input
-    where input = runSkolem (skolemize id fm) :: Marked Propositional MyFormula
-          fm :: MyFormula
+    where input = runSkolem (skolemize id fm) :: Marked Propositional Formula
+          fm :: Formula
           fm = exists "y" (pApp ("<") [vt "x", vt "y"] .=>.
                            for_all "u" (exists "v" (pApp ("<") [fApp "*" [vt "x", vt "u"],  fApp "*" [vt "y", vt "v"]])))
           expected = ((.~.)(pApp ("<") [vt "x",fApp (Skolem "y" 1) [vt "x"]])) .|.
@@ -429,8 +428,8 @@ test05 :: Test
 test05 = TestCase $ assertEqual "skolemize 2 (p. 150)" expected input
     where p = "P"
           q = "Q"
-          input = runSkolem (skolemize id fm) :: Marked Propositional MyFormula
-          fm :: MyFormula
+          input = runSkolem (skolemize id fm) :: Marked Propositional Formula
+          fm :: Formula
           fm = for_all "x" ((pApp p [vt "x"]) .=>.
                             (exists "y" (exists "z" ((pApp q [vt "y"]) .|.
                                                      ((.~.)(exists "z" ((pApp p [vt "z"]) .&. (pApp q [vt "z"]))))))))

@@ -27,7 +27,7 @@ import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib, Marked)
 import Lit (JustLiteral, Literal)
 import Prop (eval, IsPropositional, JustPropositional, Propositional, simpcnf, simpdnf, trivial)
-import Skolem (HasSkolem(SVarOf), MyFormula, runSkolem, skolemize)
+import Skolem (HasSkolem(SVarOf), Formula, runSkolem, skolemize)
 
 #ifndef NOTESTS
 import Parser(fof)
@@ -158,7 +158,7 @@ p24 =
 -- 2 ground instances tried; 57 items in list
 -- 3 ground instances tried; 84 items in list
 -- 4 ground instances tried; 405 items in list
-p45fm :: MyFormula
+p45fm :: Formula
 p45fm =      [fof| (((forall x.
                       ((P(x) & (forall y. ((G(y) & H(x,y)) ==> J(x,y)))) ==>
                        (forall y. ((G(y) & H(x,y)) ==> R(y))))) &

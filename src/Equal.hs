@@ -32,7 +32,7 @@ import Formulas ((.&.), (.=>.))
 import Lib (Depth(Depth), Failing (Success, Failure))
 import Meson (meson)
 import Pretty (assertEqual')
-import Skolem (runSkolem, MyFormula)
+import Skolem (runSkolem, Formula)
 import Tableaux ()
 import Test.HUnit
 #endif
@@ -133,7 +133,7 @@ equalitize fm =
 testEqual01 :: Test
 testEqual01 = TestCase $ assertEqual "function_congruence" expected input
     where input = List.map function_congruence [(fromString "f", 3 :: Int), (fromString "+",2)]
-          expected :: [Set.Set MyFormula]
+          expected :: [Set.Set Formula]
           expected = [Set.fromList
                       [(∀) "x1"
                        ((∀) "x2"
@@ -153,7 +153,7 @@ testEqual01 = TestCase $ assertEqual "function_congruence" expected input
 -- A simple example (see EWD1266a and the application to Morley's theorem).
 -- -------------------------------------------------------------------------
 
-ewd :: MyFormula
+ewd :: Formula
 ewd = equalitize fm
     where
       fm = ((∀) "x" (fx ⇒ gx)) ∧
@@ -202,7 +202,7 @@ testEqual02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expected
 --instance IsString ([MyTerm] -> MyTerm) where
 --    fromString = fApp . fromString
 
-wishnu :: MyFormula
+wishnu :: Formula
 wishnu = equalitize [fof| (∃ x. ((x = f(g(x))) ∧ ∀ x'. ((x' = f(g(x'))) ⇒ (x = x')))) ⇔
                           (∃ y. ((y = g(f(y))) ∧ ∀ y'. ((y' = g(f(y'))) ⇒ (y = y')))) |]
 
@@ -210,7 +210,7 @@ wishnu = equalitize [fof| (∃ x. ((x = f(g(x))) ∧ ∀ x'. ((x' = f(g(x'))) �
 testEqual03 :: Test
 testEqual03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (p. 241)" (expected, expectedProof) input
     where input = (equalitize wishnu, runSkolem (meson (Just (Depth 30)) (equalitize wishnu)))
-          expected :: MyFormula
+          expected :: Formula
           expected = [fof| ∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒(∃x. (x=f (g (x))∧∀x'. (x'=f (g (x'))⇒x=x'))⇔∃y. (y=g (f (y))∧∀y'. (y'=g (f (y'))⇒y=y'))) |]
           -- expected = [fof| ∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒(∃x. (x=f (g (x))∧∀x'. (x'=f (g (x'))⇒x=x'))⇔∃y. (y=g (f (y))∧∀y'. (y'=g (f (y'))⇒y=y'))) |]
 {-
@@ -234,7 +234,7 @@ testEqual04 :: Test
 testEqual04 = TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expectedProof) input
     where
       input = (equalitize fm, runSkolem (meson (Just (Depth 20)) . equalitize $ fm))
-      fm :: MyFormula
+      fm :: Formula
       fm = ((∀) "x" . (∀) "y" . (∀) "z") ((*) ["x'", (*) ["y'", "z'"]] .=. (*) [((*) ["x'", "y'"]), "z'"]) ∧
            (∀) "x" ((*) [one, "x'"] .=. "x'") ∧
            (∀) "x" ((*) [i ["x'"], "x'"] .=. one) ⇒
@@ -242,7 +242,7 @@ testEqual04 = TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expecte
       (*) = fApp (fromString "*")
       i = fApp (fromString "i")
       one = fApp (fromString "1") []
-      expected :: MyFormula
+      expected :: Formula
       expected =
           ((∀) "x" ("x" .=. "x") .&.
            ((∀) "x" ((∀) "y" ((∀) "z" ((("x" .=. "y") .&. ("x" .=. "z")) .=>. ("y" .=. "z")))) .&.

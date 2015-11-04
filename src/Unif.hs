@@ -35,7 +35,7 @@ import Lib (Failing)
 import Lit (IsLiteral, zipLiterals')
 #ifndef NOTESTS
 import Lib (Failing(Success, Failure))
-import Skolem (MyAtom, MyTerm)
+import Skolem (SkAtom, SkTerm)
 import Test.HUnit hiding (State)
 #endif
 
@@ -138,7 +138,7 @@ unify_atoms_eq a1 a2 =
 
 #ifndef NOTESTS
 
-instance Unify MyAtom V MyTerm where
+instance Unify SkAtom V SkTerm where
     unify = unify_atoms_eq
 
 test01, test02, test03, test04 :: Test
@@ -148,20 +148,20 @@ test01 = TestCase (assertEqual "Unify test 1"
                      (unify_and_apply [(f [x, g [y]], f [f [z], w])]))
     where
       [f, g] = [fApp "f", fApp "g"]
-      [w, x, y, z] = [vt "w", vt "x", vt "y", vt "z"] :: [MyTerm]
+      [w, x, y, z] = [vt "w", vt "x", vt "y", vt "z"] :: [SkTerm]
 test02 = TestCase (assertEqual "Unify test 2"
                      (Success [(f [y,y],
                                 f [y,y])]) -- expected
                      (unify_and_apply [(f [x, y], f [y, x])]))
     where
       [f] = [fApp "f"]
-      [x, y] = [vt "x", vt "y"] :: [MyTerm]
+      [x, y] = [vt "x", vt "y"] :: [SkTerm]
 test03 = TestCase (assertEqual "Unify test 3"
                      (Failure ["cyclic"]) -- expected
                      (unify_and_apply [(f [x, g [y]], f [y, x])]))
     where
       [f, g] = [fApp "f", fApp "g"]
-      [x, y] = [vt "x", vt "y"] :: [MyTerm]
+      [x, y] = [vt "x", vt "y"] :: [SkTerm]
 test04 = TestCase (assertEqual "Unify test 4"
                      (Success [(f [f [f [x_3,x_3],f [x_3,x_3]], f [f [x_3,x_3],f [x_3,x_3]]],
                                 f [f [f [x_3,x_3],f [x_3,x_3]], f [f [x_3,x_3],f [x_3,x_3]]]),
@@ -175,7 +175,7 @@ test04 = TestCase (assertEqual "Unify test 4"
 
     where
       f = fApp "f"
-      [x_0, x_1, x_2, x_3] = [vt "x0", vt "x1", vt "x2", vt "x3"] :: [MyTerm]
+      [x_0, x_1, x_2, x_3] = [vt "x0", vt "x1", vt "x2", vt "x3"] :: [SkTerm]
 {-
 
 START_INTERACTIVE;;

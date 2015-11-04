@@ -44,7 +44,7 @@ import Skolem (askolemize, HasSkolem(SVarOf, toSkolem), runSkolem, skolemize)
 import Unif (Unify, unify_literals)
 #ifndef NOTESTS
 import Herbrand (davisputnam)
-import Skolem (MyFormula, MyTerm)
+import Skolem (Formula, SkTerm)
 import Test.HUnit hiding (State)
 #endif
 
@@ -100,7 +100,7 @@ prawitz fm =
 
 p20 :: Test
 p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
-    where fm :: MyFormula
+    where fm :: Formula
           fm = (for_all "x" (for_all "y" (exists "z" (for_all "w" (pApp "P" [vt "x"] .&. pApp "Q" [vt "y"] .=>.
                                                                    pApp "R" [vt "z"] .&. pApp "U" [vt "w"]))))) .=>.
                (exists "x" (exists "y" (pApp "P" [vt "x"] .&. pApp "Q" [vt "y"]))) .=>. (exists "z" (pApp "R" [vt "z"]))
@@ -122,7 +122,7 @@ compare fm = (prawitz fm, davisputnam fm)
 p19 :: Test
 p19 = TestCase $ assertEqual "p19" expected input
     where
-      fm :: MyFormula
+      fm :: Formula
       fm = exists "x" (for_all "y" (for_all "z" ((pApp "P" [vt "y"] .=>. pApp "Q" [vt "z"]) .=>. pApp "P" [vt "x"] .=>. pApp "Q" [vt "x"])))
       input = compare fm
       expected = (3, 3)
@@ -280,8 +280,8 @@ tab limit fm =
 #ifndef NOTESTS
 p38 :: Test
 p38 =
-    let [p, r] = [pApp "P", pApp "R"] :: [[MyTerm] -> MyFormula]
-        [a, w, x, y, z] = [vt "a", vt "w", vt "x", vt "y", vt "z"] :: [MyTerm]
+    let [p, r] = [pApp "P", pApp "R"] :: [[SkTerm] -> Formula]
+        [a, w, x, y, z] = [vt "a", vt "w", vt "x", vt "y", vt "z"] :: [SkTerm]
         fm = (for_all "x"
                (p[a] .&. (p[x] .=>. (exists "y" (p[y] .&. r[x,y]))) .=>.
                 (exists "z" (exists "w" (p[z] .&. r[x,w] .&. r[w,z]))))) .<=>.

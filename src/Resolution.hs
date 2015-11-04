@@ -53,14 +53,14 @@ test01 :: Test
 test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p. 181)")
                     (prettyShow expected)
                     (prettyShow input)
-    where shaves = pApp "shaves" :: [MyTerm] -> MyFormula
-          [b, x] = [vt "b", vt "x"] :: [MyTerm]
-          fx = fApp (Skolem "x" 1) :: [MyTerm] -> MyTerm
-          barb = exists "b" (for_all "x" (shaves [b, x] .<=>. (.~.)(shaves [x, x]))) :: MyFormula
-          input :: Set (Set (Marked Literal MyFormula))
-          input = simpcnf id (runSkolem (skolemize id ((.~.)barb)) :: Marked Propositional MyFormula)
+    where shaves = pApp "shaves" :: [SkTerm] -> Formula
+          [b, x] = [vt "b", vt "x"] :: [SkTerm]
+          fx = fApp (Skolem "x" 1) :: [SkTerm] -> SkTerm
+          barb = exists "b" (for_all "x" (shaves [b, x] .<=>. (.~.)(shaves [x, x]))) :: Formula
+          input :: Set (Set (Marked Literal Formula))
+          input = simpcnf id (runSkolem (skolemize id ((.~.)barb)) :: Marked Propositional Formula)
           -- This is not exactly what is in the book
-          expected :: Set (Set MyFormula)
+          expected :: Set (Set Formula)
           expected = Set.fromList [Set.fromList [shaves [b,     fx [b]], (.~.)(shaves [fx [b],fx [b]])],
                                    Set.fromList [shaves [fx [b],fx [b]], (.~.)(shaves [b,     fx [b]])]]
           -- x = vt (fromString "x")
@@ -175,15 +175,15 @@ resolution1 fm = askolemize ((.~.)(generalize fm)) >>= return . Set.map (pure_re
 
 #ifndef NOTESTS
 -- | Simple example that works well.
-davis_putnam_example_formula :: MyFormula
+davis_putnam_example_formula :: Formula
 davis_putnam_example_formula = [fof| ∃ x y. (∀ z. ((F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))) |]
 {-
     exists "x" . exists "y" .for_all "z" $
               (f [x, y] .=>. (f [y, z] .&. f [z, z])) .&.
               ((f [x, y] .&. g [x, y]) .=>. (g [x, z] .&. g [z, z]))
     where
-      [x, y, z] = [vt "x", vt "y", vt "z"] :: [MyTerm]
-      [g, f] = [pApp "G", pApp "F"] :: [[MyTerm] -> MyFormula]
+      [x, y, z] = [vt "x", vt "y", vt "z"] :: [SkTerm]
+      [g, f] = [pApp "G", pApp "F"] :: [[SkTerm] -> Formula]
 -}
 test02 :: Test
 test02 =
@@ -381,7 +381,7 @@ pure_resolution3 fm =
     uncurry resloop2 (Set.partition (setAny positive) (simpcnf id (specialize id (pnf fm) :: Marked Propositional fof) :: Set (Set (Marked Literal fof))))
 
 #ifndef NOTESTS
-instance Match (MyAtom, MyAtom) V MyTerm where
+instance Match (SkAtom, SkAtom) V SkTerm where
     match = match_atoms_eq
 
 
@@ -389,20 +389,20 @@ gilmore_1 :: Test
 gilmore_1 = TestCase $ assertEqual "Gilmore 1" expected (runSkolem (resolution3 fm))
     where
       expected = Set.singleton (Success True)
-      fm :: MyFormula
+      fm :: Formula
       fm = exists "x" . for_all "y" . for_all "z" $
            ((f[y] .=>. g[y]) .<=>. f[x]) .&.
            ((f[y] ==> h[y]) <=> g[x]) .&.
            (((f[y] .=>. g[y]) .=>. h[y]) .<=>. h[x])
            .=>. f[z] .&. g[z] .&. h[z]
-      [x, y, z] = [vt "x", vt "y", vt "z"] :: [MyTerm]
+      [x, y, z] = [vt "x", vt "y", vt "z"] :: [SkTerm]
       [f, g, h] = [pApp "F", pApp "G", pApp "H"]
 
 -- The Pelletier examples again.
 p1 :: Test
 p1 =
-    let [p, q] = [pApp (fromString "p") [], pApp (fromString "q") []] :: [MyFormula] in
-    TestCase $ assertEqual "p1" Set.empty (runSkolem (presolution ((p .=>. q .<=>. (.~.)q .=>. (.~.)p) :: MyFormula)))
+    let [p, q] = [pApp (fromString "p") [], pApp (fromString "q") []] :: [Formula] in
+    TestCase $ assertEqual "p1" Set.empty (runSkolem (presolution ((p .=>. q .<=>. (.~.)q .=>. (.~.)p) :: Formula)))
 
 {-
 -- -------------------------------------------------------------------------
@@ -1133,13 +1133,13 @@ let davis_putnam_example = time resolution
 -- | The (in)famous Los problem.
 los :: Test
 los =
-    let [x, y, z] = List.map (vt :: V -> MyTerm) ["x", "y", "z"]
-        [p, q] = List.map pApp ["P", "Q"] :: [[MyTerm] -> MyFormula]
+    let [x, y, z] = List.map (vt :: V -> SkTerm) ["x", "y", "z"]
+        [p, q] = List.map pApp ["P", "Q"] :: [[SkTerm] -> Formula]
         fm = (for_all "x" $ for_all "y" $ for_all "z" $ p[x,y] .=>. p[y,z] .=>. p[x,z]) .&.
              (for_all "x" $ for_all "y" $ for_all "z" $ q[x,y] .=>. q[y,z] .=>. q[x,z]) .&.
              (for_all "x" $ for_all "y" $ q[x,y] .=>. q[y,x]) .&.
              (for_all "x" $ for_all "y" $ p[x,y] .|. q[x,y])
-             .=>. (for_all "x" $ for_all "y" $ p[x,y]) .|. (for_all "x" $ for_all "y" $ q[x,y]) :: MyFormula
+             .=>. (for_all "x" $ for_all "y" $ p[x,y]) .|. (for_all "x" $ for_all "y" $ q[x,y]) :: Formula
         result = {-time-} runSkolem (presolution fm)
         expected = Set.singleton (Success True) in
     TestCase $ assertEqual "los (p. 198)" expected result

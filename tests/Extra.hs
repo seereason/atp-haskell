@@ -14,7 +14,7 @@ import Parser (fof)
 import Pretty (assertEqual', prettyShow)
 import Prop hiding (nnf)
 import Resolution
-import Skolem (HasSkolem(toSkolem), skolemize, runSkolem, MyAtom, MyFormula, MyTerm)
+import Skolem (Formula, HasSkolem(toSkolem), skolemize, runSkolem, SkAtom, SkTerm)
 import Tableaux (K(K), tab)
 import Test.HUnit
 
@@ -40,7 +40,7 @@ test05 = TestCase $ assertEqual "Socrates syllogism" expected input
                       Set.singleton (Failure ["No proof found"]),
                       Set.singleton (Success {-False-} True))
 
-socrates :: MyFormula
+socrates :: Formula
 socrates =
     (for_all x (s [vt x] .=>. h [vt x]) .&. for_all x (h [vt x] .=>. m [vt x])) .=>. for_all x (s [vt x] .=>. m [vt x])
     where
@@ -49,7 +49,7 @@ socrates =
       h = pApp (fromString "H")
       m = pApp (fromString "M")
 
-notSocrates :: MyFormula
+notSocrates :: Formula
 notSocrates =
     (for_all x (s [vt x] .=>. h [vt x]) .&. for_all x (h [vt x] .=>. m [vt x])) .=>. for_all x (s [vt x] .=>.  ((.~.)(m [vt x])))
     where
@@ -60,21 +60,21 @@ notSocrates =
 
 test06 :: Test
 test06 =
-    let fm :: MyFormula
+    let fm :: Formula
         fm = for_all "x" (vt "x" .=. vt "x") .=>. for_all "x" (exists "y" (vt "x" .=. vt "y"))
-        expected :: PFormula MyAtom
+        expected :: PFormula SkAtom
         expected =  (vt "x" .=. vt "x") .&. (.~.) (fApp (toSkolem "x" 1) [] .=. vt "x")
-        -- atoms = [applyPredicate equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x" 1)[]) .=. (vt "x")-}] :: [MyAtom]
-        sk = runSkolem (skolemize id ((.~.) fm)) :: PFormula MyAtom
-        table = truthTable sk :: TruthTable MyAtom in
+        -- atoms = [applyPredicate equals [(vt ("x" :: V)) (vt "x")] {-, (fApp (toSkolem "x" 1)[]) .=. (vt "x")-}] :: [SkAtom]
+        sk = runSkolem (skolemize id ((.~.) fm)) :: PFormula SkAtom
+        table = truthTable sk :: TruthTable SkAtom in
     TestCase $ assertEqual "∀x. x = x ⇒ ∀x. ∃y. x = y"
                            (expected,
                             TruthTable
-                              (List.map asAtom ([vt "x" .=. vt "x", fApp (toSkolem "x" 1) [] .=. vt "x"] :: [MyFormula]))
+                              (List.map asAtom ([vt "x" .=. vt "x", fApp (toSkolem "x" 1) [] .=. vt "x"] :: [Formula]))
                               [([False,False],False),
                                ([False,True],False),
                                ([True,False],True),
-                               ([True,True],False)] :: TruthTable MyAtom,
+                               ([True,True],False)] :: TruthTable SkAtom,
                            Set.fromList [Success (Depth 1)])
                            (sk, table, runSkolem (meson Nothing fm))
 
@@ -83,19 +83,19 @@ asAtom fm = case Set.minView (atom_union singleton fm :: Set (AtomOf formula)) o
               Just (a, s) | Set.null s -> a
               _ -> error "asAtom"
 
-mesonTest :: MyFormula -> Set (Failing Depth) -> Test
+mesonTest :: Formula -> Set (Failing Depth) -> Test
 mesonTest fm expected =
     let me = runSkolem (meson (Just (Depth 1000)) fm) in
     TestCase $ assertEqual ("MESON test: " ++ prettyShow fm) expected me
 
-fms :: [(MyFormula, Set (Failing Depth))]
+fms :: [(Formula, Set (Failing Depth))]
 fms = [ -- if x every x equals itself then there is always some y that equals x
-        let [x, y] = [vt "x", vt "y"] :: [MyTerm] in
+        let [x, y] = [vt "x", vt "y"] :: [SkTerm] in
         (for_all "x" (x .=. x) .=>. for_all "x" (exists "y" (x .=. y)),
          Set.fromList [Success (Depth 1)]),
         -- Socrates is a human, all humans are mortal, therefore socrates is mortal
-        let x = vt "x" :: MyTerm
-            [s, h, m] = [pApp "S", pApp "H", pApp "M"] :: [[MyTerm] -> MyFormula] in
+        let x = vt "x" :: SkTerm
+            [s, h, m] = [pApp "S", pApp "H", pApp "M"] :: [[SkTerm] -> Formula] in
         ((for_all "x" (s [x] .=>. h [x]) .&. for_all "x" (h [x] .=>. m [x])) .=>. for_all "x" (s [x] .=>. m [x]),
          Set.fromList [Success (Depth 3)]) ]
 
@@ -104,8 +104,8 @@ test07 = TestList (List.map (uncurry mesonTest) fms)
 
 test00 :: Test
 test00 =
-    let [a, y, z] = List.map vt ["a", "y", "z"] :: [MyTerm]
-        [p, q, r] = List.map (pApp . fromString) ["P", "Q", "R"] :: [[MyTerm] -> MyFormula]
+    let [a, y, z] = List.map vt ["a", "y", "z"] :: [SkTerm]
+        [p, q, r] = List.map (pApp . fromString) ["P", "Q", "R"] :: [[SkTerm] -> Formula]
         fm1 = for_all "a" ((.~.)(p[a] .&. (for_all "y" (for_all "z" (q[y] .|. r[z]) .&. (.~.)(p[a])))))
         fm2 = for_all "a" ((.~.)(p[a] .&. (.~.)(p[a]) .&. (for_all "y" (for_all "z" (q[y] .|. r[z]))))) in
     TestList
