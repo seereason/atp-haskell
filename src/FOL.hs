@@ -30,8 +30,8 @@ module FOL
     , overtermsApply, ontermsApply, showApply
     -- * Atoms supporting Equate
     , HasApplyAndEquate(equate, foldEquate)
-    , convertPredicate, convertPredicateEq
-    , zipPredicates, zipPredicatesEq
+    , convertApply, convertEquate
+    , zipApplys, zipEquates
     , ontermsEq, overtermsEq
     , pApp, atomFuncs, functions
     , isEquate, (.=.), showEquate, showApplyAndEquate
@@ -319,9 +319,9 @@ ontermsApply :: JustApply atom => ((TermOf atom) -> (TermOf atom)) -> atom -> at
 ontermsApply f = foldApply (\p ts -> applyPredicate p (map f ts))
 
 -- | Zip two atoms if they are similar
-zipPredicates :: (JustApply atom, term ~ TermOf atom, predicate ~ PredOf atom) =>
+zipApplys :: (JustApply atom, term ~ TermOf atom, predicate ~ PredOf atom) =>
                  (predicate -> [(term, term)] -> Maybe r) -> atom -> atom -> Maybe r
-zipPredicates f atom1 atom2 =
+zipApplys f atom1 atom2 =
     foldApply f' atom1
     where
       f' p1 ts1 = foldApply (\p2 ts2 ->
@@ -334,9 +334,9 @@ showApply :: (Show predicate, Show term) => predicate -> [term] -> String
 showApply p ts = show (text "pApp " <> parens (text (show p)) <> brackets (fcat (punctuate (comma <> space) (map (text . show) ts))))
 
 -- | Convert between two instances of 'HasApply'
-convertPredicate :: (JustApply atom1, HasApply atom2) =>
-                    (PredOf atom1 -> PredOf atom2) -> (TermOf atom1 -> TermOf atom2) -> atom1 -> atom2
-convertPredicate cp ct = foldApply (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
+convertApply :: (JustApply atom1, HasApply atom2) =>
+                (PredOf atom1 -> PredOf atom2) -> (TermOf atom1 -> TermOf atom2) -> atom1 -> atom2
+convertApply cp ct = foldApply (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
 ---------------------------------
 -- ATOM with the Equate predicate
@@ -348,12 +348,12 @@ class HasApply atom => HasApplyAndEquate atom where
     foldEquate :: (TermOf atom -> TermOf atom -> r) -> (PredOf atom -> [TermOf atom] -> r) -> atom -> r
 
 -- | Zip two atoms that support equality
-zipPredicatesEq :: HasApplyAndEquate atom =>
-                   (TermOf atom -> TermOf atom ->
-                    TermOf atom -> TermOf atom -> Maybe r)
-                -> (PredOf atom -> [(TermOf atom, TermOf atom)] -> Maybe r)
-                -> atom -> atom -> Maybe r
-zipPredicatesEq eq ap atom1 atom2 =
+zipEquates :: HasApplyAndEquate atom =>
+              (TermOf atom -> TermOf atom ->
+               TermOf atom -> TermOf atom -> Maybe r)
+           -> (PredOf atom -> [(TermOf atom, TermOf atom)] -> Maybe r)
+           -> atom -> atom -> Maybe r
+zipEquates eq ap atom1 atom2 =
     foldEquate eq' ap' atom1
     where
       eq' l1 r1 = foldEquate (eq l1 r1) (\_ _ -> Nothing) atom2
@@ -383,9 +383,9 @@ showApplyAndEquate atom = foldEquate showEquate showApply atom
 showEquate :: Show term => term -> term -> String
 showEquate t1 t2 = "(" ++ show t1 ++ ") .=. (" ++ show t2 ++ ")"
 
-convertPredicateEq :: (HasApplyAndEquate atom1, HasApplyAndEquate atom2) =>
-                      (PredOf atom1 -> PredOf atom2) -> (TermOf atom1 -> TermOf atom2) -> atom1 -> atom2
-convertPredicateEq cp ct = foldEquate (\t1 t2 -> equate (ct t1) (ct t2)) (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
+convertEquate :: (HasApplyAndEquate atom1, HasApplyAndEquate atom2) =>
+                 (PredOf atom1 -> PredOf atom2) -> (TermOf atom1 -> TermOf atom2) -> atom1 -> atom2
+convertEquate cp ct = foldEquate (\t1 t2 -> equate (ct t1) (ct t2)) (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
 #ifndef NOTESTS
 

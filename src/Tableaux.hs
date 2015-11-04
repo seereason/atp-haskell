@@ -37,7 +37,7 @@ import Data.String (IsString(..))
 import Debug.Trace (trace)
 import FOL (asubst, exists, fApp, foldQuantified, for_all, fv, generalize, HasApply(TermOf),
             HasApply, HasApplyAndEquate, JustApply, IsFirstOrder, IsQuantified(VarOf), IsTerm(TVarOf, FunOf),
-            pApp, Quant((:!:)), subst, V, vt, zipPredicates, zipPredicatesEq)
+            pApp, Quant((:!:)), subst, V, vt, zipApplys, zipEquates)
 import Formulas
 import Lib
 import Lit
@@ -68,14 +68,14 @@ unify_literals f1 f2 =
 unify_atoms :: (JustApply atom, term ~ TermOf atom, v ~ TVarOf term) =>
                (atom, atom) -> StateT (Map v term) Failing ()
 unify_atoms (a1, a2) =
-    maybe (fail "unify_atoms") id (zipPredicates (\_ tpairs -> Just (unify_terms tpairs)) a1 a2)
+    maybe (fail "unify_atoms") id (zipApplys (\_ tpairs -> Just (unify_terms tpairs)) a1 a2)
 
 unify_atoms_eq :: (HasApplyAndEquate atom, term ~ TermOf atom, v ~ TVarOf term) =>
                   atom -> atom -> StateT (Map v term) Failing ()
 unify_atoms_eq a1 a2 =
-    maybe (fail "unify_atoms") id (zipPredicatesEq (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
-                                                   (\_ tpairs -> Just (unify_terms tpairs))
-                                                   a1 a2)
+    maybe (fail "unify_atoms") id (zipEquates (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
+                                              (\_ tpairs -> Just (unify_terms tpairs))
+                                              a1 a2)
 
 -- | Unify complementary literals.
 unify_complements :: (IsLiteral lit, HasApply atom, Unify atom v term,

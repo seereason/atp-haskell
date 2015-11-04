@@ -218,13 +218,13 @@ match_terms env ((p, q) : oth) =
 match_atoms :: (JustApply atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) =>
                Map v term -> (atom, atom) -> Failing (Map v term)
 match_atoms env (a1, a2) =
-    maybe (Failure ["match_atoms"]) id (zipPredicates (\_ pairs -> Just (match_terms env pairs)) a1 a2)
+    maybe (Failure ["match_atoms"]) id (zipApplys (\_ pairs -> Just (match_terms env pairs)) a1 a2)
 
 match_atoms_eq :: (HasApplyAndEquate atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) =>
                   Map v term -> (atom, atom) -> Failing (Map v term)
 match_atoms_eq env (a1, a2) =
-    maybe (Failure ["match_atoms_eq"]) id (zipPredicatesEq (\l1 r1 l2 r2 -> Just (match_terms env [(l1, l2), (r1, r2)]))
-                                                           (\_ pairs -> Just (match_terms env pairs)) a1 a2)
+    maybe (Failure ["match_atoms_eq"]) id (zipEquates (\l1 r1 l2 r2 -> Just (match_terms env [(l1, l2), (r1, r2)]))
+                                                      (\_ pairs -> Just (match_terms env pairs)) a1 a2)
 
 match_literals :: forall lit atom term v.
                   (IsLiteral lit, HasApply atom, IsTerm term, Match (atom, atom) v term,
