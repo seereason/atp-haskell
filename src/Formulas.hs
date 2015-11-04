@@ -27,9 +27,8 @@ module Formulas
     ) where
 
 import Data.Data (Data)
-import Data.Set as Set (Set, empty, union, map, fromList, insert)
+import Data.Set as Set (Set, empty, union)
 import Data.Typeable (Typeable)
-import Lib (Marked(Mark, unMark'))
 import Prelude hiding (negate)
 import Pretty (Doc, HasFixity, Pretty, text)
 
@@ -191,30 +190,3 @@ canonical fm =
     where
       dj p q = foldCombination ho dj' cj' (canonical p) (canonical q)
 -}
-
-instance IsFormula formula => IsFormula (Marked mk formula) where
-    type AtomOf (Marked mk formula) = AtomOf formula
-    atomic = Mark . atomic
-    overatoms at (Mark fm) = overatoms at fm
-    onatoms at (Mark fm) = Mark (onatoms (unMark' . at) fm)
-
-instance HasBoolean formula => HasBoolean (Marked mk formula) where
-    asBool (Mark x) = asBool x
-    fromBool x = Mark (fromBool x)
-
-instance IsNegatable formula => IsNegatable (Marked mk formula) where
-    naiveNegate (Mark x) = Mark (naiveNegate x)
-    foldNegation ot ne (Mark x) = foldNegation (ot . Mark) (ne . Mark) x
-
-instance IsCombinable formula => IsCombinable (Marked mk formula) where
-    (Mark a) .|. (Mark b) = Mark (a .|. b)
-    (Mark a) .&. (Mark b) = Mark (a .&. b)
-    (Mark a) .=>. (Mark b) = Mark (a .=>. b)
-    (Mark a) .<=>. (Mark b) = Mark (a .<=>. b)
-    foldCombination other dj cj imp iff fm =
-        foldCombination (\a -> other a)
-                        (\a b -> dj a b)
-                        (\a b -> cj a b)
-                        (\a b -> imp a b)
-                        (\a b -> iff a b)
-                        fm

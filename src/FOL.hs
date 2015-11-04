@@ -85,7 +85,7 @@ import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Formulas ((.~.), BinOp(..), binop, false, HasBoolean(..), IsAtom, IsCombinable(..), IsFormula(..),
                  onatoms, prettyBool, true)
-import Lib (Marked(Mark, unMark'), setAny, tryApplyD, undefine, (|->))
+import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (foldLiteral, IsLiteral, JustLiteral)
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
@@ -503,18 +503,6 @@ class (IsQuantified formula,
        IsTerm (TermOf (AtomOf formula)),
        VarOf formula ~ TVarOf (TermOf (AtomOf formula)))
     => IsFirstOrder formula
-
--- | 'IsQuantified' instance for 'Marked' formulas.
-instance (IsQuantified formula, IsPropositional (Marked mk formula)) => IsQuantified (Marked mk formula) where
-    type VarOf (Marked mk formula) = VarOf formula
-    quant q v x = Mark $ quant q v (unMark' x)
-    foldQuantified qu co ne tf at f = foldQuantified qu' co' ne' tf at (unMark' f)
-        where qu' op v f' = qu op v (Mark f')
-              ne' x = ne (Mark x)
-              co' x op y = co (Mark x) op (Mark y)
-
--- | 'IsFirstOrder' instance for 'Marked' formulas.
-instance IsFirstOrder formula => IsFirstOrder (Marked mk formula)
 
 fixityQuantified :: forall formula. IsQuantified formula => formula -> Fixity
 fixityQuantified fm =

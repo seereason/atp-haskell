@@ -34,9 +34,10 @@ import Data.String (IsString(..))
 import FOL (asubst, exists, fApp, foldQuantified, for_all, fv, generalize, HasApply(TermOf),
             HasApply, IsFirstOrder, IsTerm(TVarOf, FunOf),
             pApp, Quant((:!:)), subst, vt)
-import Formulas
-import Lib
-import Lit
+import Formulas ((.~.), (.&.), (.=>.), (.<=>.), (.|.), atomic, BinOp((:&:), (:|:)),
+                 HasBoolean(asBool), IsFormula(AtomOf), onatoms, overatoms, positive)
+import Lib ((|=>), allpairs, deepen, Depth(Depth), distrib, evalRS, Failing(Success, Failure), failing, settryfind, tryfindM)
+import Lit (IsLiteral, JustLiteral, LFormula)
 import Prelude hiding (compare)
 import Pretty (assertEqual', Pretty(pPrint), prettyShow, text)
 import Prop (PFormula, simpdnf)
@@ -68,12 +69,13 @@ unify_refute djs env =
             (pos,neg) = Set.partition positive d
 
 -- | Hence a Prawitz-like procedure (using unification on DNF).
-prawitz_loop :: (IsLiteral lit, Ord lit, HasApply atom, Unify atom v term, IsTerm term,
+prawitz_loop :: forall lit atom v term.
+                (JustLiteral lit, Ord lit, HasApply atom, Unify atom v term,
                  atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
-                Set (Set lit) -> [TVarOf term] -> Set (Set lit) -> Int -> (Map v term, Int)
+                Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
-    let inst = Map.fromList (zip fvs (List.map newvar [1..])) in
-    let djs1 = distrib (Set.map (Set.map (onatoms (atomic . asubst inst))) djs0) djs in
+    let inst = Map.fromList (zip fvs (List.map newvar [1..]))
+        djs1 = distrib (Set.map (Set.map (onatoms (atomic . asubst inst))) djs0) djs in
     case unify_refute djs1 Map.empty of
       Failure _ -> prawitz_loop djs0 fvs djs1 (n + 1)
       Success env -> (env, n + 1)
@@ -81,7 +83,7 @@ prawitz_loop djs0 fvs djs n =
       newvar k = vt (fromString ("_" ++ show (n * length fvs + k)))
 
 prawitz :: forall formula atom term function v.
-           (IsFirstOrder formula, Ord formula, Unify atom v term, HasSkolem function,
+           (IsFirstOrder formula, Ord formula, Unify atom v term, HasSkolem function, Show formula,
             atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
             v ~ TVarOf term, v ~ SVarOf function) =>
            formula -> Int
@@ -89,7 +91,7 @@ prawitz fm =
     snd (prawitz_loop dnf (Set.toList fvs) dnf0 0)
     where
       dnf0 = Set.singleton Set.empty
-      dnf = simpdnf id pf :: Set (Set (Marked Literal formula))
+      dnf = (simpdnf id pf :: Set (Set (LFormula atom)))
       fvs = overatoms (\ a s -> Set.union (fv (atomic a :: formula)) s) pf (Set.empty :: Set v)
       pf = runSkolem (skolemize id ((.~.)(generalize fm))) :: PFormula atom
 
@@ -99,7 +101,7 @@ prawitz fm =
 -- -------------------------------------------------------------------------
 
 p20 :: Test
-p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
+p20 = TestCase $ assertEqual' "p20 - prawitz (p. 175)" expected input
     where fm :: Formula
           fm = (for_all "x" (for_all "y" (exists "z" (for_all "w" (pApp "P" [vt "x"] .&. pApp "Q" [vt "y"] .=>.
                                                                    pApp "R" [vt "z"] .&. pApp "U" [vt "w"]))))) .=>.
@@ -113,14 +115,14 @@ p20 = TestCase $ assertEqual "p20 - prawitz (p. 175)" expected input
 -- -------------------------------------------------------------------------
 
 #ifndef NOTESTS
-compare :: (IsFirstOrder formula, Ord formula, Unify atom v term, HasSkolem function,
+compare :: (IsFirstOrder formula, Ord formula, Unify atom v term, HasSkolem function, Show formula,
             atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
             v ~ TVarOf term, v ~ SVarOf function) =>
            formula -> (Int, Int)
 compare fm = (prawitz fm, davisputnam fm)
 
 p19 :: Test
-p19 = TestCase $ assertEqual "p19" expected input
+p19 = TestCase $ assertEqual' "p19" expected input
     where
       fm :: Formula
       fm = exists "x" (for_all "y" (for_all "z" ((pApp "P" [vt "y"] .=>. pApp "Q" [vt "z"]) .=>. pApp "P" [vt "x"] .=>. pApp "Q" [vt "x"])))
@@ -286,26 +288,31 @@ p38 =
               (((.~.)(p[a]) .|. p[x] .|. (exists "z" (exists "w" (p[z] .&. r[x,w] .&. r[w,z])))) .&.
                ((.~.)(p[a]) .|. (.~.)(exists "y" (p[y] .&. r[x,y])) .|.
                (exists "z" (exists "w" (p[z] .&. r[x,w] .&. r[w,z]))))))
-        expected = Success ((K 19, Map.fromList
-                                      [("K0",fApp (toSkolem "x" 1)[]),
-                                       ("K1",fApp (toSkolem "y" 1)[]),
-                                       ("K10",fApp (toSkolem "x" 1)[]),
-                                       ("K11",fApp (toSkolem "z" 1)["K13"]),
-                                       ("K12",fApp (toSkolem "w" 1)["K15"]),
-                                       ("K13",fApp (toSkolem "x" 1)[]),
-                                       ("K14",fApp (toSkolem "y" 1)[]),
-                                       ("K15",fApp (toSkolem "x" 1)[]),
-                                       ("K16",fApp (toSkolem "y" 1)[]),
-                                       ("K17",fApp (toSkolem "x" 1)[]),
-                                       ("K18",fApp (toSkolem "y" 1)[]),
-                                       ("K2",fApp (toSkolem "z" 1)["K0"]),
-                                       ("K3",fApp (toSkolem "w" 1)["K0"]),
-                                       ("K4",fApp (toSkolem "z" 1)["K0"]),
-                                       ("K5",fApp (toSkolem "w" 1)["K0"]),
-                                       ("K6",fApp (toSkolem "z" 1)["K8"]),
-                                       ("K7",fApp (toSkolem "w" 1)["K9"]),
-                                       ("K8",fApp (toSkolem "x" 1)[]),
-                                       ("K9",fApp (toSkolem "x" 1)[])]),
+        expected = Success ((K 22,
+                             Map.fromList
+                                      [("K0",fApp ((toSkolem "x" 1))[]),
+                                       ("K1",fApp ((toSkolem "y" 1))[]),
+                                       ("K10",fApp ((toSkolem "x" 2))[]),
+                                       ("K11",fApp ((toSkolem "z" 3))["K13"]),
+                                       ("K12",fApp ((toSkolem "w" 3))["K16"]),
+                                       ("K13",fApp ((toSkolem "x" 2))[]),
+                                       ("K14",fApp ((toSkolem "y" 2))[]),
+                                       ("K15",fApp ((toSkolem "y" 2))[]),
+                                       ("K16",fApp ((toSkolem "x" 2))[]),
+                                       ("K17",fApp ((toSkolem "y" 2))[]),
+                                       ("K18",fApp ((toSkolem "y" 2))[]),
+                                       ("K19",fApp ((toSkolem "x" 2))[]),
+                                       ("K2",fApp ((toSkolem "z" 1))["K0"]),
+                                       ("K20",fApp ((toSkolem "y" 2))[]),
+                                       ("K21",fApp ((toSkolem "y" 2))[]),
+                                       ("K3",fApp ((toSkolem "w" 1))["K0"]),
+                                       ("K4",fApp ((toSkolem "z" 1))["K0"]),
+                                       ("K5",fApp ((toSkolem "w" 1))["K0"]),
+                                       ("K6",fApp ((toSkolem "z" 2))["K8"]),
+                                       ("K7",fApp ((toSkolem "w" 2))["K9"]),
+                                       ("K8",fApp ((toSkolem "x" 2))[]),
+                                       ("K9",fApp ((toSkolem "x" 2))[])]
+                                      ),
                             Depth 4) in
     TestCase $ assertEqual' "p38, p. 178" expected (tab Nothing fm)
 {-

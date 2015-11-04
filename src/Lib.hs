@@ -51,7 +51,6 @@ module Lib
     , mapfilter
     , setmapfilter
     , (∅)
-    , Marked(Mark, unMark')
     , deepen, Depth(Depth)
 #ifndef NOTESTS
     , testLib
@@ -972,9 +971,6 @@ let equated (Partition f) = dom f;;
 
 let rec first n p = if p(n) then n else first (n +/ Int 1) p;;
 -}
-
--- This is a type used to mark values with the phantom type "mark".
-data Marked mark a = Mark {unMark' :: a} deriving (Data, Typeable, Read)
 
 -- | Try f with higher and higher values of n until it succeeds, or
 -- optional maximum depth limit is exceeded.

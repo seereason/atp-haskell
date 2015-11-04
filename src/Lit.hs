@@ -23,19 +23,14 @@ module Lit
     , fixityLiteral
     , prettyLiteral
     , showLiteral
-    , Literal
-    , markLiteral
-    , unmarkLiteral
 #ifndef NOTESTS
     , LFormula(T, F, Atom, Not)
     , Lit(L, lname)
 #endif
     ) where
 
-import Data.Generics (Data)
 import Data.Monoid ((<>))
 import Formulas (HasBoolean(..), IsAtom, IsNegatable(..), IsFormula(atomic, AtomOf), (.~.))
-import Lib (Marked(Mark, unMark'))
 import Prelude hiding (negate, null)
 import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
 #ifndef NOTESTS
@@ -137,32 +132,6 @@ overatomsLiteral f fm r0 =
         foldLiteral ne (const r0) (flip f r0) fm
         where
           ne fm' = overatomsLiteral f fm' r0
-
--- | Type used as a parameter to 'Marked' to indicate Literal values.
-data Literal
-deriving instance Data Literal
-
--- We only want these simple instances for specific markings, not the
--- general Marked mk case.
-instance Show formula => Show (Marked Literal formula) where
-    show (Mark x) = "markLiteral (" ++ show x ++ ")"
-
-instance Eq formula => Eq (Marked Literal formula) where
-    Mark a == Mark b = a == b
-
-instance Ord formula => Ord (Marked Literal formula)where
-    compare (Mark a) (Mark b) = compare a b
-
-instance IsLiteral formula => JustLiteral (Marked Literal formula)
-
-markLiteral :: IsLiteral lit => lit -> Marked Literal lit
-markLiteral = Mark
-
-unmarkLiteral :: IsLiteral pf => Marked Literal pf -> pf
-unmarkLiteral = unMark'
-
-instance (IsLiteral formula, IsNegatable formula) => IsLiteral (Marked mk formula) where
-    foldLiteral' ho ne tf at (Mark x) = foldLiteral' (ho . Mark) (ne . Mark) tf at x
 
 #ifndef NOTESTS
 -- | Example of a 'JustLiteral' type.

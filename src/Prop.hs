@@ -88,7 +88,7 @@ import Formulas (atom_union, binop,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination),
                  IsFormula(AtomOf, atomic, overatoms, onatoms),
                  IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive)
-import Lib (distrib, fpf, Marked(..), setAny)
+import Lib (distrib, fpf, setAny)
 import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral)
 import Prelude hiding (negate, null)
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
@@ -99,7 +99,7 @@ import Data.Set as Set (fromList)
 import Data.String (IsString(fromString))
 import Formulas ((¬), (∧), (∨))
 import Lib ((|=>))
-import Lit (LFormula, Literal, unmarkLiteral)
+import Lit (LFormula)
 import Pretty (leafFixity)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 #endif
@@ -246,27 +246,18 @@ overatomsPropositional f fof r0 =
       co p _ q = overatomsPropositional f p (overatomsPropositional f q r0)
       ne fof' = overatomsPropositional f fof' r0
 
----------------------------------------------------------
--- Formula marker types and restricted formula classes --
----------------------------------------------------------
-
-instance IsPropositional formula => IsPropositional (Marked mk formula) where
-    foldPropositional' ho co ne tf at (Mark x) = foldPropositional' (ho . Mark) co' (ne . Mark) tf at x
-        where
-          co' lhs op rhs = co (Mark lhs) op (Mark rhs)
+---------------------------
+-- Restricted formula class
+---------------------------
 
 -- | Class that indicates a formula type *only* supports Propositional
 -- features - no quantifiers.
 class IsPropositional formula => JustPropositional formula
 
--- A 'Literal' formula can safely be used wherever a 'Propositional'
--- formula can.
-instance IsPropositional formula => JustPropositional (Marked Literal formula)
-
-#ifndef NOTESTS
 instance IsAtom atom => JustPropositional (PFormula atom)
 instance IsPropositional (LFormula atom) => JustPropositional (LFormula atom)
 
+#ifndef NOTESTS
 data Prop = P {pname :: String} deriving (Eq, Ord)
 
 -- Because of the IsString instance, the Show instance can just be a String.
@@ -944,10 +935,12 @@ purednf ca fm =
 -- Example.
 
 test32 :: Test
-test32 = TestCase $ assertEqual "purednf (p. 58)" expected input
-    where input = purednf id $ (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
-          expected :: Set (Set (Marked Literal (PFormula Prop)))
-          expected = Set.fromList [Set.fromList [p, (.~.) p],
+test32 = TestCase $ assertEqual "purednf (p. 58)" expected (purednf id fm)
+    where fm :: PFormula Prop
+          fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
+          expected :: Set (Set (LFormula Prop))
+          expected = Set.map (Set.map (convertToLiteral (error "test32") id)) $
+                     Set.fromList [Set.fromList [p, (.~.) p],
                                    Set.fromList [p, (.~.) r],
                                    Set.fromList [q, r, (.~.) p],
                                    Set.fromList [q, r, (.~.) r]]
@@ -965,15 +958,16 @@ trivial lits =
 #ifndef NOTESTS
 -- Example.
 test33 :: Test
-test33 = TestCase $ assertEqual "trivial" expected input
-    where input = Set.filter (not . trivial) (purednf id fm)
-          expected :: Set (Set (Marked Literal (PFormula Prop)))
-          expected = Set.fromList [Set.fromList [p,(.~.) r],
+test33 = TestCase $ assertEqual "trivial" expected (Set.filter (not . trivial) (purednf id fm))
+    where expected :: Set (Set (LFormula Prop))
+          expected = Set.map (Set.map (convertToLiteral (error "test32") id)) $
+                     Set.fromList [Set.fromList [p,(.~.) r],
                                    Set.fromList [q,r,(.~.) p]]
+          fm :: PFormula Prop
           fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
-          p = atomic (P "p")
-          q = atomic (P "q")
-          r = atomic (P "r")
+          p = atomic (P "p") :: PFormula Prop
+          q = atomic (P "q") :: PFormula Prop
+          r = atomic (P "r") :: PFormula Prop
 #endif
 
 -- | With subsumption checking, done very naively (quadratic).
@@ -989,8 +983,8 @@ simpdnf ca fm =
            Set.filter (\d -> not (setAny (\d' -> Set.isProperSubsetOf d' d) djs)) djs
 
 -- | Mapping back to a formula.
-dnf :: (JustPropositional pf, Ord pf) => pf -> pf
-dnf fm = (list_disj . Set.toAscList . Set.map list_conj . Set.map (Set.map unmarkLiteral) . simpdnf id) fm
+dnf :: forall pf. (JustPropositional pf, Ord pf) => pf -> pf
+dnf fm = (list_disj . Set.toAscList . Set.map list_conj . Set.map (Set.map (convertLiteral id :: LFormula (AtomOf pf) -> pf)) . simpdnf id) fm
 
 #ifndef NOTESTS
 -- Example. (p. 56)
@@ -1020,8 +1014,8 @@ simpcnf ca fm =
 cnf_ :: (IsPropositional pf, Ord pf, IsLiteral lit, JustLiteral lit) => (AtomOf lit -> AtomOf pf) -> Set (Set lit) -> pf
 cnf_ ca = list_conj . Set.map (list_disj . Set.map (convertLiteral ca))
 
-cnf' :: (IsPropositional pf, JustPropositional pf, Ord pf) => pf -> pf
-cnf' fm = (list_conj . Set.map list_disj . Set.map (Set.map unmarkLiteral) . simpcnf id) fm
+cnf' :: forall pf. (IsPropositional pf, JustPropositional pf, Ord pf) => pf -> pf
+cnf' fm = (list_conj . Set.map list_disj . Set.map (Set.map (convertLiteral id :: LFormula (AtomOf pf) -> pf)) . simpcnf id) fm
 
 #ifndef NOTESTS
 -- Example. (p. 61)
