@@ -88,7 +88,7 @@ import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity), prettyShow, text)
 import Prop (foldPropositional, IsPropositional(foldPropositional'), JustPropositional)
 import Text.PrettyPrint (parens, brackets, punctuate, comma, fcat, fsep, space)
-import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel(PrettyLevel))
+import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel)
 import Test.HUnit
 
 ---------------
@@ -209,7 +209,7 @@ prettyTerm = foldTerm pPrint prettyFunctionApply
 -- | Format a function application: F(x,y)
 prettyFunctionApply :: (function ~ FunOf term, IsTerm term) => function -> [term] -> Doc
 prettyFunctionApply f [] = pPrint f
-prettyFunctionApply f ts = pPrint f <> space <> parens (fsep (punctuate comma (map prettyTerm ts)))
+prettyFunctionApply f ts = pPrint f <> parens (fsep (punctuate comma (map prettyTerm ts)))
 
 showTerm :: (v ~ TVarOf term, function ~ FunOf term, IsTerm term, Pretty v, Pretty function) => term -> String
 showTerm = foldTerm showVariable showFunctionApply
@@ -350,8 +350,8 @@ isEquate = foldEquate (\_ _ -> True) (\_ _ -> False)
 
 -- | Format the infix equality predicate applied to two terms.
 prettyEquate :: IsTerm term => PrettyLevel -> Rational -> term -> term -> Doc
-prettyEquate d _r t1 t2 =
-    maybeParens (d > PrettyLevel atomPrec) $ pPrintPrec (PrettyLevel atomPrec) 0 t1 <> text "=" <> pPrintPrec (PrettyLevel atomPrec) 0 t2
+prettyEquate l p t1 t2 =
+    maybeParens (p > atomPrec) $ pPrintPrec l atomPrec t1 <> text "=" <> pPrintPrec l atomPrec t2
 
 -- | Implementation of 'overterms' for 'HasApply' types.
 overtermsEq :: HasApplyAndEquate atom => ((TermOf atom) -> r -> r) -> r -> atom -> r
@@ -501,7 +501,7 @@ fixityQuantified fm =
 
 -- | Implementation of 'Pretty' for 'IsQuantified' types.
 prettyQuantified :: forall fof. IsQuantified fof => PrettyLevel -> Rational -> fof -> Doc
-prettyQuantified d r fm =
+prettyQuantified l r fm =
     foldQuantified (\op v p -> qu op [v] p) co ne tf at fm
     where
       -- Collect similarly quantified variables
@@ -511,48 +511,48 @@ prettyQuantified d r fm =
       qu' op vs _ op' v p' | op == op' = qu op (v : vs) p'
       qu' op vs p _ _ _ = qu'' op vs p
       qu'' :: Quant -> [VarOf fof] -> fof -> Doc
-      qu'' _op [] p = prettyQuantified d r p
-      qu'' op vs p = maybeParens (d > PrettyLevel quantPrec) $ text (case op of (:!:) -> "∀"; (:?:) -> "∃") <> fsep (map pPrint (reverse vs)) <> text ". " <> prettyQuantified (PrettyLevel quantPrec) 0 p
+      qu'' _op [] p = prettyQuantified l r p
+      qu'' op vs p = maybeParens (r > quantPrec) $ text (case op of (:!:) -> "∀"; (:?:) -> "∃") <> fsep (map pPrint (reverse vs)) <> text ". " <> prettyQuantified l (quantPrec + 1) p
       co :: fof -> BinOp -> fof -> Doc
-      co p (:&:) q = maybeParens (d > PrettyLevel andPrec) $ prettyQuantified (PrettyLevel andPrec) 0 p <> text "∧" <>  prettyQuantified (PrettyLevel andPrec) 0 q
-      co p (:|:) q = maybeParens (d > PrettyLevel orPrec) $ prettyQuantified (PrettyLevel orPrec) 0 p <> text "∨" <> prettyQuantified (PrettyLevel orPrec) 0 q
-      co p (:=>:) q = maybeParens (d > PrettyLevel impPrec) $ prettyQuantified (PrettyLevel impPrec) 0 p <> text "⇒" <> prettyQuantified (PrettyLevel impPrec) 0 q
-      co p (:<=>:) q = maybeParens (d > PrettyLevel iffPrec) $ prettyQuantified (PrettyLevel iffPrec) 0 p <> text "⇔" <> prettyQuantified (PrettyLevel iffPrec) 0 q
-      ne p = maybeParens (d > PrettyLevel notPrec) $ text "¬" <> prettyQuantified (PrettyLevel notPrec) 0 p
-      tf x = maybeParens (d > PrettyLevel boolPrec) $ pPrint x
-      at x = pPrintPrec d r x -- maybeParens (d > PrettyLevel atomPrec) $ pPrint x
+      co p (:&:) q = maybeParens (r > andPrec) $ prettyQuantified l (andPrec) p <> text "∧" <>  prettyQuantified l (andPrec) q
+      co p (:|:) q = maybeParens (r > orPrec) $ prettyQuantified l (orPrec) p <> text "∨" <> prettyQuantified l (orPrec) q
+      co p (:=>:) q = maybeParens (r > impPrec) $ prettyQuantified l (impPrec) p <> text "⇒" <> prettyQuantified l (impPrec) q
+      co p (:<=>:) q = maybeParens (r > iffPrec) $ prettyQuantified l (iffPrec) p <> text "⇔" <> prettyQuantified l (iffPrec) q
+      ne p = maybeParens (r > notPrec) $ text "¬" <> prettyQuantified l (notPrec) p
+      tf x = maybeParens (r > boolPrec) $ pPrint x
+      at x = pPrintPrec l r x -- maybeParens (d > PrettyLevel atomPrec) $ pPrint x
 
-boolPrec :: Int
+boolPrec :: Num a => a
 boolPrec = 14
-notPrec :: Int
+notPrec :: Num a => a
 notPrec = 12
-atomPrec :: Int
+atomPrec :: Num a => a
 atomPrec = 10
-andPrec :: Int
+andPrec :: Num a => a
 andPrec = 8
-orPrec :: Int
+orPrec :: Num a => a
 orPrec = 6
-impPrec :: Int
+impPrec :: Num a => a
 impPrec = 4
-iffPrec :: Int
+iffPrec :: Num a => a
 iffPrec = 2
-quantPrec :: Int
+quantPrec :: Num a => a
 quantPrec = 0
 
 -- | Implementation of 'showsPrec' for 'IsQuantified' types.
 showQuantified :: IsQuantified formula => Int -> formula -> ShowS
-showQuantified d fm =
+showQuantified l fm =
     foldQuantified qu co ne tf at fm
     where
-      qu (:!:) x p = showParen (d > quantPrec) $ showString "for_all " . showString (show x) . showString " " . showQuantified (quantPrec) p
-      qu (:?:) x p = showParen (d > quantPrec) $ showString "exists " . showString (show x) . showString " " . showQuantified (quantPrec) p
-      co p (:&:) q = showParen (d > andPrec) $ showQuantified andPrec p . showString " .&. " . showQuantified andPrec q
-      co p (:|:) q = showParen (d > orPrec) $ showQuantified orPrec p . showString " .|. " . showQuantified orPrec q
-      co p (:=>:) q = showParen (d > impPrec) $ showQuantified impPrec p . showString " .=>. " . showQuantified impPrec q
-      co p (:<=>:) q = showParen (d > iffPrec) $ showQuantified iffPrec p . showString " .<=>. " . showQuantified iffPrec q
-      ne p = showParen (d > notPrec) $ showString "(.~.) " . showQuantified (succ notPrec) p -- parenthesization of prefix operators is sketchy
-      tf x = showParen (d > boolPrec) $ showsPrec boolPrec x
-      at x = showParen (d > atomPrec) $ showsPrec atomPrec x
+      qu (:!:) x p = showParen (l > quantPrec) $ showString "for_all " . showString (show x) . showString " " . showQuantified (quantPrec + 1) p
+      qu (:?:) x p = showParen (l > quantPrec) $ showString "exists " . showString (show x) . showString " " . showQuantified (quantPrec + 1) p
+      co p (:&:) q = showParen (l > andPrec) $ showQuantified andPrec p . showString " .&. " . showQuantified andPrec q
+      co p (:|:) q = showParen (l > orPrec) $ showQuantified orPrec p . showString " .|. " . showQuantified orPrec q
+      co p (:=>:) q = showParen (l > impPrec) $ showQuantified impPrec p . showString " .=>. " . showQuantified impPrec q
+      co p (:<=>:) q = showParen (l > iffPrec) $ showQuantified iffPrec p . showString " .<=>. " . showQuantified iffPrec q
+      ne p = showParen True{-(l > notPrec)-} $ showString "(.~.) " . showQuantified (succ notPrec) p -- parenthesization of prefix operators is sketchy
+      tf x = showParen (l > boolPrec) $ showsPrec boolPrec x
+      at x = showParen (l > atomPrec) $ showsPrec atomPrec x
 
 data QFormula v atom
     = F

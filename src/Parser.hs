@@ -93,9 +93,6 @@ exprparser term = buildExpressionParser table term <?> "expression"
              Prefix (m_reservedOp "~" >> return (.~.)),
              Prefix (m_reservedOp "¬" >> return (.~.))]
 
-          , [Prefix existentialPrefix] -- ∀x. ∃y. x=y becomes ∀x. (∃y. (x=y))
-          , [Prefix forallPrefix]
-
           , [Infix (m_reservedOp ".&." >> return (.&.)) AssocRight,
              Infix (m_reservedOp "&" >> return (.&.)) AssocRight,
              Infix (m_reservedOp "∧" >> return (.&.)) AssocRight,
@@ -110,18 +107,21 @@ exprparser term = buildExpressionParser table term <?> "expression"
              Infix (m_reservedOp "\\/" >> return (.|.)) AssocRight,
              Infix (m_reservedOp "+" >> return (.|.)) AssocRight]
 
-          , [Infix (m_reservedOp ".<=>." >> return (.<=>.)) AssocRight,
-             Infix (m_reservedOp "<==>" >> return (.<=>.)) AssocRight,
-             Infix (m_reservedOp "⇔" >> return (.<=>.)) AssocRight,
-             Infix (m_reservedOp "↔" >> return (.<=>.)) AssocRight,
-             Infix (m_reservedOp "≡" >> return (.<=>.)) AssocRight]
-
           , [Infix (m_reservedOp ".=>." >> return (.=>.)) AssocRight,
              Infix (m_reservedOp "==>" >> return (.=>.)) AssocRight,
              Infix (m_reservedOp "⇒" >> return (.=>.)) AssocRight,
              Infix (m_reservedOp "⟹" >> return (.=>.)) AssocRight,
              Infix (m_reservedOp "→" >> return (.=>.)) AssocRight,
              Infix (m_reservedOp "⊃" >> return (.=>.)) AssocRight]
+
+          , [Infix (m_reservedOp ".<=>." >> return (.<=>.)) AssocRight,
+             Infix (m_reservedOp "<==>" >> return (.<=>.)) AssocRight,
+             Infix (m_reservedOp "⇔" >> return (.<=>.)) AssocRight,
+             Infix (m_reservedOp "↔" >> return (.<=>.)) AssocRight,
+             Infix (m_reservedOp "≡" >> return (.<=>.)) AssocRight]
+
+          , [Prefix existentialPrefix] -- ∀x. ∃y. x=y becomes ∀x. (∃y. (x=y))
+          , [Prefix forallPrefix]
           ]
 
 -- propterm :: forall s u m. Stream s m Char => ParsecT s u m (PFormula Prop)
