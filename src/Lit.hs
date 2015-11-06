@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -19,7 +20,8 @@ module Lit
     , zipLiterals', zipLiterals
     , convertLiteral
     , convertToLiteral
-    , fixityLiteral
+    , precedenceLiteral
+    , associativityLiteral
     , prettyLiteral
     , showLiteral
     , LFormula(T, F, Atom, Not)
@@ -31,7 +33,7 @@ import Data.Monoid ((<>))
 import Formulas ((.~.), HasBoolean(..), IsAtom, IsNegatable(..), IsFormula(atomic, AtomOf), overatoms, onatoms)
 import Formulas ()
 import Prelude hiding (negate, null)
-import Pretty (Associativity(..), Doc, Fixity(..), HasFixity(fixity), Pretty(pPrint), text)
+import Pretty (Associativity(..), boolPrec, Doc, HasFixity(precedence, associativity), notPrec, Precedence, Pretty(pPrint), text)
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- forms.  They support negation and must include True and False elements.
@@ -89,13 +91,10 @@ convertToLiteral :: (IsLiteral formula, JustLiteral lit) =>
                     (formula -> lit) -> (AtomOf formula -> AtomOf lit) -> formula -> lit
 convertToLiteral ho ca fm = foldLiteral' ho (\fm' -> (.~.) (convertToLiteral ho ca fm')) fromBool (atomic . ca) fm
 
-fixityLiteral :: JustLiteral lit => lit -> Fixity
-fixityLiteral fm =
-    foldLiteral ne tf at fm
-    where
-      ne _ = Fixity 5 InfixA
-      tf _ = Fixity 10 InfixN
-      at = fixity
+precedenceLiteral :: JustLiteral lit => lit -> Precedence
+precedenceLiteral = foldLiteral (const notPrec) (const boolPrec) precedence
+associativityLiteral :: JustLiteral lit => lit -> Associativity
+associativityLiteral = foldLiteral (const InfixA) (const InfixN) associativity
 
 -- | Implementation of 'pPrint' for -- 'JustLiteral' types.
 prettyLiteral :: JustLiteral lit => lit -> Doc
@@ -168,7 +167,8 @@ instance Ord atom => IsNegatable (LFormula atom) where
     foldNegation normal _ x = normal x
 
 instance IsAtom atom => HasFixity (LFormula atom) where
-    fixity = fixityLiteral
+    precedence = precedenceLiteral
+    associativity = associativityLiteral
 
 instance IsAtom atom => Pretty (LFormula atom) where
     pPrint = prettyLiteral

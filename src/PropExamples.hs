@@ -24,7 +24,7 @@ import Data.Set as Set
 import Prelude hiding (sum)
 import Formulas
 import Lib (allsets)
-import Pretty (HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
+import Pretty (HasFixity, Pretty(pPrint), prettyShow, text)
 import Prop
 import Test.HUnit
 
@@ -43,8 +43,7 @@ data Knows a = K String a (Maybe a) deriving (Eq, Ord, Show)
 instance (Num a, Show a) => Pretty (Knows a) where
     pPrint (K s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
 
-instance Num a => HasFixity (Knows a) where
-    fixity = const leafFixity
+instance Num a => HasFixity (Knows a)
 
 instance IsAtom (Knows Integer)
 

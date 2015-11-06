@@ -16,8 +16,8 @@ import Text.Parsec.Language
 
 import FOL
 import Formulas
---import Lit
---import Prop
+import Lit
+import Prop (PFormula)
 --import Prolog (PrologRule(Prolog))
 import Skolem
 
@@ -26,17 +26,33 @@ import Skolem
 fof :: QuasiQuoter
 fof = QuasiQuoter
     { quoteExp = \str -> [| parseFOL (dropWhile isSpace str) |]
-    , quoteType = error "abtQQ does not implement quoteType"
-    , quotePat  = error "abtQQ does not implement quotePat"
-    , quoteDec  = error "abtQQ does not implement quoteDec"
+    , quoteType = error "fofQQ does not implement quoteType"
+    , quotePat  = error "fofQQ does not implement quotePat"
+    , quoteDec  = error "fofQQ does not implement quoteDec"
+    }
+
+-- | QuasiQuote for a propositional formula.  Exactly like fof, but no quantifiers.
+pf :: QuasiQuoter
+pf = QuasiQuoter
+    { quoteExp = \str -> [| convertQuantified id id (parseFOL (dropWhile isSpace str)) :: PFormula SkAtom |]
+    , quoteType = error "pfQQ does not implement quoteType"
+    , quotePat  = error "pfQQ does not implement quotePat"
+    , quoteDec  = error "pfQQ does not implement quoteDec"
+    }
+
+-- | QuasiQuote for a propositional formula.  Exactly like fof, but no quantifiers.
+lit :: QuasiQuoter
+lit = QuasiQuoter
+    { quoteExp = \str -> [| convertQuantified id id (parseFOL (dropWhile isSpace str)) :: LFormula SkAtom |]
+    , quoteType = error "pfQQ does not implement quoteType"
+    , quotePat  = error "pfQQ does not implement quotePat"
+    , quoteDec  = error "pfQQ does not implement quoteDec"
     }
 
 -- parseProlog :: forall s lit. Stream s Identity Char => s -> PrologRule lit
 -- parseProlog str = either (error . show) id $ parse prologparser "" str
 parseFOL :: Stream String Identity Char => String -> Formula
 parseFOL str = either (error . show) id $ parse folparser "" str
--- parsePL :: forall s. Stream s Identity Char => s -> PFormula Prop
--- parsePL str = either (error . show) id $ parse propparser "" str
 parseFOLTerm :: forall s. Stream s Identity Char => s -> SkTerm
 parseFOLTerm str = either (error . show) id $ parse folsubterm "" str
 
@@ -81,15 +97,21 @@ TokenParser{ parens = m_parens
 --    return (Prolog mempty left))
 --    <?> "prolog expression"
 
--- propparser :: forall s u m. Stream s m Char => ParsecT s u m (PFormula Prop)
--- propparser = exprparser propterm
 folparser :: forall s u m. Stream s m Char => ParsecT s u m Formula
-folparser = exprparser folterm
+folparser = folexprparser folterm
 
-exprparser :: forall s u m. Stream s m Char => ParsecT s u m Formula -> ParsecT s u m Formula
-exprparser term = buildExpressionParser table term <?> "expression"
- where
-  table = [ [Prefix (m_reservedOp ".~." >> return (.~.)),
+folexprparser :: forall s u m. Stream s m Char => ParsecT s u m Formula -> ParsecT s u m Formula
+folexprparser term = buildExpressionParser folexprtable term <?> "expression"
+
+folexprtable =
+          -- ∀x. ∃y. x=y becomes ∀x. (∃y. (x=y))
+          -- ∃x. ∀y. x=y is a parse error
+          propexprtable ++
+          [ [Prefix existentialPrefix]
+          , [Prefix forallPrefix] ]
+
+propexprtable =
+           [ [Prefix (m_reservedOp ".~." >> return (.~.)),
              Prefix (m_reservedOp "~" >> return (.~.)),
              Prefix (m_reservedOp "¬" >> return (.~.))]
 
@@ -119,16 +141,7 @@ exprparser term = buildExpressionParser table term <?> "expression"
              Infix (m_reservedOp "⇔" >> return (.<=>.)) AssocRight,
              Infix (m_reservedOp "↔" >> return (.<=>.)) AssocRight,
              Infix (m_reservedOp "≡" >> return (.<=>.)) AssocRight]
-
-          , [Prefix existentialPrefix] -- ∀x. ∃y. x=y becomes ∀x. (∃y. (x=y))
-          , [Prefix forallPrefix]
           ]
-
--- propterm :: forall s u m. Stream s m Char => ParsecT s u m (PFormula Prop)
--- propterm = m_parens propparser
---        <|> fmap pApp m_identifier
---        <|> (m_reserved "true" >> return true)
---        <|> (m_reserved "false" >> return false)
 
 folterm :: forall s u m. Stream s m Char => ParsecT s u m Formula
 folterm = try (m_parens folparser)

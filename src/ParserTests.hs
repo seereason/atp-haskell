@@ -4,7 +4,7 @@ module ParserTests where
 import Language.Haskell.Exts hiding (Pretty)
 import Language.Haskell.Exts.Parser -- (parseExp)
 import Parser (fof)
-import Pretty (assertEqual', Pretty, prettyShow)
+import Pretty (assertEqual', Pretty(..), prettyShow)
 import Test.HUnit
 
 t :: (Eq a, Pretty a) => String -> a -> a -> Test
@@ -13,42 +13,47 @@ t label expected actual = TestLabel label (TestCase (assertEqual' label expected
 testParser :: Test
 testParser =
     TestLabel "Parser"
-      (TestList [ t "precedence 1" [fof| (exists x. true) & (exists y. true) |]
-                                   [fof|  exists x. true  &  exists y. true |]
-
-                , t "precedence 2" [fof| (true & false) | true |]
-                                   [fof| true & false | true |]
-
-                , t "precedence 3" [fof| (true | false) <==> true |]
-                                   [fof| true | false <==> true |]
-
-                , t "precedence 4" [fof| (true <==> false) ==> true |]
-                                   [fof| true <==> false ==> true |]
-
-                , t "precedence 5" [fof| (~ true) & false |]
-                                   [fof| ~ true & false |]
-
+      (TestList [ TestLabel "precedence 1a" $ TestCase $ assertEqual' "precedence 1a"  [fof| (∃x. true) & (∃y. true) |]    [fof| (∃x. true) & (∃y. true) |]
+                , TestLabel "precedence 1b" $ TestCase $ assertEqual' "precedence 1b"  [fof| ∃x. true & (∃y. true) |]      [fof| ∃x. (true & (∃y. true)) |]
+                , TestLabel "precedence 2" $ TestCase $ assertEqual' "precedence 2"    [fof| (true & false) | true |]      [fof| true & false | true |]
+                , TestLabel "precedence 3" $ TestCase $ assertEqual' "precedence 3"    [fof| (true | false) <==> true |]   [fof| true | false <==> true |]
+                , TestLabel "precedence 4" $ TestCase $ assertEqual' "precedence 4"    [fof| true <==> (false ==> true) |] [fof| true <==> false ==> true |]
+                , TestLabel "precedence 5" $ TestCase $ assertEqual' "precedence 5"    [fof| (~ true) & false |]           [fof| ~ true & false |]
                 -- repeated prefix operator with same precedences fails:
-                -- unexpected "∃"
-                -- expecting "(", expression, identifier, "nil", integer, "<", "|--", "true" or "false"
-                -- (Pretty printer needs to account for this.)
-                -- , t "precedence 6" [fof| ∃ x. (∃ y. x=y) |]
-                --                    [fof| ∃ x. ∃ y. x=y |]
-
-                , t "precedence 7" [fof| ∃x. (∃y. x=y) |]
-                                   [fof| ∃x y. x=y |]
-
-                , t "precedence 8" [fof| ∀x. (∃y. (x=y)) |]
-                                   [fof| ∀x. ∃y. x=y |]
-                -- We can say ∀x. ∃y., but not ∃y. ∀x.
-                -- , t "precedence 9" [fof| ∃x. (∀y. x=y) |]
-                --                    [fof| ∃x.  ∀y. x=y |]
-                , t "pretty 1" "∃x y. ∀z. (F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z))"
-                               (prettyShow [fof| ∃ x y. (∀ z. ((F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))) |])
-                , t "read 1" (show (ParseOk (InfixApp (App (App (Var (UnQual (Ident "for_all"))) (Lit (String "x"))) (Paren (Lit (String "x")))) (QVarOp (UnQual (Symbol ".=."))) (Paren (Lit (String "x"))))))
-                             (show (parseExp (show [fof| ∀x. (x=x) |])))
-                , t "read 2" (show (ParseOk (InfixApp (Paren (App (App (App (App (Var (UnQual (Ident "for_all"))) (Lit (String "x"))) (Var (UnQual (Ident "pApp")))) (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "P"))))) (List [Lit (String "x")]))) (QVarOp (UnQual (Symbol ".&."))) (App (App (Var (UnQual (Ident "pApp"))) (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "Q"))))) (List [Lit (String "x")])))))
-                             (show (parseExp (show [fof| ∀x. P(x) ∧ Q(x) |])))
-                , t "read 3" (show (ParseOk (InfixApp (Paren (App (App (App (App (Var (UnQual (Ident "for_all"))) (Lit (String "x"))) (Var (UnQual (Ident "pApp")))) (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "P"))))) (List [Lit (String "x")]))) (QVarOp (UnQual (Symbol ".&."))) (App (App (Var (UnQual (Ident "pApp"))) (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "Q"))))) (List [Lit (String "x")])))))
+             -- , TestLabel "precedence 6" $ TestCase $ assertEqual' "precedence 6"    [fof| ∃ x. (∃ y. x=y) |]            [fof| ∃x. ∃y. x=y |]
+                , TestLabel "precedence 7" $ TestCase $ assertEqual' "precedence 7"    [fof| ∃x. (∃y. (x=y)) |]            [fof| ∃x y. x=y |]
+                , TestLabel "precedence 8" $ TestCase $ assertEqual' "precedence 8"    [fof| ∀x. (∃y. (x=y)) |]            [fof| ∀x. ∃y. x=y |]
+                , TestLabel "precedence 9" $ TestCase $ assertEqual' "precedence 9"    [fof| ∃y. (∀x. (x=y)) |]            [fof| ∃y. (∀x. x=y) |]
+                , TestLabel "precedence 10" $ TestCase $ assertEqual' "precedence 10"  [fof| (~P) & Q |]                   [fof| ~P & Q |] -- ~ vs &
+                -- repeated prefix operator with same precedences fails:
+             -- , TestLabel "precedence 10" $ TestCase $ assertEqual' "precedence 10a" [fof| ~(~P) |]                     [fof| ~~P |] -- ~ vs &
+                , TestLabel "precedence 11" $ TestCase $ assertEqual' "precedence 11"  [fof| (P & Q) | R |]                [fof| P & Q | R |] -- & vs |
+                , TestLabel "precedence 12" $ TestCase $ assertEqual' "precedence 12"  [fof| (P | Q) ==> R |]              [fof| P | Q ==> R |] -- | vs =>
+                , TestLabel "precedence 13" $ TestCase $ assertEqual' "precedence 13"  [fof| (P ==> Q) <==> R |]           [fof| P ==> Q <==> R |] -- => vs <=>
+             -- , TestCase "precedence 10" [fof| ∃x. (∀y. x=y) |] [fof| ∃x.  ∀y. x=y |]
+                , TestLabel "pretty 1" $ TestCase $ assertEqual' "pretty 1" "∃x y. (∀z. (F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))"
+                                                                            (prettyShow [fof| ∃ x y. (∀ z. ((F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))) |])
+                -- We could use haskell-src-meta to perform the third
+                -- step of the round trip, roughly
+                --
+                --   1. formula string to parsed formula expression (Parser.parseExp)
+                --   2. formula expression to parsed haskell-src-exts expression (show and th-lift?)
+                --   3. haskell-src-exts to template-haskell expression (the toExp method of haskell-src-meta)
+                --   4. template haskell back to haskell expression (template-haskell unquote)
+                , TestLabel "read 1" $ TestCase $ assertEqual' "read 1" (show (ParseOk (InfixApp (App
+                                                                                                  (App (Var (UnQual (Ident "for_all"))) (Lit (String "x")))
+                                                                                                  (Paren (Lit (String "x")))) (QVarOp (UnQual (Symbol ".=."))) (Paren (Lit (String "x"))))))
+                             $(show (parseExp (show [fof| ∀x. (x=x) |])))
+                , TestLabel "read 2" $ TestCase $ assertEqual' "read 2" (show (ParseOk (InfixApp (App
+                                                                                                  (App
+                                                                                                   (App (App (Var (UnQual (Ident "for_all"))) (Lit (String "x"))) (Var (UnQual (Ident "pApp"))))
+                                                                                                   (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "P")))))
+                                                                                                  (List [Lit (String "x")]))
+                                                                                        (QVarOp (UnQual (Symbol ".&.")))
+                                                                                        (App
+                                                                                         (App
+                                                                                          (Var (UnQual (Ident "pApp")))
+                                                                                          (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "Q")))))
+                                                                                         (List [Lit (String "x")])))))
                              (show (parseExp (show [fof| ∀x. P(x) ∧ Q(x) |])))
                 ])

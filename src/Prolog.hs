@@ -11,7 +11,7 @@ import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
-import FOL (fvl, HasApply(TermOf), IsTerm(TVarOf), lsubst, vt)
+import FOL (var, HasApply(TermOf), IsTerm(TVarOf), lsubst, vt)
 -- import Lib (deepen)
 import Lit (IsLiteral, JustLiteral)
 import Formulas (IsFormula(AtomOf))
@@ -30,7 +30,7 @@ renamerule :: forall lit atom term v.
 renamerule k (Prolog asm c) =
     (Prolog (Set.map inst asm) (inst c), k + Set.size fvs)
     where
-      fvs = Set.fold (Set.union . fvl) (Set.empty :: Set v) (Set.insert c asm)
+      fvs = Set.fold (Set.union . var) (Set.empty :: Set v) (Set.insert c asm)
       vvs = Map.fromList (List.map (\(v, i) -> (v, vt (fromString ("_" ++ show i)))) (zip (Set.toList fvs) [k..]))
       inst = lsubst vvs
 

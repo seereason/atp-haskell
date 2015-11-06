@@ -1,24 +1,37 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE ImplicitParams #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# OPTIONS_GHC -ddump-splices #-}
 
 module Pretty
     ( (<>)
     , Pretty(pPrint, pPrintPrec)
     , module Text.PrettyPrint.HughesPJClass
-    , HasFixity(fixity)
-    , Side(LHS, RHS, Unary)
-    , Fixity(Fixity)
     , Associativity(InfixL, InfixR, InfixN, InfixA)
-    , rootFixity
-    , leafFixity
-    , parenthesize
+    , Precedence
+    , HasFixity(precedence, associativity)
+    , rootPrecedence
+    , Side(LHS, RHS, Unary)
+    -- , parenthesize
     , assertEqual'
+    , leafPrec
+    , boolPrec
+    , notPrec
+    , atomPrec
+    , andPrec
+    , orPrec
+    , impPrec
+    , iffPrec
+    , quantPrec
+    , eqPrec
+    , pAppPrec
     ) where
 
 import Control.Monad (unless)
@@ -26,18 +39,8 @@ import Data.Map as Map (Map, toList)
 import Data.Monoid ((<>))
 import Data.Set as Set (Set, toAscList)
 import GHC.Stack
-import Language.Haskell.TH.Syntax (maxPrecedence)
-import Language.Haskell.TH.Ppr (noPrec, Precedence)
 import Test.HUnit (Assertion, assertFailure)
 import Text.PrettyPrint.HughesPJClass (brackets, comma, Doc, fsep, hcat, nest, Pretty(pPrint, pPrintPrec), prettyShow, punctuate, text)
-
-data Associativity
-    = InfixL  -- Left-associative - a-b-c == (a-b)-c
-    | InfixR  -- Right-associative - a=>b=>c == a=>(b=>c)
-    | InfixN  -- Non-associative - a>b>c is an error
-    | InfixA  -- Associative - a+b+c == (a+b)+c == a+(b+c), ~~a == ~(~a)
-
-data Fixity = Fixity Precedence Associativity
 
 -- | A class to extract the fixity of a formula so they can be
 -- properly parenthesized.
@@ -51,31 +54,57 @@ data Fixity = Fixity Precedence Associativity
 -- formulas so that an associative operator with left associative
 -- fixity direction appears as (a+b)+c rather than a+(b+c).
 class HasFixity x where
-    fixity :: x -> Fixity
+    precedence :: x -> Precedence
+    precedence _ = leafPrecedence
+    associativity :: x -> Associativity
+    associativity _ = InfixL
 
-defaultFixity :: Fixity
-defaultFixity = Fixity maxPrecedence InfixL
+-- | Use the same precedence type as the pretty package
+type Precedence = forall a. Num a => a
+
+{-
+precedence :: (HasFixity a, Num num) => a -> num
+precedence = (\(Fixity x _) -> x) . fixity
+-}
+
+data Associativity
+    = InfixL  -- Left-associative - a-b-c == (a-b)-c
+    | InfixR  -- Right-associative - a=>b=>c == a=>(b=>c)
+    | InfixN  -- Non-associative - a>b>c is an error
+    | InfixA  -- Associative - a+b+c == (a+b)+c == a+(b+c), ~~a == ~(~a)
+
+{-
+maxPrecedence :: Precedence
+maxPrecedence = 100
+defaultPrecedence :: Precedence
+defaultPrecedence = 0
+associativity :: HasFixity a => a -> Associativity
+associativity = (\(Fixity _ x) -> x) . fixity
+defaultPrecedence :: Precedence
+defaultPrecedence = maxPrecedence
+defaultAssociativity :: Associativity
+defaultAssociativity = InfixL
+-}
 
 -- Definitions from template-haskell:
 -- data Fixity = Fixity Int FixityDirection
 -- data FixityDirection = InfixL | InfixR | InfixN
 
--- | This is used as the initial value for the parent fixity.
-leafFixity :: Fixity
-leafFixity = defaultFixity
+-- | This is used as the initial value for the parent fixity.  (Really?)
+leafPrecedence :: Precedence
+leafPrecedence = 0
 
 -- | This is used as the fixity for things that never need
 -- parenthesization, such as function application or a variable name.
-rootFixity :: Fixity
-rootFixity = Fixity noPrec InfixN
-
-instance HasFixity String where
-    fixity _ = leafFixity
+-- (Really?)
+rootPrecedence :: Precedence
+rootPrecedence = 100
 
 data Side = LHS | RHS | Unary
 
 -- | Combine the parent and child fixities to determine whether the
 -- child formula should be parenthesized.
+#if 0
 parenthesize :: (Monoid r, Show r) => (r -> r) -> (r -> r) -> Fixity -> Fixity -> Side -> r -> r
 parenthesize parens braces (Fixity pprec pdir) (Fixity prec _dir) side pp =
     -- If fixity goes in the "wrong direction" we need to add parens.
@@ -101,6 +130,7 @@ parenthesize parens braces (Fixity pprec pdir) (Fixity prec _dir) side pp =
             (_, InfixA) -> pp
             (Unary, _) -> braces pp -- not sure
             (_, InfixN) -> error ("Nested non-associative operators: " ++ show pp)
+#endif
 
 instance Pretty a => Pretty (Set a) where
     pPrint = brackets . fsep . punctuate comma . map pPrint . Set.toAscList
@@ -118,3 +148,26 @@ assertEqual' preface expected actual =
   unless (actual == expected) (assertFailure msg)
  where msg = (if null preface then "" else preface ++ "\n") ++
              "expected: " ++ prettyShow expected ++ "\n but got: " ++ prettyShow actual
+
+leafPrec :: Num a => a
+leafPrec = 9
+notPrec :: Num a => a
+notPrec = 7
+atomPrec :: Num a => a
+atomPrec = 6
+andPrec :: Num a => a
+andPrec = 5 -- && is 3
+orPrec :: Num a => a
+orPrec = 4 -- || is 2 (!?)
+impPrec :: Num a => a
+impPrec = 3
+iffPrec :: Num a => a
+iffPrec = 2
+boolPrec :: Num a => a
+boolPrec = leafPrec
+quantPrec :: Num a => a
+quantPrec = 1
+eqPrec :: Num a => a
+eqPrec = 6
+pAppPrec :: Num a => a
+pAppPrec = 9

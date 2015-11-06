@@ -27,7 +27,7 @@ import Data.Map as Map hiding (fromList)
 import Data.Set as Set
 import Formulas as P
 import Lit (convertLiteral, IsLiteral, JustLiteral, LFormula)
-import Pretty (assertEqual', HasFixity(fixity), leafFixity, Pretty(pPrint), prettyShow, text)
+import Pretty (assertEqual', HasFixity, Pretty(pPrint), prettyShow, text)
 import Prop (cnf', foldPropositional, IsPropositional(foldPropositional'), JustPropositional,
              list_conj, list_disj, nenf, PFormula, Prop(P), simpcnf)
 import Test.HUnit
@@ -56,8 +56,7 @@ instance NumAtom Atom where
     ma = N "p_"
     ai (N _ n) = n
 
-instance HasFixity Atom where
-    fixity _ = leafFixity
+instance HasFixity Atom
 
 instance IsAtom Atom
 

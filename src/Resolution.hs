@@ -89,7 +89,7 @@ rename :: (JustLiteral lit, Ord lit, HasApply atom, IsTerm term,
 rename pfx cls =
     Set.map (lsubst (Map.fromList (Set.toList (Set.map (\v -> (v, (vt (pfx v)))) fvs)))) cls
     where
-      fvs = Set.fold Set.union Set.empty (Set.map fvl cls)
+      fvs = Set.fold Set.union Set.empty (Set.map var cls)
 
 -- -------------------------------------------------------------------------
 -- General resolution rule, incorporating factoring as in Robinson's paper.

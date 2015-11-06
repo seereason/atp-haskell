@@ -10,8 +10,10 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -22,7 +24,8 @@ module Prop
     , zipPropositional
     , convertPropositional
     , convertToPropositional
-    , fixityPropositional
+    , precedencePropositional
+    , associativityPropositional
     , prettyPropositional
     , showPropositional
     , onatomsPropositional
@@ -84,14 +87,16 @@ import Formulas ((¬), (∧), (∨), atom_union, binop,
                  HasBoolean(fromBool, asBool), true, false,
                  IsAtom,
                  IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination),
+                 (·), (⇒), (==>), (→), (⊃), (<=>), (⇔), (↔),
                  IsFormula(AtomOf, atomic, overatoms, onatoms),
                  IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive)
 import Lib ((|=>), distrib, fpf, setAny)
 import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral, LFormula)
 import Prelude hiding (negate, null)
-import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, Fixity(Fixity), HasFixity(fixity),
-               leafFixity, parenthesize, Pretty(pPrint), prettyShow, rootFixity, Side(LHS, RHS, Unary), text)
-import Text.PrettyPrint.HughesPJClass (braces, parens, vcat)
+import Pretty (assertEqual', Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity),
+               Precedence, Pretty(pPrint, pPrintPrec), prettyShow, Side(LHS, RHS, Unary), text,
+               notPrec, andPrec, orPrec, impPrec, iffPrec, leafPrec, boolPrec)
+import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel, braces, parens, vcat)
 import Test.HUnit (Test(TestCase, TestLabel, TestList), assertEqual)
 
 -- |A type class for propositional logic.  If the type we are writing
@@ -116,7 +121,7 @@ class (IsLiteral formula, IsCombinable formula) => IsPropositional formula where
                        -> formula -> r
 
 -- | Deconstruct a 'JustPropositional' formula.
-foldPropositional :: (IsPropositional pf, JustPropositional pf) =>
+foldPropositional :: JustPropositional pf =>
                      (pf -> BinOp -> pf -> r) -- ^ fold on a binary operation formula
                   -> (pf -> r)                -- ^ fold on a negated formula
                   -> (Bool -> r)              -- ^ fold on a boolean formula
@@ -125,8 +130,7 @@ foldPropositional :: (IsPropositional pf, JustPropositional pf) =>
 foldPropositional = foldPropositional' (error "JustPropositional failure")
 
 -- | Combine two 'JustPropositional' formulas if they are similar.
-zipPropositional :: (IsPropositional pf1, JustPropositional pf1,
-                     IsPropositional pf2, JustPropositional pf2) =>
+zipPropositional :: (JustPropositional pf1, JustPropositional pf2) =>
                     (pf1 -> BinOp -> pf1 -> pf2 -> BinOp -> pf2 -> Maybe r) -- ^ Combine two binary operation formulas
                  -> (pf1 -> pf2 -> Maybe r)                                 -- ^ Combine two negated formulas
                  -> (Bool -> Bool -> Maybe r)                               -- ^ Combine two boolean formulas
@@ -170,56 +174,53 @@ convertToPropositional ho ca fm =
       ne p = (.~.) (convertToPropositional ho ca p)
       tf = fromBool
 
--- | Implementation of 'fixity' for any 'JustPropostional' type.
-fixityPropositional :: (IsPropositional pf, JustPropositional pf) => pf -> Fixity
-fixityPropositional fm =
-    foldPropositional co ne tf at fm
+-- | Implementation of 'precedence' for any 'JustPropostional' type.
+precedencePropositional ::JustPropositional pf => pf -> Precedence
+precedencePropositional = foldPropositional co (\_ -> notPrec) (\_ -> boolPrec) precedence
     where
-      ne _ = Fixity 5 InfixA
-      co _ (:&:) _ = Fixity 4 InfixA
-      co _ (:|:) _ = Fixity 3 InfixA
-      co _ (:=>:) _ = Fixity 2 InfixR
-      co _ (:<=>:) _ = Fixity 1 InfixA
-      tf _ = Fixity 10 InfixN
-      at = fixity
+      co _ (:&:) _ = andPrec
+      co _ (:|:) _ = orPrec
+      co _ (:=>:) _ = impPrec
+      co _ (:<=>:) _ = iffPrec
+
+associativityPropositional :: JustPropositional pf => pf -> Associativity
+associativityPropositional = foldPropositional co (const InfixA) (const InfixN) associativity
+    where
+      co _ (:&:) _ = InfixA
+      co _ (:|:) _ = InfixA
+      co _ (:=>:) _ = InfixR
+      co _ (:<=>:) _ = InfixA
 
 -- | Implementation of 'pPrint' for any 'JustPropostional' type.
-prettyPropositional :: (IsPropositional pf, JustPropositional pf) => pf -> Doc
-prettyPropositional fm0 =
-    go rootFixity Unary fm0
+prettyPropositional :: forall pf. JustPropositional pf =>
+                       PrettyLevel -> Rational -> pf -> Doc
+prettyPropositional l r fm =
+    maybeParens (r > precedence fm) $ foldPropositional co ne tf at fm
     where
-      go parentFixity side fm =
-          parenthesize parens braces parentFixity fix side $ foldPropositional co ne tf at fm
-          where
-            fix = fixity fm
-            co f (:&:) g = go fix LHS f <> text "∧" <> go fix RHS g
-            co f (:|:) g = go fix LHS f <> text "∨" <> go fix RHS g
-            co f (:=>:) g = go fix LHS f <> text "⇒" <> go fix RHS g
-            co f (:<=>:) g = go fix LHS f <> text "⇔" <> go fix RHS g
-            ne f = text "¬" <> go fix Unary f
-            tf = pPrint
-            at a = pPrint a
+      co :: pf -> BinOp -> pf -> Doc
+      co p (:&:) q = prettyPropositional l (precedence fm) p <> text "∧" <>  prettyPropositional l (precedence fm) q
+      co p (:|:) q = prettyPropositional l (precedence fm) p <> text "∨" <> prettyPropositional l (precedence fm) q
+      co p (:=>:) q = prettyPropositional l (precedence fm) p <> text "⇒" <> prettyPropositional l (precedence fm) q
+      co p (:<=>:) q = prettyPropositional l (precedence fm) p <> text "⇔" <> prettyPropositional l (precedence fm) q
+      ne p = text "¬" <> prettyPropositional l (precedence fm) p
+      tf x = pPrint x
+      at x = pPrintPrec l r x -- maybeParens (d > PrettyLevel atomPrec) $ pPrint x
 
 -- | Implementation of 'show' for any 'JustPropositional' type.  For clarity, show methods fully parenthesize
-showPropositional :: (IsPropositional pf, JustPropositional pf {-, Show (AtomOf pf)-}) => pf -> String
-showPropositional fm0 =
-    go rootFixity Unary fm0
+showPropositional :: JustPropositional pf => Int -> pf -> ShowS
+showPropositional l fm =
+    showParen (l > precedence fm) $ foldPropositional co ne tf at fm
     where
-      go parentFixity side fm =
-          parenthesize' parentFixity fix side $ foldPropositional co ne tf at fm
-          where
-            fix = fixity fm
-            ne f = "(.~.) (" <> go fix Unary f ++ ")" -- parenthesization of prefix operators is sketchy
-            co f (:&:) g = go fix LHS f <> " .&. " <> go fix RHS g
-            co f (:|:) g = go fix LHS f <> " .|. " <> go fix RHS g
-            co f (:=>:) g = go fix LHS f <> " .=>. " <> go fix RHS g
-            co f (:<=>:) g = go fix LHS f <> " .<=>. " <> go fix RHS g
-            tf = show
-            at = show
-      parenthesize' _ _ _ fm = parenthesize (\s -> "(" <> s <> ")") (\s -> "{" <> s <> "}") leafFixity rootFixity Unary fm
+      co p (:&:) q = showPropositional (precedence fm) p . showString " .&. " . showPropositional (precedence fm) q
+      co p (:|:) q = showPropositional (precedence fm) p . showString " .|. " . showPropositional (precedence fm) q
+      co p (:=>:) q = showPropositional (precedence fm) p . showString " .=>. " . showPropositional (precedence fm) q
+      co p (:<=>:) q = showPropositional (precedence fm) p . showString " .<=>. " . showPropositional (precedence fm) q
+      ne p = {-showParen True{-(l > notPrec)-} $-} showString "(.~.) " . showPropositional (succ (precedence fm)) p -- parenthesization of prefix operators is sketchy
+      tf x = showsPrec (precedence fm) x
+      at x = showsPrec (precedence fm) x
 
 -- | Implementation of 'onatoms' for any 'JustPropositional' type.
-onatomsPropositional :: (IsPropositional pf, JustPropositional pf) => (AtomOf pf -> pf) -> pf -> pf
+onatomsPropositional :: JustPropositional pf => (AtomOf pf -> pf) -> pf -> pf
 onatomsPropositional f fm =
     foldPropositional co ne tf at fm
     where
@@ -229,7 +230,7 @@ onatomsPropositional f fm =
       at x = f x
 
 -- | Implementation of 'overatoms' for any 'JustPropositional' type.
-overatomsPropositional :: (IsPropositional pf, JustPropositional pf) => (AtomOf pf -> r -> r) -> pf -> r -> r
+overatomsPropositional :: JustPropositional pf => (AtomOf pf -> r -> r) -> pf -> r -> r
 overatomsPropositional f fof r0 =
     foldPropositional co ne (const r0) (flip f r0) fof
     where
@@ -259,7 +260,7 @@ instance Pretty Prop where
     pPrint = text . pname
 
 instance HasFixity Prop where
-    fixity _ = leafFixity
+    precedence (P _) = leafPrec
 
 -- | An instance of IsPropositional.
 data PFormula atom
@@ -298,14 +299,13 @@ instance Ord atom => IsCombinable (PFormula atom) where
           Iff a b -> a `iff` b
           _ -> other fm
 
--- infixr 9 !, ?, ∀, ∃
-
 -- Build a Haskell expression for this formula
 instance (IsPropositional (PFormula atom), Show atom) => Show (PFormula atom) where
-    show = showPropositional
+    showsPrec = showPropositional
 
 instance IsAtom atom => HasFixity (PFormula atom) where
-    fixity = fixityPropositional
+    precedence = precedencePropositional
+    associativity = associativityPropositional
 
 instance IsAtom atom => IsFormula (PFormula atom) where
     type AtomOf (PFormula atom) = atom
@@ -332,7 +332,7 @@ instance IsAtom atom => IsLiteral (PFormula atom) where
           _ -> ho fm
 
 instance IsAtom atom => Pretty (PFormula atom) where
-    pPrint = prettyPropositional
+    pPrintPrec = prettyPropositional
 
 -- | Class that indicates a formula type *only* supports Propositional
 -- features - it has no way to represent quantifiers.
@@ -409,9 +409,48 @@ transpose ([]   : xss)   = transpose xss
 transpose ((x:xs) : xss) = (x : [h | (h:_) <- xss]) : transpose (xs : [ t | (_:t) <- xss])
 
 -- | Tests precedence handling in pretty printer.
+--   1. Need to test:  associativity of like operators
+--   2. precedence of every pair of adjacent operators
+--   3. Stuff about infix operators
 test00 :: Test
+test00 =
+    TestList (List.map (\(input, expected) -> TestCase $ assertEqual "precedence" (text expected) (pPrint input))
+                      [( p .&. (q .|. r)   , "p∧(q∨r)" ),
+                       ( (p .&. q) .|. r   , "p∧q∨r" ),
+                       ( p .&. q .|. r     , "p∧q∨r" ),
+                       ( p .|. q .&. r     , "p∨q∧r" ),
+                       ( p .&. q .&. r     , "p∧q∧r"   ),
+                       ( p .|. q .|. r     , "p∧q∧r"   ),
+                       ( (p .=>. q) .=>. r , "(p⇒q)⇒r" ),
+                       ( p .=>. (q .=>. r) , "p⇒q⇒r"   ),
+                       ( p .=>. q .=>. r   , "p⇒q⇒r"   )])
+    where
+      -- All the operators we will test, with the 'Precedence' value
+      -- we assigned.  we need to make sure the 'Precedence' value
+      -- matches the values in the infix/infixl/infixr declarations.
+      binops :: IsCombinable formula => [(Rational, formula -> formula -> formula)]
+      binops = ands ++ ors ++ imps ++ iffs
+          where
+            ands :: IsCombinable formula => [(Rational, formula -> formula -> formula)]
+            ands = List.map (andPrec,) [(.&.), (∧), (·)]
+            ors :: IsCombinable formula => [(Rational, formula -> formula -> formula)]
+            ors = List.map (orPrec,) [(.|.), (∨)]
+            imps :: IsCombinable formula => [(Rational, formula -> formula -> formula)]
+            imps = List.map (impPrec,) [(.=>.), (⇒), (==>), (→), (⊃)]
+            iffs :: IsCombinable formula => [(Rational, formula -> formula -> formula)]
+            iffs = List.map (iffPrec,) [(.<=>.), (<=>), (⇔), (↔)]
+      preops :: IsCombinable formula => [(Rational, formula -> formula)]
+      preops = nots
+          where
+            nots :: IsCombinable formula => [(Rational, formula -> formula)]
+            nots = List.map (notPrec,) [(.~.), (¬)]
+      (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
+      -- What about these?
+      -- (∴)
+
+
+{-
 test00 = TestCase $ assertEqual "parenthesization" expected (List.map prettyShow input)
-    where (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
           (input, expected) = unzip [( p .&. (q .|. r)   , "p∧(q∨r)" ),
                                      ( (p .&. q) .|. r   , "(p∧q)∨r" ),
                                      ( p .&. q .|. r     , "(p∧q)∨r" ),
@@ -420,8 +459,7 @@ test00 = TestCase $ assertEqual "parenthesization" expected (List.map prettyShow
                                      ( (p .=>. q) .=>. r , "(p⇒q)⇒r" ),
                                      ( p .=>. (q .=>. r) , "p⇒q⇒r"   ),
                                      ( p .=>. q .=>. r   , "p⇒q⇒r"   )]
-
--- Testing the parser and printer.
+-}
 
 test01 :: Test
 test01 =
@@ -950,7 +988,8 @@ simpdnf ca fm =
 
 -- | Mapping back to a formula.
 dnf :: forall pf. (JustPropositional pf, Ord pf) => pf -> pf
-dnf fm = (list_disj . Set.toAscList . Set.map list_conj . Set.map (Set.map (convertLiteral id :: LFormula (AtomOf pf) -> pf)) . simpdnf id) fm
+dnf fm = (list_disj . Set.toAscList . Set.map list_conj .
+          Set.map (Set.map (convertLiteral id :: LFormula (AtomOf pf) -> pf)) . simpdnf id) fm
 
 -- Example. (p. 56)
 test34 :: Test
@@ -961,12 +1000,12 @@ test34 = TestCase $ assertEqual "dnf (p. 56)" expected input
                (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
 
 -- | Conjunctive normal form (CNF) by essentially the same code. (p. 60)
-purecnf :: (IsPropositional pf, JustPropositional pf,
-            IsLiteral lit, JustLiteral lit, Ord lit) => (AtomOf pf -> AtomOf lit) -> pf -> Set (Set lit)
+purecnf :: (JustPropositional pf, JustLiteral lit, Ord lit) =>
+           (AtomOf pf -> AtomOf lit) -> pf -> Set (Set lit)
 purecnf ca fm = Set.map (Set.map negate) (purednf ca (nnf ((.~.) fm)))
 
-simpcnf :: (IsPropositional pf, JustPropositional pf,
-            IsLiteral lit, JustLiteral lit, Ord lit) => (AtomOf pf -> AtomOf lit) -> pf -> Set (Set lit)
+simpcnf :: (JustPropositional pf, JustLiteral lit, Ord lit) =>
+           (AtomOf pf -> AtomOf lit) -> pf -> Set (Set lit)
 simpcnf ca fm =
     foldPropositional (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
@@ -975,10 +1014,10 @@ simpcnf ca fm =
       go = let cjs = Set.filter (not . trivial) (purecnf ca fm) in
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
-cnf_ :: (IsPropositional pf, Ord pf, IsLiteral lit, JustLiteral lit) => (AtomOf lit -> AtomOf pf) -> Set (Set lit) -> pf
+cnf_ :: (IsPropositional pf, Ord pf, JustLiteral lit) => (AtomOf lit -> AtomOf pf) -> Set (Set lit) -> pf
 cnf_ ca = list_conj . Set.map (list_disj . Set.map (convertLiteral ca))
 
-cnf' :: forall pf. (IsPropositional pf, JustPropositional pf, Ord pf) => pf -> pf
+cnf' :: forall pf. (JustPropositional pf, Ord pf) => pf -> pf
 cnf' fm = (list_conj . Set.map list_disj . Set.map (Set.map (convertLiteral id :: LFormula (AtomOf pf) -> pf)) . simpcnf id) fm
 
 -- Example. (p. 61)
