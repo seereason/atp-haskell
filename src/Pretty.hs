@@ -18,7 +18,8 @@ module Pretty
     , Precedence
     , HasFixity(precedence, associativity)
     , rootPrecedence
-    , Side(LHS, RHS, Unary)
+    , Side(Top, LHS, RHS, Unary)
+    , testParen
     -- , parenthesize
     , assertEqual'
     , leafPrec
@@ -72,6 +73,7 @@ data Associativity
     | InfixR  -- Right-associative - a=>b=>c == a=>(b=>c)
     | InfixN  -- Non-associative - a>b>c is an error
     | InfixA  -- Associative - a+b+c == (a+b)+c == a+(b+c), ~~a == ~(~a)
+    deriving Show
 
 {-
 maxPrecedence :: Precedence
@@ -100,7 +102,8 @@ leafPrecedence = 0
 rootPrecedence :: Precedence
 rootPrecedence = 100
 
-data Side = LHS | RHS | Unary
+-- | What side of the parent formula are we rendering?
+data Side = Top | LHS | RHS | Unary deriving Show
 
 -- | Combine the parent and child fixities to determine whether the
 -- child formula should be parenthesized.
@@ -131,6 +134,18 @@ parenthesize parens braces (Fixity pprec pdir) (Fixity prec _dir) side pp =
             (Unary, _) -> braces pp -- not sure
             (_, InfixN) -> error ("Nested non-associative operators: " ++ show pp)
 #endif
+
+-- | Decide whether to parenthesize based on which side of the parent binary
+-- operator we are rendering, the parent operator's precedence, and the precedence
+-- and associativity of the operator we are rendering.
+-- testParen :: Side -> Precedence -> Precedence -> Associativity -> Bool
+testParen :: Ord a => Side -> a -> a -> Associativity -> Bool
+testParen side parentPrec childPrec childAssoc =
+    parentPrec > childPrec || (parentPrec == childPrec && case (side, childAssoc) of
+                                                            (LHS, InfixL) -> False
+                                                            (RHS, InfixR) -> False
+                                                            (_, InfixA) -> False
+                                                            _ -> True)
 
 instance Pretty a => Pretty (Set a) where
     pPrint = brackets . fsep . punctuate comma . map pPrint . Set.toAscList

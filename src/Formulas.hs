@@ -105,17 +105,13 @@ positive = not . negative
 class IsNegatable formula => IsCombinable formula where
     -- | Disjunction/OR
     (.|.) :: formula -> formula -> formula
-    infixl 4 .|.
 
     -- | Conjunction/AND.  @x .&. y = (.~.) ((.~.) x .|. (.~.) y)@
     (.&.) :: formula -> formula -> formula
-    infixl 5 .&.
     -- | Equivalence.  @x .<=>. y = (x .=>. y) .&. (y .=>. x)@
     (.<=>.) :: formula -> formula -> formula
-    infixl 2 .<=>.
     -- | Implication.  @x .=>. y = ((.~.) x .|. y)@
     (.=>.) :: formula -> formula -> formula
-    infixr 3 .=>.
 
     foldCombination :: (formula -> r) -- other
                     -> (formula -> formula -> r) -- disjunction
@@ -126,11 +122,9 @@ class IsNegatable formula => IsCombinable formula where
 
     -- | Reverse implication:
     (.<=.) :: formula -> formula -> formula
-    infixl 3 .<=.
     x .<=. y = y .=>. x
     -- | Exclusive or
     (.<~>.) :: formula -> formula -> formula
-    infixl 2 .<~>.
     x .<~>. y = ((.~.) x .&. y) .|. (x .&. (.~.) y)
     -- | Nor
     (.~|.) :: formula -> formula -> formula
@@ -139,37 +133,37 @@ class IsNegatable formula => IsCombinable formula where
     (.~&.) :: formula -> formula -> formula
     x .~&. y = (.~.) (x .&. y)
 
+infixl 3 .<=.
+infixl 2 .<~>.
+
 -- | Implication synonyms.  Note that if the -XUnicodeSyntax option is
 -- turned on the operator ⇒ can not be declared/used as a function -
 -- it becomes a reserved special character used in type signatures.
 (⇒), (⊃), (==>), (→) :: IsCombinable formula => formula -> formula -> formula
-infixr 3 ==>
 (⇒) = (.=>.)
 (⊃) = (.=>.)
 (==>) = (.=>.)
 (→) = (.=>.)
+infixr 3 .=>., ⇒, ⊃, ==>, →
 
-(<=>) :: IsCombinable formula => formula -> formula -> formula
-infixl 2 <=>
+-- | If-and-only-if synonyms
+(<=>), (<==>), (⇔), (↔) :: IsCombinable formula => formula -> formula -> formula
 (<=>) = (.<=>.)
-(<==>) :: IsCombinable formula => formula -> formula -> formula
-infixl 2 <==>
 (<==>) = (.<=>.)
-
-(∧), (·) :: IsCombinable formula => formula -> formula -> formula
-infixl 5 ∧, ·
-(∧) = (.&.)
-(·) = (.&.)
-
-(∨) :: IsCombinable formula => formula -> formula -> formula
-infixl 4 ∨
-(∨) = (.|.)
-
--- Should ≡ be another iff synonym?
-(⇔), (↔) :: IsCombinable formula => formula -> formula -> formula
-infixl 2 ⇔
 (⇔) = (.<=>.)
 (↔) = (.<=>.)
+infixl 2 .<=>., <=>, <==>, ⇔, ↔
+
+-- | And/conjunction synonyms
+(∧), (·) :: IsCombinable formula => formula -> formula -> formula
+(∧) = (.&.)
+(·) = (.&.)
+infixl 5 .&., ∧, ·
+
+-- | Or/disjunction synonyms
+(∨) :: IsCombinable formula => formula -> formula -> formula
+(∨) = (.|.)
+infixl 4 .|., ∨
 
 data BinOp
     = (:<=>:)

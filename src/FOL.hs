@@ -15,7 +15,6 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# OPTIONS_GHC -ddump-splices #-}
 
 module FOL
     ( -- * Variables
@@ -1144,15 +1143,3 @@ testFOL :: Test
 testFOL = TestLabel "FOL" (TestList [test00, test01, test02, test03, test04,
                                      test05, test06, test07, test08, test09,
                                      test10, test11])
-
--- | ∀x. x & ∀y. y should group as (∀x. x) & (∀y. y)
--- Precedence should match quantPrec.
-$(pure [InfixD (Fixity quantPrec TH.InfixR) '(∀),
-        InfixD (Fixity quantPrec TH.InfixR) '(∃)])
--- infixr 1 ∀, ∃
-
-$(pure [ InfixD (Fixity eqPrec TH.InfixN) '(.=.)
-    -- , InfixD (Fixity eqPrec TH.InfixN) '(.!=.)
-    -- , InfixD (Fixity eqPrec TH.InfixN) '(.≡.) -- wait, is this iff?
-    -- , InfixD (Fixity eqPrec TH.InfixN) '(.≢.)
-        ])

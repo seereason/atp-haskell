@@ -1,8 +1,10 @@
-{-# LANGUAGE QuasiQuotes, RankNTypes, ScopedTypeVariables #-}
+{-# LANGUAGE OverloadedStrings, QuasiQuotes, RankNTypes, ScopedTypeVariables #-}
 module ParserTests where
 
+import FOL ((.=.))
+import Formulas ((.&.), (.=>.))
 import Language.Haskell.Exts hiding (Pretty)
-import Language.Haskell.Exts.Parser -- (parseExp)
+-- import Language.Haskell.Exts.Parser (parseExp)
 import Parser (fof)
 import Pretty (assertEqual', Pretty(..), prettyShow)
 import Test.HUnit
@@ -30,7 +32,8 @@ testParser =
                 , TestLabel "precedence 11" $ TestCase $ assertEqual' "precedence 11"  [fof| (P & Q) | R |]                [fof| P & Q | R |] -- & vs |
                 , TestLabel "precedence 12" $ TestCase $ assertEqual' "precedence 12"  [fof| (P | Q) ==> R |]              [fof| P | Q ==> R |] -- | vs =>
                 , TestLabel "precedence 13" $ TestCase $ assertEqual' "precedence 13"  [fof| (P ==> Q) <==> R |]           [fof| P ==> Q <==> R |] -- => vs <=>
-             -- , TestCase "precedence 10" [fof| ∃x. (∀y. x=y) |] [fof| ∃x.  ∀y. x=y |]
+             -- , TestCase "precedence 14" [fof| ∃x. (∀y. x=y) |] [fof| ∃x.  ∀y. x=y |]
+                , TestLabel "precedence 14a" $ TestCase $ assertEqual' "precedence 14a"  [fof| ((x = y) ∧ (x = z)) ⇒ (y = z) |] ("x" .=. "y" .&. "x" .=. "z" .=>. "y" .=. "z")
                 , TestLabel "pretty 1" $ TestCase $ assertEqual' "pretty 1" "∃x y. (∀z. (F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))"
                                                                             (prettyShow [fof| ∃ x y. (∀ z. ((F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))) |])
                 -- We could use haskell-src-meta to perform the third
