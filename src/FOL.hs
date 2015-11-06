@@ -116,7 +116,8 @@ import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (foldLiteral, IsLiteral(foldLiteral'), JustLiteral)
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity), Precedence,
-               prettyShow, text, andPrec, orPrec, impPrec, iffPrec, notPrec, atomPrec, leafPrec, quantPrec, eqPrec, pAppPrec)
+               prettyShow, Side(Top, LHS, RHS, Unary), testParen, text,
+               andPrec, orPrec, impPrec, iffPrec, notPrec, atomPrec, leafPrec, quantPrec, eqPrec, pAppPrec)
 import Prop (IsPropositional(foldPropositional'))
 import Text.PrettyPrint (parens, brackets, punctuate, comma, fcat, fsep, space)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel)
@@ -560,9 +561,10 @@ associativityQuantified = foldQuantified qu co ne tf at
 
 -- | Implementation of 'Pretty' for 'IsQuantified' types.
 prettyQuantified :: forall fof v. (IsQuantified fof, v ~ VarOf fof) =>
-                    PrettyLevel -> Rational -> fof -> Doc
-prettyQuantified l r fm =
-    maybeParens (r > precedence fm) $ foldQuantified (\op v p -> qu op [v] p) co ne tf at fm
+                    Side -> PrettyLevel -> Rational -> fof -> Doc
+prettyQuantified side l r fm =
+    maybeParens (testParen side r (precedence fm) (associativity fm)) $ foldQuantified (\op v p -> qu op [v] p) co ne tf at fm
+    -- maybeParens (r > precedence fm) $ foldQuantified (\op v p -> qu op [v] p) co ne tf at fm
     where
       -- Collect similarly quantified variables
       qu :: Quant -> [v] -> fof -> Doc
@@ -572,31 +574,31 @@ prettyQuantified l r fm =
       qu' op vs _ op' v p' | op == op' = qu op (v : vs) p'
       qu' op vs p _ _ _ = qu'' op vs p
       qu'' :: Quant -> [v] -> fof -> Doc
-      qu'' _op [] p = prettyQuantified l r p
+      qu'' _op [] p = prettyQuantified Unary l r p
       qu'' op vs p = text (case op of (:!:) -> "∀"; (:?:) -> "∃") <>
                      fsep (map pPrint (reverse vs)) <>
-                     text ". " <> prettyQuantified l (precedence fm + 1) p
+                     text ". " <> prettyQuantified Unary l (precedence fm + 1) p
       co :: fof -> BinOp -> fof -> Doc
-      co p (:&:) q = prettyQuantified l (precedence fm) p <> text "∧" <>  prettyQuantified l (precedence fm) q
-      co p (:|:) q = prettyQuantified l (precedence fm) p <> text "∨" <> prettyQuantified l (precedence fm) q
-      co p (:=>:) q = prettyQuantified l (precedence fm) p <> text "⇒" <> prettyQuantified l (precedence fm) q
-      co p (:<=>:) q = prettyQuantified l (precedence fm) p <> text "⇔" <> prettyQuantified l (precedence fm) q
-      ne p = text "¬" <> prettyQuantified l (precedence fm) p
+      co p (:&:) q = prettyQuantified LHS l (precedence fm) p <> text "∧" <>  prettyQuantified RHS l (precedence fm) q
+      co p (:|:) q = prettyQuantified LHS l (precedence fm) p <> text "∨" <> prettyQuantified RHS l (precedence fm) q
+      co p (:=>:) q = prettyQuantified LHS l (precedence fm) p <> text "⇒" <> prettyQuantified RHS l (precedence fm) q
+      co p (:<=>:) q = prettyQuantified LHS l (precedence fm) p <> text "⇔" <> prettyQuantified RHS l (precedence fm) q
+      ne p = text "¬" <> prettyQuantified Unary l (precedence fm) p
       tf x = pPrint x
       at x = pPrintPrec l r x -- maybeParens (d > PrettyLevel atomPrec) $ pPrint x
 
 -- | Implementation of 'showsPrec' for 'IsQuantified' types.
-showQuantified :: IsQuantified formula => Int -> formula -> ShowS
-showQuantified l fm =
-    showParen (l > precedence fm) $ foldQuantified qu co ne tf at fm
+showQuantified :: IsQuantified formula => Side -> Int -> formula -> ShowS
+showQuantified side r fm =
+    showParen (testParen side r (precedence fm) (associativity fm)) $ foldQuantified qu co ne tf at fm
     where
-      qu (:!:) x p = showString "for_all " . showString (show x) . showString " " . showQuantified (precedence fm + 1) p
-      qu (:?:) x p = showString "exists " . showString (show x) . showString " " . showQuantified (precedence fm + 1) p
-      co p (:&:) q = showQuantified (precedence fm) p . showString " .&. " . showQuantified (precedence fm) q
-      co p (:|:) q = showQuantified (precedence fm) p . showString " .|. " . showQuantified (precedence fm) q
-      co p (:=>:) q = showQuantified (precedence fm) p . showString " .=>. " . showQuantified (precedence fm) q
-      co p (:<=>:) q = showQuantified (precedence fm) p . showString " .<=>. " . showQuantified (precedence fm) q
-      ne p = {-showParen True{-(l > notPrec)-} $-} showString "(.~.) " . showQuantified (succ (precedence fm)) p -- parenthesization of prefix operators is sketchy
+      qu (:!:) x p = showString "for_all " . showString (show x) . showString " " . showQuantified Unary (precedence fm + 1) p
+      qu (:?:) x p = showString "exists " . showString (show x) . showString " " . showQuantified Unary (precedence fm + 1) p
+      co p (:&:) q = showQuantified LHS (precedence fm) p . showString " .&. " . showQuantified RHS (precedence fm) q
+      co p (:|:) q = showQuantified LHS (precedence fm) p . showString " .|. " . showQuantified RHS (precedence fm) q
+      co p (:=>:) q = showQuantified LHS (precedence fm) p . showString " .=>. " . showQuantified RHS (precedence fm) q
+      co p (:<=>:) q = showQuantified LHS (precedence fm) p . showString " .<=>. " . showQuantified RHS (precedence fm) q
+      ne p = showString "(.~.) " . showQuantified Unary (succ (precedence fm)) p
       tf x = showsPrec (precedence fm) x
       at x = showsPrec (precedence fm) x
 
@@ -678,7 +680,7 @@ data QFormula v atom
     deriving (Eq, Ord, Data, Typeable, Read)
 
 instance (HasApply atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) => Pretty (QFormula v atom) where
-    pPrintPrec = prettyQuantified
+    pPrintPrec = prettyQuantified Top
 
 instance HasBoolean (QFormula v atom) where
     asBool T = Just True
@@ -732,7 +734,7 @@ instance (IsPropositional (QFormula v atom), IsVariable v, IsAtom atom) => IsQua
 
 -- Build a Haskell expression for this formula
 instance IsQuantified (QFormula v atom) => Show (QFormula v atom) where
-    showsPrec = showQuantified
+    showsPrec = showQuantified Top
 
 -- Precedence information for QFormula
 instance IsQuantified (QFormula v atom) => HasFixity (QFormula v atom) where

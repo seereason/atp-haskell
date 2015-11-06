@@ -17,7 +17,6 @@ module Pretty
     , Associativity(InfixL, InfixR, InfixN, InfixA)
     , Precedence
     , HasFixity(precedence, associativity)
-    , rootPrecedence
     , Side(Top, LHS, RHS, Unary)
     , testParen
     -- , parenthesize
@@ -56,17 +55,12 @@ import Text.PrettyPrint.HughesPJClass (brackets, comma, Doc, fsep, hcat, nest, P
 -- fixity direction appears as (a+b)+c rather than a+(b+c).
 class HasFixity x where
     precedence :: x -> Precedence
-    precedence _ = leafPrecedence
+    precedence _ = leafPrec
     associativity :: x -> Associativity
     associativity _ = InfixL
 
 -- | Use the same precedence type as the pretty package
 type Precedence = forall a. Num a => a
-
-{-
-precedence :: (HasFixity a, Num num) => a -> num
-precedence = (\(Fixity x _) -> x) . fixity
--}
 
 data Associativity
     = InfixL  -- Left-associative - a-b-c == (a-b)-c
@@ -75,77 +69,31 @@ data Associativity
     | InfixA  -- Associative - a+b+c == (a+b)+c == a+(b+c), ~~a == ~(~a)
     deriving Show
 
-{-
-maxPrecedence :: Precedence
-maxPrecedence = 100
-defaultPrecedence :: Precedence
-defaultPrecedence = 0
-associativity :: HasFixity a => a -> Associativity
-associativity = (\(Fixity _ x) -> x) . fixity
-defaultPrecedence :: Precedence
-defaultPrecedence = maxPrecedence
-defaultAssociativity :: Associativity
-defaultAssociativity = InfixL
--}
-
--- Definitions from template-haskell:
--- data Fixity = Fixity Int FixityDirection
--- data FixityDirection = InfixL | InfixR | InfixN
-
--- | This is used as the initial value for the parent fixity.  (Really?)
-leafPrecedence :: Precedence
-leafPrecedence = 0
-
--- | This is used as the fixity for things that never need
--- parenthesization, such as function application or a variable name.
--- (Really?)
-rootPrecedence :: Precedence
-rootPrecedence = 100
-
 -- | What side of the parent formula are we rendering?
 data Side = Top | LHS | RHS | Unary deriving Show
-
--- | Combine the parent and child fixities to determine whether the
--- child formula should be parenthesized.
-#if 0
-parenthesize :: (Monoid r, Show r) => (r -> r) -> (r -> r) -> Fixity -> Fixity -> Side -> r -> r
-parenthesize parens braces (Fixity pprec pdir) (Fixity prec _dir) side pp =
-    -- If fixity goes in the "wrong direction" we need to add parens.
-    -- leafFixity is the highest, so if the parent fixity is greater
-    -- we need parens: fixity(~)=5, fixity(|)=3, so ~(a|b) needs
-    -- parens, (~a)|b does not.
-    case compare pprec prec of
-      GT -> parens pp
-      LT | pprec == 3 && prec == 4 -> parens pp -- always parenthesize ands of ors and ors of ands - too confusing
-      LT -> pp
-      EQ ->
-          -- Similarly for fixity direction, if parent and child have
-          -- the same precedence and the parent operator has left
-          -- fixity, we need parens if we are rendering the right
-          -- child.  So a-(b-c) needs parens, but (a-b)-c does not.
-          -- For InfixR, (a=>b)=>c needs parens, while a=>(b=>c) does
-          -- not.
-          case (side, pdir) of
-            (LHS, InfixL) -> pp
-            (RHS, InfixL) -> parens pp
-            (LHS, InfixR) -> parens pp
-            (RHS, InfixR) -> pp
-            (_, InfixA) -> pp
-            (Unary, _) -> braces pp -- not sure
-            (_, InfixN) -> error ("Nested non-associative operators: " ++ show pp)
-#endif
 
 -- | Decide whether to parenthesize based on which side of the parent binary
 -- operator we are rendering, the parent operator's precedence, and the precedence
 -- and associativity of the operator we are rendering.
 -- testParen :: Side -> Precedence -> Precedence -> Associativity -> Bool
-testParen :: Ord a => Side -> a -> a -> Associativity -> Bool
+testParen :: (Eq a, Ord a, Num a) => Side -> a -> a -> Associativity -> Bool
 testParen side parentPrec childPrec childAssoc =
-    parentPrec > childPrec || (parentPrec == childPrec && case (side, childAssoc) of
-                                                            (LHS, InfixL) -> False
-                                                            (RHS, InfixR) -> False
-                                                            (_, InfixA) -> False
-                                                            _ -> True)
+    testPrecedence || (parentPrec == childPrec && testAssoc)
+    -- parentPrec > childPrec || (parentPrec == childPrec && testAssoc)
+    where
+      testPrecedence =
+          parentPrec > childPrec ||
+          (parentPrec == orPrec && childPrec == andPrec) -- Special case - I can't keep these straight
+      testAssoc = case (side, childAssoc) of
+                    (LHS, InfixL) -> False
+                    (RHS, InfixR) -> False
+                    (_, InfixA) -> False
+                    -- Tests from the previous version.
+                    -- (RHS, InfixL) -> True
+                    -- (LHS, InfixR) -> True
+                    -- (Unary, _) -> braces pp -- not sure
+                    -- (_, InfixN) -> error ("Nested non-associative operators: " ++ show pp)
+                    _ -> True
 
 instance Pretty a => Pretty (Set a) where
     pPrint = brackets . fsep . punctuate comma . map pPrint . Set.toAscList
@@ -166,10 +114,11 @@ assertEqual' preface expected actual =
 
 leafPrec :: Num a => a
 leafPrec = 9
-notPrec :: Num a => a
-notPrec = 7
+
 atomPrec :: Num a => a
-atomPrec = 6
+atomPrec = 7
+notPrec :: Num a => a
+notPrec = 6
 andPrec :: Num a => a
 andPrec = 5 -- && is 3
 orPrec :: Num a => a

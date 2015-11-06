@@ -434,9 +434,9 @@ test00 =
 -}
     TestList (List.map (\(input, expected) -> TestCase $ assertEqual "precedence" (text expected) (pPrint input))
                       [( p .&. (q .|. r)   , "p∧(q∨r)" ),
-                       ( (p .&. q) .|. r   , "p∧q∨r" ),
-                       ( p .&. q .|. r     , "p∧q∨r" ),
-                       ( p .|. q .&. r     , "p∨q∧r" ),
+                       ( (p .&. q) .|. r   , "(p∧q)∨r" ),
+                       ( p .&. q .|. r     , "(p∧q)∨r" ),
+                       ( p .|. q .&. r     , "p∨(q∧r)" ),
                        ( p .&. q .&. r     , "p∧q∧r"   ),
                        ( p .|. q .|. r     , "p∨q∨r"   ),
                        ( (p .=>. q) .=>. r , "(p⇒q)⇒r" ),
@@ -486,9 +486,9 @@ test01 =
     let fm = atomic "p" .=>. atomic "q" .<=>. (atomic "r" .&. atomic "s") .|. (atomic "t" .<=>. ((.~.) ((.~.) (atomic "u"))) .&. atomic "v") :: PFormula Prop
         input = (prettyShow fm, show fm)
         expected = (-- Pretty printed
-                    "p⇒q⇔r∧s∨(t⇔u∧v)",
+                    "p⇒q⇔(r∧s)∨(t⇔u∧v)",
                     -- Haskell expression
-                    "atomic \"p\" .=>. atomic \"q\" .<=>. atomic \"r\" .&. atomic \"s\" .|. (atomic \"t\" .<=>. atomic \"u\" .&. atomic \"v\")"
+                    "atomic \"p\" .=>. atomic \"q\" .<=>. (atomic \"r\" .&. atomic \"s\") .|. (atomic \"t\" .<=>. atomic \"u\" .&. atomic \"v\")"
                     ) in
     TestCase $ assertEqual "Build Formula 1" expected input
 
@@ -1015,7 +1015,7 @@ dnf fm = (list_disj . Set.toAscList . Set.map list_conj .
 test34 :: Test
 test34 = TestCase $ assertEqual "dnf (p. 56)" expected input
     where input = (prettyShow (dnf fm), tautology (Iff fm (dnf fm)))
-          expected = ("p∧¬r∨q∧r∧¬p",True)
+          expected = ("(p∧¬r)∨(q∧r∧¬p)",True)
           fm = let (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r")) in
                (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
 

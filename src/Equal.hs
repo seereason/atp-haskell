@@ -121,7 +121,7 @@ equalitize fm =
 -- -------------------------------------------------------------------------
 
 testEqual01 :: Test
-testEqual01 = TestCase $ assertEqual "function_congruence" expected input
+testEqual01 = TestLabel "function_congruence" $ TestCase $ assertEqual "function_congruence" expected input
     where input = List.map function_congruence [(fromString "f", 3 :: Int), (fromString "+",2)]
           expected :: [Set.Set Formula]
           expected = [Set.fromList
@@ -158,7 +158,7 @@ ewd = equalitize fm
       y = vt "y"
 
 testEqual02 :: Test
-testEqual02 = TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expectedProof) input
+testEqual02 = TestLabel "equalitize 1 (p. 241)" $ TestCase $ assertEqual "equalitize 1 (p. 241)" (expected, expectedProof) input
     where input = (ewd, runSkolem (meson (Just (Depth 17)) ewd))
           fx = pApp "f" [x]
           gx = pApp "g" [x]
@@ -200,29 +200,12 @@ testEqual03 :: Test
 testEqual03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (p. 241)" (expected, expectedProof) input
     where input = (equalitize wishnu, runSkolem (meson (Just (Depth 30)) (equalitize wishnu)))
           expected :: Formula
-          expected = [fof| (∀x. x=x) ∧
-                           (∀x y z. x=y∧x=z⇒y=z) ∧
-                           (∀x1 y1. x1=y1⇒f (x1)=f (y1)) ∧
-                           (∀x1 y1. x1=y1⇒g (x1)=g (y1)) ⇒
-                           (∀x. x=x) ∧
-                           (∀x y z. x=y∧x=z⇒y=z) ∧
-                           (∀x1 y1. x1=y1⇒f (x1)=f (y1)) ∧
-                           (∀x1 y1. x1=y1⇒g (x1)=g (y1)) ⇒
-                           ((∃x. x=f (g (x))∧(∀x'. x'=f (g (x'))⇒x=x')) ⇔
-                            (∃y. y=g (f (y))∧(∀y'. y'=g (f (y'))⇒y=y'))) |]
-          -- expected = [fof| ∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒(∃x. (x=f (g (x))∧∀x'. (x'=f (g (x'))⇒x=x'))⇔∃y. (y=g (f (y))∧∀y'. (y'=g (f (y'))⇒y=y'))) |]
-          -- expected = [fof| ∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒∀x. (x=x)∧∀x. ∀y. ∀z. (x=y∧x=z⇒y=z)∧∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1))∧∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒(∃x. (x=f (g (x))∧∀x'. (x'=f (g (x'))⇒x=x'))⇔∃y. (y=g (f (y))∧∀y'. (y'=g (f (y'))⇒y=y'))) |]
-{-
-          expected = [fof| ∀x. (x=x) ∧
-                           ∀x. ∀y. ∀z. (x=y∧x=z⇒y=z) ∧
-                           ∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1)) ∧
-                           ∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1))⇒∀x. (x=x) ∧
-                           ∀x. ∀y. ∀z. (x=y∧x=z⇒y=z) ∧
-                           ∀x1. ∀y1. (x1=y1⇒f (x1)=f (y1)) ∧
-                           ∀x1. ∀y1. (x1=y1⇒g (x1)=g (y1)) ⇒
-                                     (∃x. (x=f (g (x))∧∀x'. (x'=f (g (x'))⇒x=x')) ⇔
-                                      ∃y. (y=g (f (y))∧∀y'. (y'=g (f (y'))⇒y=y'))) |]
--}
+          expected = [fof| (∀x. x=x)∧
+                           (∀x y z. x=y∧x=z⇒y=z)∧
+                           (∀x1 y1. x1=y1⇒f(x1)=f(y1))∧
+                           (∀x1 y1. x1=y1⇒g(x1)=g(y1))⇒
+                           ((∃x. x=f(g(x))∧(∀x'. x'=f(g(x'))⇒x=x'))⇔
+                            (∃y. y=g(f(y))∧(∀y'. y'=g(f(y'))⇒y=y'))) |]
           expectedProof = Set.fromList [Success (Depth 16)]
 
 -- -------------------------------------------------------------------------
@@ -230,7 +213,7 @@ testEqual03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (
 -- -------------------------------------------------------------------------
 
 testEqual04 :: Test
-testEqual04 = TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expectedProof) input
+testEqual04 = TestLabel "equalitize 3 (p. 248)" $ TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expectedProof) input
     where
       input = (equalitize fm, runSkolem (meson (Just (Depth 20)) . equalitize $ fm))
       fm :: Formula
@@ -243,6 +226,14 @@ testEqual04 = TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expecte
       one = fApp (fromString "1") []
       expected :: Formula
       expected =
+          [fof| (∀x. x=x)∧
+                (∀x y z. x=y∧x=z⇒y=z)∧
+                (∀x1 x2 y1 y2. x1=y1∧x2=y2⇒*(x1, x2)=*(y1, y2))⇒
+                (∀x y z. *(x', *(y', z'))=*(*(x', y'), z'))∧
+                (∀x. *(1, x')=x')∧
+                (∀x. *(i(x'), x')=1)⇒
+                (∀x. *(x', i(x'))=1) |]
+{-
           ((∀) "x" ("x" .=. "x") .&.
            ((∀) "x" ((∀) "y" ((∀) "z" ((("x" .=. "y") .&. ("x" .=. "z")) .=>. ("y" .=. "z")))) .&.
             ((∀) "x1" ((∀) "x2" ((∀) "y1" ((∀) "y2" ((("x1" .=. "y1") .&. ("x2" .=. "y2")) .=>.
@@ -251,7 +242,7 @@ testEqual04 = TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expecte
           ((((∀) "x" ((∀) "y" ((∀) "z" ((fApp "*" ["x",fApp "*" ["y","z"]]) .=. (fApp "*" [fApp "*" ["x","y"],"z"])))) .&.
              (∀) "x" ((fApp "*" [fApp "1" [],"x"]) .=. "x")) .&.
             (∀) "x" ((fApp "*" [fApp "i" ["x"],"x"]) .=. (fApp "1" []))) .=>.
-           (∀) "x" ((fApp "*" ["x",fApp "i" ["x"]]) .=. (fApp "1" [])))
+           (∀) "x" ((fApp "*" ["x",fApp "i" ["x"]]) .=. (fApp "1" []))) -}
       expectedProof :: Set.Set (Failing Depth)
       expectedProof = Set.fromList [Failure ["Exceeded maximum depth limit"]]
 

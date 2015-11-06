@@ -23,8 +23,8 @@ import Data.List as List (map)
 import Data.Set as Set
 import Prelude hiding (sum)
 import Formulas
-import Lib (allsets)
-import Pretty (HasFixity, Pretty(pPrint), prettyShow, text)
+import Lib (allsets, timeMessage)
+import Pretty (HasFixity(precedence), Pretty(pPrint), prettyShow, text)
 import Prop
 import Test.HUnit
 
@@ -43,7 +43,8 @@ data Knows a = K String a (Maybe a) deriving (Eq, Ord, Show)
 instance (Num a, Show a) => Pretty (Knows a) where
     pPrint (K s n mm) = text (s ++ show n ++ maybe "" (\ m -> "." ++ show m) mm)
 
-instance Num a => HasFixity (Knows a)
+instance Num a => HasFixity (Knows a) where
+    precedence _ = 9
 
 instance IsAtom (Knows Integer)
 
@@ -51,9 +52,10 @@ instance IsAtom (Knows Integer)
 test01 :: Test
 test01 = TestList [TestCase (assertEqual "ramsey 3 3 4"
                                          "(p1.2∧p1.3∧p2.3)∨(p1.2∧p1.4∧p2.4)∨(p1.3∧p1.4∧p3.4)∨(p2.3∧p2.4∧p3.4)∨(¬p1.2∧¬p1.3∧¬p2.3)∨(¬p1.2∧¬p1.4∧¬p2.4)∨(¬p1.3∧¬p1.4∧¬p3.4)∨(¬p2.3∧¬p2.4∧¬p3.4)"
+                                         -- "p1.2∧p1.3∧p2.3∨p1.2∧p1.4∧p2.4∨p1.3∧p1.4∧p3.4∨p2.3∧p2.4∧p3.4∨¬p1.2∧¬p1.3∧¬p2.3∨¬p1.2∧¬p1.4∧¬p2.4∨¬p1.3∧¬p1.4∧¬p3.4∨¬p2.3∧¬p2.4∧¬p3.4"
                                          (prettyShow (ramsey 3 3 4 :: PFormula (Knows Integer)))),
-                   TestCase (assertEqual "tautology (ramsey 3 3 5)" False (tautology (ramsey 3 3 5 :: PFormula (Knows Integer)))),
-                   TestCase (assertEqual "tautology (ramsey 3 3 6)" True (tautology (ramsey 3 3 6 :: PFormula (Knows Integer))))]
+                   TestCase (timeMessage (\_ t -> "\nTime to compute (ramsey 3 3 5): " ++ show t) $ assertEqual "tautology (ramsey 3 3 5)" False (tautology (ramsey 3 3 5 :: PFormula (Knows Integer)))),
+                   TestCase (timeMessage (\_ t -> "\nTime to compute (ramsey 3 3 6): " ++ show t) $ assertEqual "tautology (ramsey 3 3 6)" True (tautology (ramsey 3 3 6 :: PFormula (Knows Integer))))]
 
 -- | Half adder.  (p. 66)
 halfsum :: forall formula. IsCombinable formula => formula -> formula -> formula
@@ -234,9 +236,9 @@ type F = PFormula (Knows Integer)
 
 test03 :: Test
 test03 =
-    TestList [TestCase (assertEqual "tautology(prime 7)" True (tautology (prime 7 :: F))),
-              TestCase (assertEqual "tautology(prime 9)" False (tautology (prime 9 :: F))),
-              TestCase (assertEqual "tautology(prime 11)" True (tautology (prime 11 :: F)))]
+    TestList [TestCase (timeMessage (\_ t -> "\nTime to prove (prime 7): " ++ show t)  (assertEqual "tautology(prime 7)" True (tautology (prime 7 :: F)))),
+              TestCase (timeMessage (\_ t -> "\nTime to prove (prime 9): " ++ show t)  (assertEqual "tautology(prime 9)" False (tautology (prime 9 :: F)))),
+              TestCase (timeMessage (\_ t -> "\nTime to prove (prime 11): " ++ show t) (assertEqual "tautology(prime 11)" True (tautology (prime 11 :: F))))]
 
 testPropExamples :: Test
 testPropExamples = TestLabel "PropExamples" (TestList [test01, test02, test03])

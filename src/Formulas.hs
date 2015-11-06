@@ -60,8 +60,8 @@ false = fromBool False
 (⊥) = false
 
 prettyBool :: Bool -> Doc
-prettyBool True = text "⊨"
-prettyBool False = text "⊭"
+prettyBool True = text "⊤"
+prettyBool False = text "⊥"
 
 -- | The class of formulas that can be negated.  There are some types
 -- that can be negated but do not support the other Boolean logic
@@ -80,16 +80,11 @@ negated :: IsNegatable formula => formula -> Bool
 negated = foldNegation (const False) (not . negated)
 
 -- | Negate the formula, avoiding double negation
-(.~.) :: IsNegatable formula => formula -> formula
-infix 7 .~.
+(.~.), (¬), negate :: IsNegatable formula => formula -> formula
 (.~.) = foldNegation naiveNegate id
-
-(¬) :: IsNegatable formula => formula -> formula
-infix 7 ¬
 (¬) = (.~.)
-
-negate :: IsNegatable formula => formula -> formula
 negate = (.~.)
+infix 6 .~., ¬
 
 -- | Some operations on IsNegatable formulas
 negative :: IsNegatable formula => formula -> Bool
@@ -100,7 +95,7 @@ positive = not . negative
 
 -- | A type class for combining logical formulas.  Minimal implementation:
 -- @
---  (.|.)
+--  (.|.), (.&.), (.=>.), (.<=>.)
 -- @
 class IsNegatable formula => IsCombinable formula where
     -- | Disjunction/OR

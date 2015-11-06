@@ -38,15 +38,15 @@ import Unif (Unify, unify_literals)
 
 test00 :: Test
 test00 =
-    let fm1 = [fof| ∀ a. ¬(P(a)∧∀ y z. (Q(y)∨R(z))∧¬P(a)) |]
-        fm2 = [fof| ∀ a. ¬(P(a)∧¬P(a)∧∀ y z. (Q(y)∨R(z))) |]
+    let fm1 = [fof| ∀a. ¬(P(a)∧(∀y z. Q(y)∨R(z))∧¬P(a)) |]
+        fm2 = [fof| ∀a. ¬(P(a)∧¬P(a)∧(∀y z. Q(y)∨R(z))) |]
         {- fm3 = [fof| ¬p ∧ (p ∨ q) ∧ (r ∨ s) ∧ (¬q ∨ t ∨ u) ∧
                     (¬r ∨ ¬t) ∧ (¬r ∨ ¬u) ∧ (¬q ∨ v ∨ w) ∧
                (¬s ∨ ¬v) ∧ (¬s ∨ ¬w) |] -}
     in
     TestList
-    [ TestCase $ assertEqual ("TAB 1: " <> prettyShow fm1) (Success ((K 2, Map.empty),Depth 2)) (tab Nothing fm1)
-    , TestCase $ assertEqual ("TAB 2: " <> prettyShow fm2) (Success ((K 0, Map.empty),Depth 0)) (tab Nothing fm2)
+    [ TestLabel ("TAB 1: " <> prettyShow fm1) $ TestCase $ assertEqual ("TAB 1: " <> prettyShow fm1) (Success ((K 2, Map.empty),Depth 2)) (tab Nothing fm1)
+    , TestLabel ("TAB 2: " <> prettyShow fm2) $ TestCase $ assertEqual ("TAB 2: " <> prettyShow fm2) (Success ((K 0, Map.empty),Depth 0)) (tab Nothing fm2)
     -- , TestCase $ assertEqual ("TAB 3: " <> prettyShow fm3) (Success ((K 0, Map.empty),Depth 0)) (tab (Just (Depth 1000000)) fm3)
     ]
 
