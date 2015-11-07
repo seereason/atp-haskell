@@ -20,7 +20,7 @@ import Data.Set as Set
 import Data.String (IsString(fromString))
 import Formulas (IsFormula(AtomOf, atomic), atom_union)
 import FOL ((∃), (∀), (.=.), functions, HasApply(TermOf, PredOf, applyPredicate),
-            HasApplyAndEquate(foldEquate), IsQuantified(..), IsTerm(..), pApp)
+            HasApplyAndEquate(foldEquate), IsQuantified(..), pApp)
 import Lib ((∅), Depth(Depth), Failing (Success, Failure))
 import Meson (meson)
 import Parser (fof)
@@ -28,6 +28,7 @@ import Prelude hiding ((*))
 import Pretty (assertEqual')
 import Prop ((.&.), (.=>.), (∧), (⇒))
 import Skolem (runSkolem, Formula)
+import Term (IsTerm(..))
 import Test.HUnit
 
 -- is_eq :: (IsQuantified fof atom v, IsAtomWithEquate atom p term) => fof -> Bool

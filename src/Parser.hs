@@ -18,8 +18,8 @@ import FOL
 import Formulas
 import Lit
 import Prop ((.&.), (.|.), (.=>.), (.<=>.), PFormula)
---import Prolog (PrologRule(Prolog))
 import Skolem
+import Term (fApp, Term(Var), V(V))
 
 -- | QuasiQuote for a first order formula.  Loading this symbol into the interpreter
 -- and setting -XQuasiQuotes lets you type expressions like [fof| ∃ x. p(x) |]

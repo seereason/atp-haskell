@@ -18,8 +18,7 @@ import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace
 import DP (dpll)
-import FOL (Arity, functions, HasApply(TermOf), HasApply, IsFirstOrder, IsTerm(TVarOf, FunOf),
-            fApp, lsubst, fv, generalize)
+import FOL (functions, HasApply(TermOf), HasApply, IsFirstOrder, lsubst, fv, generalize)
 import Formulas (IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib)
 import Lit ((.~.), JustLiteral, LFormula)
@@ -27,6 +26,7 @@ import Parser(fof)
 import Pretty (prettyShow)
 import Prop (eval, JustPropositional, PFormula, simpcnf, simpdnf, trivial)
 import Skolem (Formula, HasSkolem(SVarOf), runSkolem, skolemize)
+import Term (Arity, IsTerm(TVarOf, FunOf), fApp)
 import Test.HUnit hiding (tried)
 
 -- | Propositional valuation.

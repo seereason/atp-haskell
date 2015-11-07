@@ -39,6 +39,7 @@ import Parser (fof)
 import Pretty (assertEqual', Pretty, prettyShow)
 import Prop
 import Skolem
+import Term (fApp, foldTerm, IsTerm(FunOf, TVarOf), prefix, V, vt)
 import Test.HUnit
 import Unif (solve, Unify, unify_literals)
 

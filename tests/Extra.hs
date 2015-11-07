@@ -6,7 +6,7 @@ import Data.List as List (map)
 import Data.Map as Map (empty)
 import Data.Set as Set (fromList, minView, null, Set, singleton)
 import Data.String (fromString)
-import FOL (vt, fApp, (.=.), pApp, for_all, exists)
+import FOL ((.=.), pApp, for_all, exists)
 import Formulas
 import Lib (Depth(Depth))
 import Lit ((.~.))
@@ -17,6 +17,7 @@ import Prop hiding (nnf)
 import Resolution
 import Skolem (Formula, HasSkolem(toSkolem), skolemize, runSkolem, SkAtom, SkTerm)
 import Tableaux (K(K), tab)
+import Term (vt, fApp)
 import Test.HUnit
 
 testExtra :: Test

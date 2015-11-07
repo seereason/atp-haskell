@@ -11,10 +11,11 @@ import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
-import FOL (var, HasApply(TermOf), IsTerm(TVarOf), lsubst, vt)
+import FOL (var, HasApply(TermOf), lsubst)
+import Formulas (IsFormula(AtomOf))
 -- import Lib (deepen)
 import Lit (IsLiteral, JustLiteral)
-import Formulas (IsFormula(AtomOf))
+import Term (IsTerm(TVarOf), vt)
 import Test.HUnit
 
 data PrologRule lit = Prolog (Set lit) lit deriving (Eq, Ord)

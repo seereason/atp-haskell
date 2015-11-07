@@ -26,11 +26,12 @@ import Data.Bool (bool)
 import Data.List as List (map)
 import Data.Map as Map
 import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
-import FOL (HasApply(TermOf), HasApplyAndEquate, IsTerm(..), JustApply, tsubst, V, zipApplys, zipEquates)
+import FOL (HasApply(TermOf), HasApplyAndEquate, JustApply, tsubst, zipApplys, zipEquates)
 import Formulas (IsFormula(AtomOf))
 import Lib (Failing(Success, Failure))
 import Lit (IsLiteral, zipLiterals')
 import Skolem (SkAtom, SkTerm)
+import Term (IsTerm(..), V)
 import Test.HUnit hiding (State)
 
 -- | Main unification procedure.

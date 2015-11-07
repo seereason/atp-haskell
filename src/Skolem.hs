@@ -50,9 +50,9 @@ import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, insert, isProperSubsetOf, map, member, notMember, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
-import FOL (exists, fApp, for_all, FOL, functions, fv, HasApply(TermOf, PredOf), IsFirstOrder,
-            IsFunction(variantFunction), IsQuantified(VarOf, foldQuantified), IsTerm(TVarOf, FunOf),
-            IsVariable, Predicate, QFormula, pApp, quant, Quant((:?:), (:!:)), subst, Term, V, variant, vt)
+import FOL (exists, for_all, FOL, functions, fv, HasApply(TermOf, PredOf), IsFirstOrder,
+            IsQuantified(VarOf, foldQuantified),
+            Predicate, QFormula, pApp, quant, Quant((:?:), (:!:)), subst)
 import Formulas (IsFormula(AtomOf), false, true, atomic)
 import Lib (setAny, distrib)
 import Lit ((.~.), negate)
@@ -60,6 +60,7 @@ import Prelude hiding (negate)
 import Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
 import Prop ((.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
              convertToPropositional, foldPropositional', IsPropositional, JustPropositional, PFormula, psimplify1, trivial)
+import Term (fApp, IsFunction(variantFunction), IsTerm(TVarOf, FunOf), IsVariable, Term, V, variant, vt)
 import Test.HUnit
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.

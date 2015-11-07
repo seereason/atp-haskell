@@ -7,6 +7,7 @@ module ATP
     , module PropExamples
     , module DefCNF
     , module DP
+    , module Term
     , module FOL
     , module Skolem
     , module Parser
@@ -31,6 +32,7 @@ import Prop hiding (Atom, nnf, T, F, Not, And, Or, Imp, Iff)
 import PropExamples hiding (K)
 import DefCNF
 import DP
+import Term
 import FOL
 import Skolem
 import Parser

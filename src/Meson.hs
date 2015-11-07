@@ -22,7 +22,7 @@ import Data.Map as Map
 import Data.Monoid ((<>))
 import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (exists, fApp, for_all, generalize, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf), IsTerm(FunOf, TVarOf), pApp, vt)
+import FOL (exists, for_all, generalize, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf), pApp)
 import Formulas (false, IsFormula(AtomOf))
 import Lib (Depth(Depth), deepen)
 import Lit ((.~.), JustLiteral, LFormula, negative)
@@ -33,6 +33,7 @@ import Prop ((.&.), (.|.), (.=>.), list_conj, PFormula, simpcnf)
 import Resolution (davis_putnam_example_formula)
 import Skolem (askolemize, Formula, HasSkolem(SVarOf), pnf, runSkolem, SkolemT, simpdnf', specialize, toSkolem)
 import Tableaux (K(K), tab)
+import Term (fApp, IsTerm(FunOf, TVarOf), vt)
 import Test.HUnit
 import Unif (Unify, unify_literals)
 
