@@ -17,9 +17,8 @@ module Formulas
     , true, false, (⊥), (⊤)
     -- * Negation
     , IsNegatable(naiveNegate, foldNegation), (.~.), (¬), negate, negated, negative, positive
-    -- * IsCombinable
-    , IsCombinable((.|.), (.&.), (.<=>.), (.=>.), foldCombination),
-      (.<=.), (.<~>.), (.~|.), (.~&.)
+    -- * Combination
+    , IsCombinable((.|.), (.&.), (.<=>.), (.=>.), foldCombination)
     , (⇒), (==>), (⊃), (→)
     , (⇔), (<=>), (↔)
     , (∧), (·)
@@ -115,22 +114,6 @@ class IsNegatable formula => IsCombinable formula where
                     -> (formula -> formula -> r) -- equivalence
                     -> formula -> r
 
-    -- | Reverse implication:
-    (.<=.) :: formula -> formula -> formula
-    x .<=. y = y .=>. x
-    -- | Exclusive or
-    (.<~>.) :: formula -> formula -> formula
-    x .<~>. y = ((.~.) x .&. y) .|. (x .&. (.~.) y)
-    -- | Nor
-    (.~|.) :: formula -> formula -> formula
-    x .~|. y = (.~.) (x .|. y)
-    -- | Nand
-    (.~&.) :: formula -> formula -> formula
-    x .~&. y = (.~.) (x .&. y)
-
-infixl 3 .<=.
-infixl 2 .<~>.
-
 -- | Implication synonyms.  Note that if the -XUnicodeSyntax option is
 -- turned on the operator ⇒ can not be declared/used as a function -
 -- it becomes a reserved special character used in type signatures.
@@ -191,32 +174,3 @@ class (Pretty formula, HasFixity formula, IsAtom (AtomOf formula)) => IsFormula 
 -- | Special case of a union of the results of a function over the atoms.
 atom_union :: (IsFormula formula, Ord r) => (AtomOf formula -> Set r) -> formula -> Set r
 atom_union f fm = overatoms (\h t -> Set.union (f h) t) fm Set.empty
-
--- Testing the parser and printer.
-
-{-
--- | Make sure associative operators are grouped left to right, use this
--- to make more equality tests succeed.
-leftAssociate :: IsCombinable formula => formula -> formula
-canonical fm =
-    foldCombination dj cj imp iff other (canonical1 fm)
-    where
-      dj p q = foldCombination ho dj' cj' (canonical p) (canonical q)
--}
-
--- Template Haskell magic to build infix declarations using defined symbols.
--- (Does not seem to have any effect.)
-$(pure [InfixD (Fixity notPrec InfixN) '(.~.),
-        InfixD (Fixity notPrec InfixN) '(¬),
-        InfixD (Fixity iffPrec InfixL) '(.<=>.),
-        InfixD (Fixity iffPrec InfixL) '(.<~>.),
-        InfixD (Fixity iffPrec InfixL) '(⇔),
-        InfixD (Fixity iffPrec InfixL) '(<=>),
-        InfixD (Fixity iffPrec InfixL) '(<==>),
-        InfixD (Fixity impPrec InfixR) '(.=>.),
-        InfixD (Fixity impPrec InfixR) '(⇒),
-        InfixD (Fixity impPrec InfixR) '(==>),
-        InfixD (Fixity orPrec InfixL) '(.|.),
-        InfixD (Fixity orPrec InfixL) '(∨),
-        InfixD (Fixity andPrec InfixL) '(.&.),
-        InfixD (Fixity andPrec InfixL) '(∧)])

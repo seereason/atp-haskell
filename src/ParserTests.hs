@@ -30,8 +30,8 @@ testParser =
                 -- repeated prefix operator with same precedences fails:
              -- , TestLabel "precedence 10" $ TestCase $ assertEqual' "precedence 10a" [fof| ~(~P) |]                     [fof| ~~P |] -- ~ vs &
                 , TestLabel "precedence 11" $ TestCase $ assertEqual' "precedence 11"  [fof| (P & Q) | R |]                [fof| P & Q | R |] -- & vs |
-                , TestLabel "precedence 12" $ TestCase $ assertEqual' "precedence 12"  [fof| (P | Q) ==> R |]              [fof| P | Q ==> R |] -- | vs =>
-                , TestLabel "precedence 13" $ TestCase $ assertEqual' "precedence 13"  [fof| (P ==> Q) <==> R |]           [fof| P ==> Q <==> R |] -- => vs <=>
+                , TestLabel "precedence 12" $ TestCase $ assertEqual' "precedence 12"  [fof| (P | Q) ==> R |]              [fof| P | Q ==> R |] -- or vs imp
+                , TestLabel "precedence 13" $ TestCase $ assertEqual' "precedence 13"  [fof| (P ==> Q) <==> R |]           [fof| P ==> Q <==> R |] -- imp vs iff
              -- , TestCase "precedence 14" [fof| ∃x. (∀y. x=y) |] [fof| ∃x.  ∀y. x=y |]
                 , TestLabel "precedence 14a" $ TestCase $ assertEqual' "precedence 14a"  [fof| ((x = y) ∧ (x = z)) ⇒ (y = z) |] ("x" .=. "y" .&. "x" .=. "z" .=>. "y" .=. "z")
                 , TestLabel "pretty 1" $ TestCase $ assertEqual' "pretty 1" "∃x y. (∀z. (F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))"
