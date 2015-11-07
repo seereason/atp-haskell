@@ -29,7 +29,8 @@ import Formulas as P
 import Lit (convertLiteral, IsLiteral, JustLiteral, LFormula)
 import Pretty (assertEqual', HasFixity, Pretty(pPrint), prettyShow, text)
 import Prop (cnf', foldPropositional, IsPropositional(foldPropositional'), JustPropositional,
-             list_conj, list_disj, nenf, PFormula, Prop(P), simpcnf)
+             list_conj, list_disj, nenf, PFormula, Prop(P), simpcnf,
+             (∨), (∧), (.<=>.), (.&.), (.|.), BinOp(..))
 import Test.HUnit
 
 -- | Example (p. 74)

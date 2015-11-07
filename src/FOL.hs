@@ -109,16 +109,15 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
-import Formulas ((.~.), BinOp(..), binop, false, HasBoolean(..), IsAtom, IsCombinable(..), IsFormula(..),
+import Formulas ((.~.), false, HasBoolean(..), IsAtom, IsFormula(..),
                  IsNegatable(..), onatoms, prettyBool, true)
-import Language.Haskell.TH as TH (Dec(InfixD), Fixity(Fixity), FixityDirection(InfixN, InfixR, InfixL))
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit (foldLiteral, IsLiteral(foldLiteral'), JustLiteral)
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity), Precedence,
                prettyShow, Side(Top, LHS, RHS, Unary), testParen, text,
                andPrec, orPrec, impPrec, iffPrec, notPrec, atomPrec, leafPrec, quantPrec, eqPrec, pAppPrec)
-import Prop (IsPropositional(foldPropositional'))
+import Prop (BinOp(..), binop, IsCombinable(..), IsPropositional(foldPropositional'))
 import Text.PrettyPrint (parens, brackets, punctuate, comma, fcat, fsep, space)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel)
 import Test.HUnit

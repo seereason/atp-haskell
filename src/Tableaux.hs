@@ -31,14 +31,13 @@ import Data.String (IsString(..))
 import FOL (asubst, exists, fApp, foldQuantified, for_all, fv, generalize, HasApply(TermOf),
             HasApply, IsFirstOrder, IsTerm(TVarOf, FunOf),
             pApp, Quant((:!:)), subst, vt)
-import Formulas ((.~.), (.&.), (.=>.), (.<=>.), (.|.), atomic, BinOp((:&:), (:|:)),
-                 HasBoolean(asBool), IsFormula(AtomOf), onatoms, overatoms, positive)
+import Formulas ((.~.), atomic, HasBoolean(asBool), IsFormula(AtomOf), onatoms, overatoms, positive)
 import Herbrand (davisputnam)
 import Lib ((|=>), allpairs, deepen, Depth(Depth), distrib, evalRS, Failing(Success, Failure), failing, settryfind, tryfindM)
 import Lit (IsLiteral, JustLiteral, LFormula)
 import Prelude hiding (compare)
 import Pretty (assertEqual', Pretty(pPrint), prettyShow, text)
-import Prop (PFormula, simpdnf)
+import Prop ( (.&.), (.=>.), (.<=>.), (.|.), BinOp((:&:), (:|:)), PFormula, simpdnf)
 import Skolem (askolemize, Formula, HasSkolem(SVarOf, toSkolem), runSkolem, simpdnf', skolemize, SkTerm)
 import Test.HUnit hiding (State)
 import Unif (Unify, unify_literals)

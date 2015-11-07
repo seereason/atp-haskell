@@ -18,8 +18,15 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Prop
-    ( -- * Propositional formulas
-      IsPropositional( foldPropositional')
+    ( -- * Combination
+      IsCombinable((.|.), (.&.), (.<=>.), (.=>.), foldCombination)
+    , (⇒), (==>), (⊃), (→)
+    , (⇔), (<=>), (↔), (<==>)
+    , (∧), (·)
+    , (∨)
+    , BinOp(..), binop
+    -- * Propositional formulas
+    , IsPropositional( foldPropositional')
     , foldPropositional
     , zipPropositional
     , convertPropositional
@@ -83,22 +90,82 @@ import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map,
                         minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
-import Formulas ((¬), (∧), (∨), atom_union, binop,
-                 BinOp((:&:), (:|:), (:=>:), (:<=>:)),
-                 HasBoolean(fromBool, asBool), true, false,
-                 IsAtom,
-                 IsCombinable((.&.), (.|.), (.=>.), (.<=>.), foldCombination),
-                 (·), (⇒), (==>), (→), (⊃), (<=>), (⇔), (↔),
+import Formulas (atom_union, HasBoolean(fromBool, asBool), true, false, IsAtom,
                  IsFormula(AtomOf, atomic, overatoms, onatoms),
-                 IsNegatable(naiveNegate, foldNegation), (.~.), negate, positive)
+                 IsNegatable(naiveNegate, foldNegation), (.~.), (¬), negate, positive)
 import Lib ((|=>), distrib, fpf, setAny)
 import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral, LFormula)
 import Prelude hiding (negate, null)
-import Pretty (assertEqual', Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity),
+import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity),
                Precedence, Pretty(pPrint, pPrintPrec), prettyShow, Side(Top, LHS, RHS, Unary), testParen, text,
                notPrec, andPrec, orPrec, impPrec, iffPrec, leafPrec, boolPrec)
 import Text.PrettyPrint.HughesPJClass (maybeParens, PrettyLevel, vcat)
 import Test.HUnit
+
+-- | A type class for combining logical formulas.  Minimal implementation:
+-- @
+--  (.|.), (.&.), (.=>.), (.<=>.)
+-- @
+class IsNegatable formula => IsCombinable formula where
+    -- | Disjunction/OR
+    (.|.) :: formula -> formula -> formula
+
+    -- | Conjunction/AND.  @x .&. y = (.~.) ((.~.) x .|. (.~.) y)@
+    (.&.) :: formula -> formula -> formula
+    -- | Equivalence.  @x .<=>. y = (x .=>. y) .&. (y .=>. x)@
+    (.<=>.) :: formula -> formula -> formula
+    -- | Implication.  @x .=>. y = ((.~.) x .|. y)@
+    (.=>.) :: formula -> formula -> formula
+
+    foldCombination :: (formula -> r) -- other
+                    -> (formula -> formula -> r) -- disjunction
+                    -> (formula -> formula -> r) -- conjunction
+                    -> (formula -> formula -> r) -- implication
+                    -> (formula -> formula -> r) -- equivalence
+                    -> formula -> r
+
+-- | Implication synonyms.  Note that if the -XUnicodeSyntax option is
+-- turned on the operator ⇒ can not be declared/used as a function -
+-- it becomes a reserved special character used in type signatures.
+(⇒), (⊃), (==>), (→) :: IsCombinable formula => formula -> formula -> formula
+(⇒) = (.=>.)
+(⊃) = (.=>.)
+(==>) = (.=>.)
+(→) = (.=>.)
+infixr 3 .=>., ⇒, ⊃, ==>, →
+
+-- | If-and-only-if synonyms
+(<=>), (<==>), (⇔), (↔) :: IsCombinable formula => formula -> formula -> formula
+(<=>) = (.<=>.)
+(<==>) = (.<=>.)
+(⇔) = (.<=>.)
+(↔) = (.<=>.)
+infixl 2 .<=>., <=>, <==>, ⇔, ↔
+
+-- | And/conjunction synonyms
+(∧), (·) :: IsCombinable formula => formula -> formula -> formula
+(∧) = (.&.)
+(·) = (.&.)
+infixl 5 .&., ∧, ·
+
+-- | Or/disjunction synonyms
+(∨) :: IsCombinable formula => formula -> formula -> formula
+(∨) = (.|.)
+infixl 4 .|., ∨
+
+data BinOp
+    = (:<=>:)
+    | (:=>:)
+    | (:&:)
+    | (:|:)
+    deriving (Eq, Ord, Data, Typeable, Show, Enum, Bounded)
+
+-- | Combine formulas with a 'BinOp'.
+binop :: IsCombinable formula => formula -> BinOp -> formula -> formula
+binop f1 (:<=>:) f2 = f1 .<=>. f2
+binop f1 (:=>:) f2 = f1 .=>. f2
+binop f1 (:&:) f2 = f1 .&. f2
+binop f1 (:|:) f2 = f1 .|. f2
 
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type

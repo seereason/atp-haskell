@@ -53,11 +53,12 @@ import Data.String (IsString(fromString))
 import FOL (exists, fApp, for_all, FOL, functions, fv, HasApply(TermOf, PredOf), IsFirstOrder,
             IsFunction(variantFunction), IsQuantified(VarOf, foldQuantified), IsTerm(TVarOf, FunOf),
             IsVariable, Predicate, QFormula, pApp, quant, Quant((:?:), (:!:)), subst, Term, V, variant, vt)
-import Formulas ((.~.), (.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)), IsFormula(AtomOf), negate, false, true, atomic)
+import Formulas ((.~.), IsFormula(AtomOf), negate, false, true, atomic)
 import Lib (setAny, distrib)
 import Prelude hiding (negate)
 import Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
-import Prop (convertToPropositional, foldPropositional', IsPropositional, JustPropositional, PFormula, psimplify1, trivial)
+import Prop ((.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
+             convertToPropositional, foldPropositional', IsPropositional, JustPropositional, PFormula, psimplify1, trivial)
 import Test.HUnit
 
 -- | Routine simplification. Like "psimplify" but with quantifier clauses.

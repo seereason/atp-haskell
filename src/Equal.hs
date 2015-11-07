@@ -18,7 +18,7 @@ module Equal
 import Data.List as List (foldr, map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
-import Formulas ((.&.), (.=>.), (∧), (⇒), IsFormula(AtomOf, atomic), atom_union)
+import Formulas (IsFormula(AtomOf, atomic), atom_union)
 import FOL ((∃), (∀), (.=.), functions, HasApply(TermOf, PredOf, applyPredicate),
             HasApplyAndEquate(foldEquate), IsQuantified(..), IsTerm(..), pApp)
 import Lib ((∅), Depth(Depth), Failing (Success, Failure))
@@ -26,6 +26,7 @@ import Meson (meson)
 import Parser (fof)
 import Prelude hiding ((*))
 import Pretty (assertEqual')
+import Prop ((.&.), (.=>.), (∧), (⇒))
 import Skolem (runSkolem, Formula)
 import Test.HUnit
 

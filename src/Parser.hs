@@ -17,7 +17,7 @@ import Text.Parsec.Language
 import FOL
 import Formulas
 import Lit
-import Prop (PFormula)
+import Prop ((.&.), (.|.), (.=>.), (.<=>.), PFormula)
 --import Prolog (PrologRule(Prolog))
 import Skolem
 

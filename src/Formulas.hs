@@ -17,13 +17,6 @@ module Formulas
     , true, false, (⊥), (⊤)
     -- * Negation
     , IsNegatable(naiveNegate, foldNegation), (.~.), (¬), negate, negated, negative, positive
-    -- * Combination
-    , IsCombinable((.|.), (.&.), (.<=>.), (.=>.), foldCombination)
-    , (⇒), (==>), (⊃), (→)
-    , (⇔), (<=>), (↔)
-    , (∧), (·)
-    , (∨)
-    , BinOp(..), binop
     -- * Formulas
     , IsAtom
     , IsFormula(AtomOf, atomic, overatoms, onatoms)
@@ -91,71 +84,6 @@ negative = negated
 
 positive :: IsNegatable formula => formula -> Bool
 positive = not . negative
-
--- | A type class for combining logical formulas.  Minimal implementation:
--- @
---  (.|.), (.&.), (.=>.), (.<=>.)
--- @
-class IsNegatable formula => IsCombinable formula where
-    -- | Disjunction/OR
-    (.|.) :: formula -> formula -> formula
-
-    -- | Conjunction/AND.  @x .&. y = (.~.) ((.~.) x .|. (.~.) y)@
-    (.&.) :: formula -> formula -> formula
-    -- | Equivalence.  @x .<=>. y = (x .=>. y) .&. (y .=>. x)@
-    (.<=>.) :: formula -> formula -> formula
-    -- | Implication.  @x .=>. y = ((.~.) x .|. y)@
-    (.=>.) :: formula -> formula -> formula
-
-    foldCombination :: (formula -> r) -- other
-                    -> (formula -> formula -> r) -- disjunction
-                    -> (formula -> formula -> r) -- conjunction
-                    -> (formula -> formula -> r) -- implication
-                    -> (formula -> formula -> r) -- equivalence
-                    -> formula -> r
-
--- | Implication synonyms.  Note that if the -XUnicodeSyntax option is
--- turned on the operator ⇒ can not be declared/used as a function -
--- it becomes a reserved special character used in type signatures.
-(⇒), (⊃), (==>), (→) :: IsCombinable formula => formula -> formula -> formula
-(⇒) = (.=>.)
-(⊃) = (.=>.)
-(==>) = (.=>.)
-(→) = (.=>.)
-infixr 3 .=>., ⇒, ⊃, ==>, →
-
--- | If-and-only-if synonyms
-(<=>), (<==>), (⇔), (↔) :: IsCombinable formula => formula -> formula -> formula
-(<=>) = (.<=>.)
-(<==>) = (.<=>.)
-(⇔) = (.<=>.)
-(↔) = (.<=>.)
-infixl 2 .<=>., <=>, <==>, ⇔, ↔
-
--- | And/conjunction synonyms
-(∧), (·) :: IsCombinable formula => formula -> formula -> formula
-(∧) = (.&.)
-(·) = (.&.)
-infixl 5 .&., ∧, ·
-
--- | Or/disjunction synonyms
-(∨) :: IsCombinable formula => formula -> formula -> formula
-(∨) = (.|.)
-infixl 4 .|., ∨
-
-data BinOp
-    = (:<=>:)
-    | (:=>:)
-    | (:&:)
-    | (:|:)
-    deriving (Eq, Ord, Data, Typeable, Show, Enum, Bounded)
-
--- | Combine formulas with a 'BinOp'.
-binop :: IsCombinable formula => formula -> BinOp -> formula -> formula
-binop f1 (:<=>:) f2 = f1 .<=>. f2
-binop f1 (:=>:) f2 = f1 .=>. f2
-binop f1 (:&:) f2 = f1 .&. f2
-binop f1 (:|:) f2 = f1 .|. f2
 
 -- | Basic properties of an atomic formula
 class (Ord atom, Show atom, HasFixity atom, Pretty atom) => IsAtom atom

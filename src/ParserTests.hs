@@ -2,11 +2,11 @@
 module ParserTests where
 
 import FOL ((.=.))
-import Formulas ((.&.), (.=>.))
 import Language.Haskell.Exts hiding (Pretty)
 -- import Language.Haskell.Exts.Parser (parseExp)
 import Parser (fof)
 import Pretty (assertEqual', Pretty(..), prettyShow)
+import Prop ((.&.), (.=>.))
 import Test.HUnit
 
 t :: (Eq a, Pretty a) => String -> a -> a -> Test
