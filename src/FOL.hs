@@ -109,7 +109,7 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
-import Formulas (false, HasBoolean(..), IsAtom, IsFormula(..), onatoms, prettyBool, true)
+import Formulas (fromBool, IsAtom, IsFormula(..), onatoms, prettyBool)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit ((.~.), foldLiteral, IsLiteral(foldLiteral'), IsLiteral(..), JustLiteral)
 import Prelude hiding (pred)
@@ -680,13 +680,6 @@ data QFormula v atom
 instance (HasApply atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) => Pretty (QFormula v atom) where
     pPrintPrec = prettyQuantified Top
 
-instance HasBoolean (QFormula v atom) where
-    asBool T = Just True
-    asBool F = Just False
-    asBool _ = Nothing
-    fromBool True = T
-    fromBool False = F
-
 instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsCombinable (QFormula v atom) where
     (.|.) = Or
     (.&.) = And
@@ -703,6 +696,11 @@ instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsCombinable (QFormula v a
 -- The IsFormula instance for QFormula
 instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsFormula (QFormula v atom) where
     type AtomOf (QFormula v atom) = atom
+    asBool T = Just True
+    asBool F = Just False
+    asBool _ = Nothing
+    true = T
+    false = F
     atomic = Atom
     overatoms = overatomsQuantified
     onatoms = onatomsQuantified

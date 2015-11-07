@@ -1,7 +1,5 @@
--- | Classes describing constant formulas ('HasBoolean'), formula
--- negation ('IsNegatable') and combination ('IsCombinable'), and the
--- relationship between formulas and the atom type representing the
--- formula's propositional variables ('IsFormula'.)
+-- | The 'IsFormula' class contains definitions for the boolean true
+-- and false values, and methods for traversing the atoms of a formula.
 
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -12,12 +10,11 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Formulas
-    ( -- * True and False
-      HasBoolean(asBool, fromBool), prettyBool
-    , true, false, (⊥), (⊤)
-    -- * Formulas
-    , IsAtom
-    , IsFormula(AtomOf, atomic, overatoms, onatoms)
+    ( IsAtom
+    , IsFormula(AtomOf, true, false, asBool, atomic, overatoms, onatoms)
+    , (⊥), (⊤)
+    , fromBool
+    , prettyBool
     , atom_union
     ) where
 
@@ -25,44 +22,41 @@ import Data.Set as Set (Set, empty, union)
 import Prelude hiding (negate)
 import Pretty (Doc, HasFixity, Pretty, text)
 
--- |Types that need to have True and False elements.  This is the most
--- basic feature of a formula.
-class HasBoolean p where
-    asBool :: p -> Maybe Bool
-    fromBool :: Bool -> p
-    -- foldBoolean :: (p -> r) -> (Bool -> r) -> p -> r
-    -- foldBoolean ho tf fm = maybe (ho fm) tf fm
-    -- asBool = foldBoolean Nothing tf
-
-true :: HasBoolean p => p
-true = fromBool True
-
-false :: HasBoolean p => p
-false = fromBool False
-
-(⊤) :: HasBoolean p => p
-(⊤) = true
-
-(⊥) :: HasBoolean p => p
-(⊥) = false
-
-prettyBool :: Bool -> Doc
-prettyBool True = text "⊤"
-prettyBool False = text "⊥"
-
 -- | Basic properties of an atomic formula
 class (Ord atom, Show atom, HasFixity atom, Pretty atom) => IsAtom atom
 
 -- | Class associating a formula type with its atom (atomic formula) type.
-class (HasBoolean formula, Pretty formula, HasFixity formula, IsAtom (AtomOf formula)) => IsFormula formula where
+class (Pretty formula, HasFixity formula, IsAtom (AtomOf formula)) => IsFormula formula where
     type AtomOf formula
-    -- ^ AtomOf is a function that maps the formula type to the associated atom type
+    -- ^ AtomOf is a function that maps the formula type to the
+    -- associated atomic formula type
+    true :: formula
+    -- ^ The true element
+    false :: formula
+    -- ^ The false element
+    asBool :: formula -> Maybe Bool
+    -- ^ If the arugment is true or false return the corresponding
+    -- 'Bool', otherwise return 'Nothing'.
     atomic :: AtomOf formula -> formula
     -- ^ Build a formula from an atom.
     overatoms :: (AtomOf formula -> r -> r) -> formula -> r -> r
     -- ^ Formula analog of iterator 'foldr'.
     onatoms :: (AtomOf formula -> formula) -> formula -> formula
     -- ^ Apply a function to the atoms, otherwise keeping structure.
+
+(⊤) :: IsFormula p => p
+(⊤) = true
+
+(⊥) :: IsFormula p => p
+(⊥) = false
+
+fromBool :: IsFormula formula => Bool -> formula
+fromBool True = true
+fromBool False = false
+
+prettyBool :: Bool -> Doc
+prettyBool True = text "⊤"
+prettyBool False = text "⊥"
 
 -- | Special case of a union of the results of a function over the atoms.
 atom_union :: (IsFormula formula, Ord r) => (AtomOf formula -> Set r) -> formula -> Set r

@@ -90,8 +90,8 @@ import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map,
                         minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
-import Formulas (atom_union, HasBoolean(fromBool, asBool), true, false, IsAtom,
-                 IsFormula(AtomOf, atomic, overatoms, onatoms))
+import Formulas (atom_union, fromBool, IsAtom,
+                 IsFormula(AtomOf, asBool, true, false, atomic, overatoms, onatoms))
 import Lib ((|=>), distrib, fpf, setAny)
 import Lit ((.~.), (¬), convertLiteral, convertToLiteral, IsLiteral(foldLiteral', naiveNegate, foldNegation),
             JustLiteral, LFormula, negate, positive, )
@@ -318,12 +318,6 @@ instance IsAtom Prop
 instance IsString Prop where
     fromString = P
 
-instance HasBoolean Prop where
-    asBool (P "True") = Just True
-    asBool (P "False") = Just False
-    asBool _ = Nothing
-    fromBool = P . show
-
 instance Pretty Prop where
     pPrint = text . pname
 
@@ -341,13 +335,6 @@ data PFormula atom
     | Imp (PFormula atom) (PFormula atom)
     | Iff (PFormula atom) (PFormula atom)
     deriving (Eq, Ord, Read, Data, Typeable)
-
-instance HasBoolean (PFormula atom) where
-    asBool T = Just True
-    asBool F = Just False
-    asBool _ = Nothing
-    fromBool True = T
-    fromBool False = F
 
 instance (IsAtom atom, Ord atom) => IsCombinable (PFormula atom) where
     (.|.) = Or
@@ -372,6 +359,11 @@ instance IsAtom atom => HasFixity (PFormula atom) where
 
 instance IsAtom atom => IsFormula (PFormula atom) where
     type AtomOf (PFormula atom) = atom
+    asBool T = Just True
+    asBool F = Just False
+    asBool _ = Nothing
+    true = T
+    false = F
     atomic = Atom
     overatoms = overatomsPropositional
     onatoms = onatomsPropositional
@@ -882,11 +874,11 @@ allsatvaluations subfn v pvs =
                       (allsatvaluations subfn (\a -> if a == p then True else v a) ps)
 
 -- | Disjunctive normal form (DNF) via truth tables.
-list_conj :: (Foldable t, HasBoolean formula, IsCombinable formula) => t formula -> formula
+list_conj :: (Foldable t, IsFormula formula, IsCombinable formula) => t formula -> formula
 list_conj l | null l = true
 list_conj l = foldl1 (.&.) l
 
-list_disj :: (Foldable t, HasBoolean formula, IsCombinable formula) => t formula -> formula
+list_disj :: (Foldable t, IsFormula formula, IsCombinable formula) => t formula -> formula
 list_disj l | null l = false
 list_disj l = foldl1 (.|.) l
 

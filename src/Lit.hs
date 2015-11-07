@@ -35,15 +35,15 @@ module Lit
 
 import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
-import Formulas (HasBoolean(..), IsAtom, IsFormula(atomic, AtomOf), overatoms, onatoms)
-import Formulas ()
+import Formulas (IsAtom, IsFormula(atomic, AtomOf), overatoms, onatoms)
+import Formulas (IsFormula(asBool, false, true), fromBool)
 import Prelude hiding (negate, null)
 import Pretty (Associativity(..), boolPrec, Doc, HasFixity(precedence, associativity), notPrec, Precedence, Pretty(pPrint), text)
 
 -- | The class of formulas that can be negated.  Literals are the
 -- building blocks of the clause and implicative normal forms.  They
 -- support negation and must include true and false elements.
-class (IsFormula lit, HasBoolean lit) => IsLiteral lit where
+class IsFormula lit => IsLiteral lit where
     -- | Negate a formula in a naive fashion, the operators below
     -- prevent double negation.
     naiveNegate :: lit -> lit
@@ -149,7 +149,7 @@ onatomsLiteral f fm =
     foldLiteral ne tf at fm
     where
       ne p = (.~.) (onatomsLiteral f p)
-      tf flag = fromBool flag
+      tf = fromBool
       at x = f x
 
 -- | implementation of 'overatoms' for 'JustLiteral' types.
@@ -171,6 +171,11 @@ data Lit = L {lname :: String} deriving (Eq, Ord)
 
 instance IsAtom atom => IsFormula (LFormula atom) where
     type AtomOf (LFormula atom) = atom
+    asBool T = Just True
+    asBool F = Just False
+    asBool _ = Nothing
+    true = T
+    false = F
     atomic = Atom
     overatoms = overatomsLiteral
     onatoms = onatomsLiteral
@@ -187,13 +192,6 @@ instance (IsFormula (LFormula atom), Eq atom, Ord atom) => IsLiteral (LFormula a
           Not f -> ne f
 
 instance IsAtom atom => JustLiteral (LFormula atom)
-
-instance HasBoolean (LFormula atom) where
-    asBool T = Just True
-    asBool F = Just False
-    asBool _ = Nothing
-    fromBool True = T
-    fromBool False = F
 
 instance IsAtom atom => HasFixity (LFormula atom) where
     precedence = precedenceLiteral
