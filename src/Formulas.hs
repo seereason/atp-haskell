@@ -25,7 +25,8 @@ import Data.Set as Set (Set, empty, union)
 import Prelude hiding (negate)
 import Pretty (Doc, HasFixity, Pretty, text)
 
--- |Types that need to have True and False elements.
+-- |Types that need to have True and False elements.  This is the most
+-- basic feature of a formula.
 class HasBoolean p where
     asBool :: p -> Maybe Bool
     fromBool :: Bool -> p
@@ -53,7 +54,7 @@ prettyBool False = text "⊥"
 class (Ord atom, Show atom, HasFixity atom, Pretty atom) => IsAtom atom
 
 -- | Class associating a formula type with its atom (atomic formula) type.
-class (Pretty formula, HasFixity formula, IsAtom (AtomOf formula)) => IsFormula formula where
+class (HasBoolean formula, Pretty formula, HasFixity formula, IsAtom (AtomOf formula)) => IsFormula formula where
     type AtomOf formula
     -- ^ AtomOf is a function that maps the formula type to the associated atom type
     atomic :: AtomOf formula -> formula
