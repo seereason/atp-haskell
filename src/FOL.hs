@@ -109,10 +109,9 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, insert, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
-import Formulas ((.~.), false, HasBoolean(..), IsAtom, IsFormula(..),
-                 IsNegatable(..), onatoms, prettyBool, true)
+import Formulas (false, HasBoolean(..), IsAtom, IsFormula(..), onatoms, prettyBool, true)
 import Lib (setAny, tryApplyD, undefine, (|->))
-import Lit (foldLiteral, IsLiteral(foldLiteral'), JustLiteral)
+import Lit ((.~.), foldLiteral, IsLiteral(foldLiteral'), IsNegatable(..), JustLiteral)
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity), Precedence,
                prettyShow, Side(Top, LHS, RHS, Unary), testParen, text,

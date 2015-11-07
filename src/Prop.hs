@@ -91,10 +91,10 @@ import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf,
                         minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
 import Formulas (atom_union, HasBoolean(fromBool, asBool), true, false, IsAtom,
-                 IsFormula(AtomOf, atomic, overatoms, onatoms),
-                 IsNegatable(naiveNegate, foldNegation), (.~.), (¬), negate, positive)
+                 IsFormula(AtomOf, atomic, overatoms, onatoms))
 import Lib ((|=>), distrib, fpf, setAny)
-import Lit (convertLiteral, convertToLiteral, IsLiteral(foldLiteral'), JustLiteral, LFormula)
+import Lit ((.~.), (¬), convertLiteral, convertToLiteral, IsNegatable(naiveNegate, foldNegation), IsLiteral(foldLiteral'),
+            JustLiteral, LFormula, negate, positive, )
 import Prelude hiding (negate, null)
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity),
                Precedence, Pretty(pPrint, pPrintPrec), prettyShow, Side(Top, LHS, RHS, Unary), testParen, text,

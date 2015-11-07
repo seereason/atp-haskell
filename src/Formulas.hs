@@ -15,21 +15,15 @@ module Formulas
     ( -- * True and False
       HasBoolean(asBool, fromBool), prettyBool
     , true, false, (⊥), (⊤)
-    -- * Negation
-    , IsNegatable(naiveNegate, foldNegation), (.~.), (¬), negate, negated, negative, positive
     -- * Formulas
     , IsAtom
     , IsFormula(AtomOf, atomic, overatoms, onatoms)
     , atom_union
     ) where
 
-import Data.Data (Data)
 import Data.Set as Set (Set, empty, union)
-import Data.Typeable (Typeable)
-import Language.Haskell.TH (Dec(InfixD), Fixity(Fixity), FixityDirection(InfixN, InfixL, InfixR))
 import Prelude hiding (negate)
-import Pretty (Doc, HasFixity, notPrec, Pretty,
-               text, iffPrec, impPrec, andPrec, orPrec)
+import Pretty (Doc, HasFixity, Pretty, text)
 
 -- |Types that need to have True and False elements.
 class HasBoolean p where
@@ -54,36 +48,6 @@ false = fromBool False
 prettyBool :: Bool -> Doc
 prettyBool True = text "⊤"
 prettyBool False = text "⊥"
-
--- | The class of formulas that can be negated.  There are some types
--- that can be negated but do not support the other Boolean logic
--- operators, such as the 'IsLiteral' class.
-class IsNegatable formula where
-    -- | Negate a formula in a naive fashion, the operators below
-    -- prevent double negation.
-    naiveNegate :: formula -> formula
-    -- | Test whether a formula is negated or normal
-    foldNegation :: (formula -> r) -- ^ called for normal formulas
-                 -> (formula -> r) -- ^ called for negated formulas
-                 -> formula -> r
-
--- | Is this formula negated at the top level?
-negated :: IsNegatable formula => formula -> Bool
-negated = foldNegation (const False) (not . negated)
-
--- | Negate the formula, avoiding double negation
-(.~.), (¬), negate :: IsNegatable formula => formula -> formula
-(.~.) = foldNegation naiveNegate id
-(¬) = (.~.)
-negate = (.~.)
-infix 6 .~., ¬
-
--- | Some operations on IsNegatable formulas
-negative :: IsNegatable formula => formula -> Bool
-negative = negated
-
-positive :: IsNegatable formula => formula -> Bool
-positive = not . negative
 
 -- | Basic properties of an atomic formula
 class (Ord atom, Show atom, HasFixity atom, Pretty atom) => IsAtom atom

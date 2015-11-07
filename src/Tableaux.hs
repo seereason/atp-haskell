@@ -31,10 +31,10 @@ import Data.String (IsString(..))
 import FOL (asubst, exists, fApp, foldQuantified, for_all, fv, generalize, HasApply(TermOf),
             HasApply, IsFirstOrder, IsTerm(TVarOf, FunOf),
             pApp, Quant((:!:)), subst, vt)
-import Formulas ((.~.), atomic, HasBoolean(asBool), IsFormula(AtomOf), onatoms, overatoms, positive)
+import Formulas (atomic, HasBoolean(asBool), IsFormula(AtomOf), onatoms, overatoms)
 import Herbrand (davisputnam)
 import Lib ((|=>), allpairs, deepen, Depth(Depth), distrib, evalRS, Failing(Success, Failure), failing, settryfind, tryfindM)
-import Lit (IsLiteral, JustLiteral, LFormula)
+import Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive)
 import Prelude hiding (compare)
 import Pretty (assertEqual', Pretty(pPrint), prettyShow, text)
 import Prop ( (.&.), (.=>.), (.<=>.), (.|.), BinOp((:&:), (:|:)), PFormula, simpdnf)

@@ -9,6 +9,7 @@ import Data.String (fromString)
 import FOL (vt, fApp, (.=.), pApp, for_all, exists)
 import Formulas
 import Lib (Depth(Depth))
+import Lit ((.~.))
 import Meson (meson)
 import Parser (fof)
 import Pretty (assertEqual', prettyShow)

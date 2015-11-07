@@ -24,6 +24,7 @@ import Data.Set as Set
 import Prelude hiding (sum)
 import Formulas
 import Lib (allsets, timeMessage)
+import Lit ((.~.))
 import Pretty (HasFixity(precedence), Pretty(pPrint), prettyShow, text)
 import Prop
 import Test.HUnit

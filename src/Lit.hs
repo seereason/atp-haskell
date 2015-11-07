@@ -13,7 +13,14 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Lit
-    ( IsLiteral(foldLiteral'), foldLiteral
+    ( -- * Negation
+      IsNegatable(naiveNegate, foldNegation)
+    , (.~.), (¬), negate
+    , negated
+    , negative, positive
+    -- * Literal
+    , IsLiteral(foldLiteral')
+    , foldLiteral
     , JustLiteral
     , onatomsLiteral
     , overatomsLiteral
@@ -24,16 +31,47 @@ module Lit
     , associativityLiteral
     , prettyLiteral
     , showLiteral
+    -- * Instance
     , LFormula(T, F, Atom, Not)
     , Lit(L, lname)
     ) where
 
 import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
-import Formulas ((.~.), HasBoolean(..), IsAtom, IsNegatable(..), IsFormula(atomic, AtomOf), overatoms, onatoms)
+import Formulas (HasBoolean(..), IsAtom, IsFormula(atomic, AtomOf), overatoms, onatoms)
 import Formulas ()
 import Prelude hiding (negate, null)
 import Pretty (Associativity(..), boolPrec, Doc, HasFixity(precedence, associativity), notPrec, Precedence, Pretty(pPrint), text)
+
+-- | The class of formulas that can be negated.  There are some types
+-- that can be negated but do not support the other Boolean logic
+-- operators, such as the 'IsLiteral' class.
+class IsNegatable formula where
+    -- | Negate a formula in a naive fashion, the operators below
+    -- prevent double negation.
+    naiveNegate :: formula -> formula
+    -- | Test whether a formula is negated or normal
+    foldNegation :: (formula -> r) -- ^ called for normal formulas
+                 -> (formula -> r) -- ^ called for negated formulas
+                 -> formula -> r
+
+-- | Is this formula negated at the top level?
+negated :: IsNegatable formula => formula -> Bool
+negated = foldNegation (const False) (not . negated)
+
+-- | Negate the formula, avoiding double negation
+(.~.), (¬), negate :: IsNegatable formula => formula -> formula
+(.~.) = foldNegation naiveNegate id
+(¬) = (.~.)
+negate = (.~.)
+infix 6 .~., ¬
+
+-- | Some operations on IsNegatable formulas
+negative :: IsNegatable formula => formula -> Bool
+negative = negated
+
+positive :: IsNegatable formula => formula -> Bool
+positive = not . negative
 
 -- | Literals are the building blocks of the clause and implicative normal
 -- forms.  They support negation and must include True and False elements.

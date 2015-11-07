@@ -20,9 +20,9 @@ import Debug.Trace
 import DP (dpll)
 import FOL (Arity, functions, HasApply(TermOf), HasApply, IsFirstOrder, IsTerm(TVarOf, FunOf),
             fApp, lsubst, fv, generalize)
-import Formulas ((.~.), IsFormula(AtomOf), overatoms, atomic)
+import Formulas (IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib)
-import Lit (JustLiteral, LFormula)
+import Lit ((.~.), JustLiteral, LFormula)
 import Parser(fof)
 import Pretty (prettyShow)
 import Prop (eval, JustPropositional, PFormula, simpcnf, simpdnf, trivial)
