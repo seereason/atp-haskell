@@ -116,7 +116,7 @@ import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity), Precedence,
                prettyShow, Side(Top, LHS, RHS, Unary), testParen, text,
                andPrec, orPrec, impPrec, iffPrec, notPrec, atomPrec, leafPrec, quantPrec, eqPrec, pAppPrec)
-import Prop (BinOp(..), binop, IsCombinable(..), IsPropositional(foldPropositional'))
+import Prop (BinOp(..), binop, IsPropositional((.&.), (.|.), (.=>.), (.<=>.), foldPropositional', foldCombination))
 import Text.PrettyPrint (parens, brackets, punctuate, comma, fcat, fsep, space)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel)
 import Test.HUnit
@@ -680,19 +680,6 @@ data QFormula v atom
 instance (HasApply atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) => Pretty (QFormula v atom) where
     pPrintPrec = prettyQuantified Top
 
-instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsCombinable (QFormula v atom) where
-    (.|.) = Or
-    (.&.) = And
-    (.=>.) = Imp
-    (.<=>.) = Iff
-    foldCombination other dj cj imp iff fm =
-        case fm of
-          Or a b -> a `dj` b
-          And a b -> a `cj` b
-          Imp a b -> a `imp` b
-          Iff a b -> a `iff` b
-          _ -> other fm
-
 -- The IsFormula instance for QFormula
 instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsFormula (QFormula v atom) where
     type AtomOf (QFormula v atom) = atom
@@ -706,6 +693,10 @@ instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsFormula (QFormula v atom
     onatoms = onatomsQuantified
 
 instance (IsFormula (QFormula v atom), HasApply atom, v ~ TVarOf (TermOf atom)) => IsPropositional (QFormula v atom) where
+    (.|.) = Or
+    (.&.) = And
+    (.=>.) = Imp
+    (.<=>.) = Iff
     foldPropositional' ho co ne tf at fm =
         case fm of
           And p q -> co p (:&:) q
@@ -713,6 +704,13 @@ instance (IsFormula (QFormula v atom), HasApply atom, v ~ TVarOf (TermOf atom)) 
           Imp p q -> co p (:=>:) q
           Iff p q -> co p (:<=>:) q
           _ -> foldLiteral' ho ne tf at fm
+    foldCombination other dj cj imp iff fm =
+        case fm of
+          Or a b -> a `dj` b
+          And a b -> a `cj` b
+          Imp a b -> a `imp` b
+          Iff a b -> a `iff` b
+          _ -> other fm
 
 instance (IsPropositional (QFormula v atom), IsVariable v, IsAtom atom) => IsQuantified (QFormula v atom) where
     type VarOf (QFormula v atom) = v

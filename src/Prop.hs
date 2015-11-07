@@ -18,15 +18,14 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Prop
-    ( -- * Combination
-      IsCombinable((.|.), (.&.), (.<=>.), (.=>.), foldCombination)
+    ( 
+      BinOp(..), binop
+    -- * Propositional formulas
+    , IsPropositional((.|.), (.&.), (.<=>.), (.=>.), foldPropositional', foldCombination)
     , (⇒), (==>), (⊃), (→)
     , (⇔), (<=>), (↔), (<==>)
     , (∧), (·)
     , (∨)
-    , BinOp(..), binop
-    -- * Propositional formulas
-    , IsPropositional( foldPropositional')
     , foldPropositional
     , zipPropositional
     , convertPropositional
@@ -102,32 +101,10 @@ import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence,
 import Text.PrettyPrint.HughesPJClass (maybeParens, PrettyLevel, vcat)
 import Test.HUnit
 
--- | A type class for combining logical formulas.  Minimal implementation:
--- @
---  (.|.), (.&.), (.=>.), (.<=>.)
--- @
-class IsLiteral formula => IsCombinable formula where
-    -- | Disjunction/OR
-    (.|.) :: formula -> formula -> formula
-
-    -- | Conjunction/AND.  @x .&. y = (.~.) ((.~.) x .|. (.~.) y)@
-    (.&.) :: formula -> formula -> formula
-    -- | Equivalence.  @x .<=>. y = (x .=>. y) .&. (y .=>. x)@
-    (.<=>.) :: formula -> formula -> formula
-    -- | Implication.  @x .=>. y = ((.~.) x .|. y)@
-    (.=>.) :: formula -> formula -> formula
-
-    foldCombination :: (formula -> r) -- other
-                    -> (formula -> formula -> r) -- disjunction
-                    -> (formula -> formula -> r) -- conjunction
-                    -> (formula -> formula -> r) -- implication
-                    -> (formula -> formula -> r) -- equivalence
-                    -> formula -> r
-
 -- | Implication synonyms.  Note that if the -XUnicodeSyntax option is
 -- turned on the operator ⇒ can not be declared/used as a function -
 -- it becomes a reserved special character used in type signatures.
-(⇒), (⊃), (==>), (→) :: IsCombinable formula => formula -> formula -> formula
+(⇒), (⊃), (==>), (→) :: IsPropositional formula => formula -> formula -> formula
 (⇒) = (.=>.)
 (⊃) = (.=>.)
 (==>) = (.=>.)
@@ -135,7 +112,7 @@ class IsLiteral formula => IsCombinable formula where
 infixr 3 .=>., ⇒, ⊃, ==>, →
 
 -- | If-and-only-if synonyms
-(<=>), (<==>), (⇔), (↔) :: IsCombinable formula => formula -> formula -> formula
+(<=>), (<==>), (⇔), (↔) :: IsPropositional formula => formula -> formula -> formula
 (<=>) = (.<=>.)
 (<==>) = (.<=>.)
 (⇔) = (.<=>.)
@@ -143,13 +120,13 @@ infixr 3 .=>., ⇒, ⊃, ==>, →
 infixl 2 .<=>., <=>, <==>, ⇔, ↔
 
 -- | And/conjunction synonyms
-(∧), (·) :: IsCombinable formula => formula -> formula -> formula
+(∧), (·) :: IsPropositional formula => formula -> formula -> formula
 (∧) = (.&.)
 (·) = (.&.)
 infixl 5 .&., ∧, ·
 
 -- | Or/disjunction synonyms
-(∨) :: IsCombinable formula => formula -> formula -> formula
+(∨) :: IsPropositional formula => formula -> formula -> formula
 (∨) = (.|.)
 infixl 4 .|., ∨
 
@@ -161,7 +138,7 @@ data BinOp
     deriving (Eq, Ord, Data, Typeable, Show, Enum, Bounded)
 
 -- | Combine formulas with a 'BinOp'.
-binop :: IsCombinable formula => formula -> BinOp -> formula -> formula
+binop :: IsPropositional formula => formula -> BinOp -> formula -> formula
 binop f1 (:<=>:) f2 = f1 .<=>. f2
 binop f1 (:=>:) f2 = f1 .=>. f2
 binop f1 (:&:) f2 = f1 .&. f2
@@ -175,18 +152,34 @@ binop f1 (:|:) f2 = f1 .|. f2
 -- raise errors in the implementation if a non-atomic formula somehow
 -- appears where an atomic formula is expected (i.e. as an argument to
 -- atomic or to the third argument of foldPropositional.)
-class (IsLiteral formula, IsCombinable formula) => IsPropositional formula where
-    -- | Build an atomic formula from the atom type.
+class IsLiteral formula => IsPropositional formula where
+    -- | Disjunction/OR
+    (.|.) :: formula -> formula -> formula
+    -- | Conjunction/AND.  @x .&. y = (.~.) ((.~.) x .|. (.~.) y)@
+    (.&.) :: formula -> formula -> formula
+    -- | Equivalence.  @x .<=>. y = (x .=>. y) .&. (y .=>. x)@
+    (.<=>.) :: formula -> formula -> formula
+    -- | Implication.  @x .=>. y = ((.~.) x .|. y)@
+    (.=>.) :: formula -> formula -> formula
+
     -- | A fold function that distributes different sorts of formula
     -- to its parameter functions, one to handle binary operators, one
     -- for negations, and one for atomic formulas.  See examples of its
     -- use to implement the polymorphic functions below.
     foldPropositional' :: (formula -> r)                     -- ^ fold on some higher order formula
-                       -> (formula -> BinOp -> formula -> r) -- ^ fold on a binary operation formula
+                       -> (formula -> BinOp -> formula -> r) -- ^ fold on a binary operation formula.  Functions
+                                                             -- of this type can be constructed using 'binop'.
                        -> (formula -> r)                     -- ^ fold on a negated formula
                        -> (Bool -> r)                        -- ^ fold on a boolean formula
                        -> (AtomOf formula -> r)              -- ^ fold on an atomic formula
                        -> formula -> r
+    -- | An alternative fold function for binary combinations of formulas
+    foldCombination :: (formula -> r) -- other
+                    -> (formula -> formula -> r) -- disjunction
+                    -> (formula -> formula -> r) -- conjunction
+                    -> (formula -> formula -> r) -- implication
+                    -> (formula -> formula -> r) -- equivalence
+                    -> formula -> r
 
 -- | Deconstruct a 'JustPropositional' formula.
 foldPropositional :: JustPropositional pf =>
@@ -336,19 +329,6 @@ data PFormula atom
     | Iff (PFormula atom) (PFormula atom)
     deriving (Eq, Ord, Read, Data, Typeable)
 
-instance (IsAtom atom, Ord atom) => IsCombinable (PFormula atom) where
-    (.|.) = Or
-    (.&.) = And
-    (.=>.) = Imp
-    (.<=>.) = Iff
-    foldCombination other dj cj imp iff fm =
-        case fm of
-          Or a b -> a `dj` b
-          And a b -> a `cj` b
-          Imp a b -> a `imp` b
-          Iff a b -> a `iff` b
-          _ -> other fm
-
 -- Build a Haskell expression for this formula
 instance (IsPropositional (PFormula atom), Show atom) => Show (PFormula atom) where
     showsPrec p x = showPropositional Top p x -- . showString " :: PFormula Prop"
@@ -369,6 +349,10 @@ instance IsAtom atom => IsFormula (PFormula atom) where
     onatoms = onatomsPropositional
 
 instance IsAtom atom => IsPropositional (PFormula atom) where
+    (.|.) = Or
+    (.&.) = And
+    (.=>.) = Imp
+    (.<=>.) = Iff
     foldPropositional' _ co ne tf at fm =
         case fm of
           Imp p q -> co p (:=>:) q
@@ -376,6 +360,13 @@ instance IsAtom atom => IsPropositional (PFormula atom) where
           And p q -> co p (:&:) q
           Or p q -> co p (:|:) q
           _ -> foldLiteral' (error "IsPropositional PFormula") ne tf at fm
+    foldCombination other dj cj imp iff fm =
+        case fm of
+          Or a b -> a `dj` b
+          And a b -> a `cj` b
+          Imp a b -> a `imp` b
+          Iff a b -> a `iff` b
+          _ -> other fm
 
 instance IsAtom atom => IsLiteral (PFormula atom) where
     naiveNegate = Not
@@ -500,26 +491,26 @@ test00 =
                        ( p .=>. (q .=>. r) , "p⇒q⇒r"   ),
                        ( p .=>. q .=>. r   , "p⇒q⇒r"   )])
     where
-      byPrec :: IsCombinable formula => [[(Rational, formula -> formula -> formula)]]
+      byPrec :: IsPropositional formula => [[(Rational, formula -> formula -> formula)]]
       byPrec = groupBy ((==) `on` fst) . sortBy (compare `on` fst) $ binops
       -- All the operators we will test, with the 'Precedence' value
       -- we assigned.  we need to make sure the 'Precedence' value
       -- matches the values in the infix/infixl/infixr declarations.
-      binops :: IsCombinable formula => [(Rational, formula -> formula -> formula)]
+      binops :: IsPropositional formula => [(Rational, formula -> formula -> formula)]
       binops = ands ++ ors ++ imps ++ iffs
           where
-            ands :: IsCombinable formula => [(Rational, formula -> formula -> formula)]
+            ands :: IsPropositional formula => [(Rational, formula -> formula -> formula)]
             ands = List.map (andPrec,) [(.&.), (∧), (·)]
-            ors :: IsCombinable formula => [(Rational, formula -> formula -> formula)]
+            ors :: IsPropositional formula => [(Rational, formula -> formula -> formula)]
             ors = List.map (orPrec,) [(.|.), (∨)]
-            imps :: IsCombinable formula => [(Rational, formula -> formula -> formula)]
+            imps :: IsPropositional formula => [(Rational, formula -> formula -> formula)]
             imps = List.map (impPrec,) [(.=>.), (⇒), (==>), (→), (⊃)]
-            iffs :: IsCombinable formula => [(Rational, formula -> formula -> formula)]
+            iffs :: IsPropositional formula => [(Rational, formula -> formula -> formula)]
             iffs = List.map (iffPrec,) [(.<=>.), (<=>), (⇔), (↔)]
-      preops :: IsCombinable formula => [(Rational, formula -> formula)]
+      preops :: IsPropositional formula => [(Rational, formula -> formula)]
       preops = nots
           where
-            nots :: IsCombinable formula => [(Rational, formula -> formula)]
+            nots :: IsPropositional formula => [(Rational, formula -> formula)]
             nots = List.map (notPrec,) [(.~.), (¬)]
       (p, q, r) = (Atom (P "p"), Atom (P "q"), Atom (P "r"))
       -- What about these?
@@ -874,11 +865,11 @@ allsatvaluations subfn v pvs =
                       (allsatvaluations subfn (\a -> if a == p then True else v a) ps)
 
 -- | Disjunctive normal form (DNF) via truth tables.
-list_conj :: (Foldable t, IsFormula formula, IsCombinable formula) => t formula -> formula
+list_conj :: (Foldable t, IsFormula formula, IsPropositional formula) => t formula -> formula
 list_conj l | null l = true
 list_conj l = foldl1 (.&.) l
 
-list_disj :: (Foldable t, IsFormula formula, IsCombinable formula) => t formula -> formula
+list_disj :: (Foldable t, IsFormula formula, IsPropositional formula) => t formula -> formula
 list_disj l | null l = false
 list_disj l = foldl1 (.|.) l
 

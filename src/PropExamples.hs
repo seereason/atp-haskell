@@ -59,23 +59,23 @@ test01 = TestList [TestCase (assertEqual "ramsey 3 3 4"
                    TestCase (timeMessage (\_ t -> "\nTime to compute (ramsey 3 3 6): " ++ show t) $ assertEqual "tautology (ramsey 3 3 6)" True (tautology (ramsey 3 3 6 :: PFormula (Knows Integer))))]
 
 -- | Half adder.  (p. 66)
-halfsum :: forall formula. IsCombinable formula => formula -> formula -> formula
+halfsum :: forall formula. IsPropositional formula => formula -> formula -> formula
 halfsum x y = x .<=>. ((.~.) y)
 
-halfcarry :: forall formula. IsCombinable formula => formula -> formula -> formula
+halfcarry :: forall formula. IsPropositional formula => formula -> formula -> formula
 halfcarry x y = x .&. y
 
-ha :: forall formula. IsCombinable formula => formula -> formula -> formula -> formula -> formula
+ha :: forall formula. IsPropositional formula => formula -> formula -> formula -> formula -> formula
 ha x y s c = (s .<=>. halfsum x y) .&. (c .<=>. halfcarry x y)
 
 -- | Full adder.
-carry :: forall formula. IsCombinable formula => formula -> formula -> formula -> formula
+carry :: forall formula. IsPropositional formula => formula -> formula -> formula -> formula
 carry x y z = (x .&. y) .|. ((x .|. y) .&. z)
 
-sum :: forall formula. IsCombinable formula => formula -> formula -> formula -> formula
+sum :: forall formula. IsPropositional formula => formula -> formula -> formula -> formula
 sum x y z = halfsum (halfsum x y) z
 
-fa :: forall formula. IsCombinable formula => formula -> formula -> formula -> formula -> formula -> formula
+fa :: forall formula. IsPropositional formula => formula -> formula -> formula -> formula -> formula -> formula
 fa x y z s c = (s .<=>. sum x y z) .&. (c .<=>. carry x y z)
 
 -- | Useful idiom.
@@ -130,7 +130,7 @@ ripplecarry1 x y c out n =
   psimplify
    (ripplecarry x y (\ i -> if i == 0 then true else c i) out n)
 
-mux :: forall formula. IsCombinable formula => formula -> formula -> formula -> formula
+mux :: forall formula. IsPropositional formula => formula -> formula -> formula -> formula
 mux sel in0 in1 = (((.~.) sel) .&. in0) .|. (sel .&. in1)
 
 offset :: forall t a. Num a => a -> (a -> t) -> a -> t
