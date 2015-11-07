@@ -21,7 +21,7 @@ import Data.Set as Set (delete, difference, empty, filter, findMin, fold, insert
 import DefCNF (NumAtom(ai, ma), defcnfs)
 import Formulas (IsFormula(AtomOf))
 import Lib (Failing(Success, Failure), failing, allpairs, minimize, maximize, defined, (|->), setmapfilter, flatten)
-import Lit (IsNegatable, (.~.), negative, positive, negate, negated)
+import Lit (IsLiteral, (.~.), negative, positive, negate, negated)
 import Prelude hiding (negate, pure)
 import Prop (trivial, JustPropositional, PFormula)
 import PropExamples (Knows(K), prime)
@@ -33,7 +33,7 @@ instance NumAtom (Knows Integer) where
     ai (K _ n _) = n
 
 -- | The DP procedure.
-dp :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Bool
+dp :: (IsLiteral lit, Ord lit) => Set (Set lit) -> Bool
 dp clauses
   | Set.null clauses = True
   | Set.member Set.empty clauses = False
@@ -46,7 +46,7 @@ dp clauses
     try3 :: Bool
     try3 = dp (resolution_rule clauses)
 
-one_literal_rule :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
+one_literal_rule :: (IsLiteral lit, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
 one_literal_rule clauses =
     case Set.minView (Set.filter (\ cl -> Set.size cl == 1) clauses) of
       Nothing -> Failure ["one_literal_rule"]
@@ -56,7 +56,7 @@ one_literal_rule clauses =
           let clauses1 = Set.filter (\ cl -> not (Set.member u cl)) clauses in
           Success (Set.map (\ cl -> Set.delete u' cl) clauses1)
 
-affirmative_negative_rule :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
+affirmative_negative_rule :: (IsLiteral lit, Ord lit) => Set (Set lit) -> Failing (Set (Set lit))
 affirmative_negative_rule clauses =
   let (neg',pos) = Set.partition negative (flatten clauses) in
   let neg = Set.map (.~.) neg' in
@@ -67,7 +67,7 @@ affirmative_negative_rule clauses =
   then Failure ["affirmative_negative_rule"]
   else Success (Set.filter (\ cl -> Set.null (Set.intersection cl pure)) clauses)
 
-resolve_on :: (IsNegatable lit, Ord lit) => lit -> Set (Set lit) -> Set (Set lit)
+resolve_on :: (IsLiteral lit, Ord lit) => lit -> Set (Set lit) -> Set (Set lit)
 resolve_on p clauses =
   let p' = (.~.) p
       (pos,notpos) = Set.partition (Set.member p) clauses in
@@ -77,13 +77,13 @@ resolve_on p clauses =
   let res0 = allpairs Set.union pos' neg' in
   Set.union other (Set.filter (not . trivial) res0)
 
-resolution_blowup :: (IsNegatable lit, Ord lit) => Set (Set lit) -> lit -> Int
+resolution_blowup :: (IsLiteral lit, Ord lit) => Set (Set lit) -> lit -> Int
 resolution_blowup cls l =
   let m = Set.size (Set.filter (Set.member l) cls)
       n = Set.size (Set.filter (Set.member ((.~.) l)) cls) in
   m * n - m - n
 
-resolution_rule :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Set (Set lit)
+resolution_rule :: (IsLiteral lit, Ord lit) => Set (Set lit) -> Set (Set lit)
 resolution_rule clauses = resolve_on p clauses
     where
       pvs = Set.filter positive (flatten clauses)
@@ -103,7 +103,7 @@ test01 :: Test
 test01 = TestCase (assertEqual "dptaut(prime 11) p. 84" True (dptaut (prime 11 :: PFormula (Knows Integer))))
 
 -- | The same thing but with the DPLL procedure. (p. 84)
-dpll :: (IsNegatable lit, Ord lit) => Set (Set lit) -> Bool
+dpll :: (IsLiteral lit, Ord lit) => Set (Set lit) -> Bool
 dpll clauses
   | Set.null clauses = True
   | Set.member Set.empty clauses = False
@@ -134,7 +134,7 @@ dpll clauses
                           (_, Failure b) -> Failure b
 -}
 
-posneg_count :: (IsNegatable formula, Ord formula) => Set (Set formula) -> formula -> Int
+posneg_count :: (IsLiteral formula, Ord formula) => Set (Set formula) -> formula -> Int
 posneg_count cls l =
   let m = Set.size(Set.filter (Set.member l) cls)
       n = Set.size(Set.filter (Set.member (negate l)) cls) in
@@ -151,7 +151,7 @@ test02 :: Test
 test02 = TestCase (assertEqual "dplltaut(prime 11)" True (dplltaut (prime 11 :: PFormula (Knows Integer))))
 
 -- | Iterative implementation with explicit trail instead of recursion.
-dpli :: (IsNegatable formula, Ord formula) => Set (formula, TrailMix) -> Set (Set formula) -> Bool
+dpli :: (IsLiteral formula, Ord formula) => Set (formula, TrailMix) -> Set (Set formula) -> Bool
 dpli trail cls =
   let (cls', trail') = unit_propagate (cls, trail) in
   if Set.member Set.empty cls' then
@@ -166,12 +166,12 @@ dpli trail cls =
 
 data TrailMix = Guessed | Deduced deriving (Eq, Ord)
 
-unassigned :: (IsNegatable formula, Ord formula, Eq formula) => Set (Set formula) -> Set (formula, TrailMix) -> Set formula
+unassigned :: (IsLiteral formula, Ord formula, Eq formula) => Set (Set formula) -> Set (formula, TrailMix) -> Set formula
 unassigned cls trail =
     Set.difference (flatten (Set.map (Set.map litabs) cls)) (Set.map (litabs . fst) trail)
     where litabs p = if negated p then negate p else p
 
-unit_subpropagate :: (IsNegatable formula, Ord formula) =>
+unit_subpropagate :: (IsLiteral formula, Ord formula) =>
                      (Set (Set formula), Map formula (), Set (formula, TrailMix))
                   -> (Set (Set formula), Map formula (), Set (formula, TrailMix))
 unit_subpropagate (cls,fn,trail) =
@@ -188,7 +188,7 @@ unit_subpropagate (cls,fn,trail) =
       fn' = Set.fold (\ u -> (u |-> ())) fn newunits in
   unit_subpropagate (cls',fn',trail')
 
-unit_propagate :: forall t. (IsNegatable t, Ord t) =>
+unit_propagate :: forall t. (IsLiteral t, Ord t) =>
                   (Set (Set t), Set (t, TrailMix))
                -> (Set (Set t), Set (t, TrailMix))
 unit_propagate (cls,trail) =
@@ -208,7 +208,7 @@ dplitaut :: (JustPropositional pf, Ord pf, NumAtom (AtomOf pf)) => pf -> Bool
 dplitaut = not . dplisat . negate
 
 -- | With simple non-chronological backjumping and learning.
-dplb :: (IsNegatable formula, Ord formula) => Set (formula, TrailMix) -> Set (Set formula) -> Bool
+dplb :: (IsLiteral formula, Ord formula) => Set (formula, TrailMix) -> Set (Set formula) -> Bool
 dplb trail cls =
   let (cls',trail') = unit_propagate (cls,trail) in
   if Set.member Set.empty cls' then
@@ -225,7 +225,7 @@ dplb trail cls =
       ps -> let Just p = maximize (posneg_count cls') ps in
             dplb (Set.insert (p,Guessed) trail') cls
 
-backjump :: (IsNegatable a, Ord a) => Set (Set a) -> a -> Set (a, TrailMix) -> Set (a, TrailMix)
+backjump :: (IsLiteral a, Ord a) => Set (Set a) -> a -> Set (a, TrailMix) -> Set (a, TrailMix)
 backjump cls p trail =
   case Set.minView (backtrack trail) of
     Just ((_q,Guessed), tt) ->

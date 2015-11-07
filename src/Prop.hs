@@ -93,7 +93,7 @@ import Data.String (IsString(fromString))
 import Formulas (atom_union, HasBoolean(fromBool, asBool), true, false, IsAtom,
                  IsFormula(AtomOf, atomic, overatoms, onatoms))
 import Lib ((|=>), distrib, fpf, setAny)
-import Lit ((.~.), (¬), convertLiteral, convertToLiteral, IsNegatable(naiveNegate, foldNegation), IsLiteral(foldLiteral'),
+import Lit ((.~.), (¬), convertLiteral, convertToLiteral, IsLiteral(foldLiteral', naiveNegate, foldNegation),
             JustLiteral, LFormula, negate, positive, )
 import Prelude hiding (negate, null)
 import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity),
@@ -106,7 +106,7 @@ import Test.HUnit
 -- @
 --  (.|.), (.&.), (.=>.), (.<=>.)
 -- @
-class IsNegatable formula => IsCombinable formula where
+class IsLiteral formula => IsCombinable formula where
     -- | Disjunction/OR
     (.|.) :: formula -> formula -> formula
 
@@ -349,12 +349,7 @@ instance HasBoolean (PFormula atom) where
     fromBool True = T
     fromBool False = F
 
-instance Ord atom => IsNegatable (PFormula atom) where
-    naiveNegate = Not
-    foldNegation normal inverted (Not x) = foldNegation inverted normal x
-    foldNegation normal _ x = normal x
-
-instance Ord atom => IsCombinable (PFormula atom) where
+instance (IsAtom atom, Ord atom) => IsCombinable (PFormula atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
@@ -391,6 +386,9 @@ instance IsAtom atom => IsPropositional (PFormula atom) where
           _ -> foldLiteral' (error "IsPropositional PFormula") ne tf at fm
 
 instance IsAtom atom => IsLiteral (PFormula atom) where
+    naiveNegate = Not
+    foldNegation normal inverted (Not x) = foldNegation inverted normal x
+    foldNegation normal _ x = normal x
     foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
@@ -1043,7 +1041,7 @@ test32 = TestCase $ assertEqual "purednf (p. 58)" expected (purednf id fm)
           r = atomic (P "r")
 
 -- | Filtering out trivial disjuncts (in this guise, contradictory).
-trivial :: (Ord lit, IsNegatable lit) => Set lit -> Bool
+trivial :: (Ord lit, IsLiteral lit) => Set lit -> Bool
 trivial lits =
     let (pos, neg) = Set.partition positive lits in
     (not . null . Set.intersection neg . Set.map (.~.)) pos

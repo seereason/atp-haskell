@@ -111,7 +111,7 @@ import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Formulas (false, HasBoolean(..), IsAtom, IsFormula(..), onatoms, prettyBool, true)
 import Lib (setAny, tryApplyD, undefine, (|->))
-import Lit ((.~.), foldLiteral, IsLiteral(foldLiteral'), IsNegatable(..), JustLiteral)
+import Lit ((.~.), foldLiteral, IsLiteral(foldLiteral'), IsLiteral(..), JustLiteral)
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity), Precedence,
                prettyShow, Side(Top, LHS, RHS, Unary), testParen, text,
@@ -687,12 +687,7 @@ instance HasBoolean (QFormula v atom) where
     fromBool True = T
     fromBool False = F
 
-instance IsNegatable (QFormula v atom) where
-    naiveNegate = Not
-    foldNegation normal inverted (Not x) = foldNegation inverted normal x
-    foldNegation normal _ x = normal x
-
-instance IsCombinable (QFormula v atom) where
+instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsCombinable (QFormula v atom) where
     (.|.) = Or
     (.&.) = And
     (.=>.) = Imp
@@ -740,6 +735,9 @@ instance IsQuantified (QFormula v atom) => HasFixity (QFormula v atom) where
     associativity = associativityQuantified
 
 instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsLiteral (QFormula v atom) where
+    naiveNegate = Not
+    foldNegation normal inverted (Not x) = foldNegation inverted normal x
+    foldNegation normal _ x = normal x
     foldLiteral' ho ne tf at fm =
         case fm of
           T -> tf True
