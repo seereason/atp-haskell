@@ -42,6 +42,7 @@ module Skolem
     , testSkolem
     ) where
 
+import Apply (functions, HasApply(TermOf, PredOf), pApp, Predicate)
 import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT, get, modify)
 import Data.Generics (Data, Typeable)
@@ -50,9 +51,9 @@ import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, insert, isProperSubsetOf, map, member, notMember, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
-import FOL (exists, for_all, FOL, functions, fv, HasApply(TermOf, PredOf), IsFirstOrder,
+import FOL (exists, for_all, FOL, fv, IsFirstOrder,
             IsQuantified(VarOf, foldQuantified),
-            Predicate, QFormula, pApp, quant, Quant((:?:), (:!:)), subst)
+            QFormula, quant, Quant((:?:), (:!:)), subst)
 import Formulas (IsFormula(AtomOf), false, true, atomic)
 import Lib (setAny, distrib)
 import Lit ((.~.), negate)

@@ -14,11 +14,12 @@ import Text.Parsec.Expr
 import Text.Parsec.Token
 import Text.Parsec.Language
 
-import FOL
-import Formulas
-import Lit
+import Apply (pApp, Predicate)
+import FOL ((.=.), convertQuantified, exists, for_all)
+import Formulas (true, false)
+import Lit ((.~.), LFormula)
 import Prop ((.&.), (.|.), (.=>.), (.<=>.), PFormula)
-import Skolem
+import Skolem (Formula, Function, SkAtom, SkTerm)
 import Term (fApp, Term(Var), V(V))
 
 -- | QuasiQuote for a first order formula.  Loading this symbol into the interpreter
@@ -151,9 +152,9 @@ folterm = try (m_parens folparser)
        <|> (m_reserved "false" >> return false)
 
 existentialPrefix :: forall s u m. Stream s m Char => ParsecT s u m (Formula -> Formula)
-existentialPrefix = quantifierPrefix "∃" Exists <|> quantifierPrefix "exists" Exists
+existentialPrefix = quantifierPrefix "∃" exists <|> quantifierPrefix "exists" exists
 forallPrefix :: forall s u m. Stream s m Char => ParsecT s u m (Formula -> Formula)
-forallPrefix = quantifierPrefix "∀" Forall <|> quantifierPrefix "for_all" Forall <|> quantifierPrefix "forall" Forall
+forallPrefix = quantifierPrefix "∀" for_all <|> quantifierPrefix "for_all" for_all <|> quantifierPrefix "forall" for_all
 
 quantifierPrefix :: forall s u m. Stream s m Char => [Char] -> (V -> Formula -> Formula) -> ParsecT s u m (Formula -> Formula)
 quantifierPrefix name op = do

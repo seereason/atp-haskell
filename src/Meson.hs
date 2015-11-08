@@ -17,12 +17,13 @@ module Meson
     , testMeson
     ) where
 
+import Apply (HasApply(TermOf, PredOf), pApp)
 import Control.Monad.State (execStateT)
 import Data.Map as Map
 import Data.Monoid ((<>))
 import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (exists, for_all, generalize, HasApply(TermOf, PredOf), IsFirstOrder, IsQuantified(VarOf), pApp)
+import FOL (exists, for_all, generalize, IsFirstOrder, IsQuantified(VarOf))
 import Formulas (false, IsFormula(AtomOf))
 import Lib (Depth(Depth), deepen)
 import Lit ((.~.), JustLiteral, LFormula, negative)

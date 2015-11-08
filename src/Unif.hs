@@ -21,12 +21,13 @@ module Unif
     , testUnif
     ) where
 
+import Apply (HasApply(TermOf), JustApply, zipApplys)
 import Control.Monad.State -- (evalStateT, runStateT, State, StateT, get)
 import Data.Bool (bool)
 import Data.List as List (map)
 import Data.Map as Map
 import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
-import FOL (HasApply(TermOf), HasApplyAndEquate, JustApply, tsubst, zipApplys, zipEquates)
+import FOL (HasApplyAndEquate, tsubst, zipEquates)
 import Formulas (IsFormula(AtomOf))
 import Lib (Failing(Success, Failure))
 import Lit (IsLiteral, zipLiterals')

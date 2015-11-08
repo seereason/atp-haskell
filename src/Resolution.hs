@@ -24,21 +24,23 @@ module Resolution
     , testResolution
     ) where
 
+import Apply (HasApply(TermOf), JustApply, pApp, zipApplys)
 import Control.Monad.State (execStateT, get, StateT)
 import Data.List as List (map)
 import Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Set as Set
 import Data.String (fromString)
-import FOL
-import Formulas
+import FOL (exists, for_all, generalize, HasApplyAndEquate, IsFirstOrder, IsQuantified(VarOf), lsubst, var, zipEquates)
+import Formulas (IsFormula(AtomOf))
 import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
             Failing(..), failing, (|->), setAll, setAny, settryfind)
-import Lit
+import Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive, zipLiterals')
 import Parser (fof)
 import Pretty (assertEqual', Pretty, prettyShow)
-import Prop
-import Skolem
+import Prop ((.|.), (.&.), (.=>.), (.<=>.), list_conj, PFormula, simpcnf, trivial)
+import Skolem (askolemize, Formula, Function(Skolem), HasSkolem(SVarOf), pnf,
+               runSkolem, simpdnf', SkAtom, skolemize, SkolemT, specialize, SkTerm)
 import Term (fApp, foldTerm, IsTerm(FunOf, TVarOf), prefix, V, vt)
 import Test.HUnit
 import Unif (solve, Unify, unify_literals)
@@ -355,7 +357,7 @@ gilmore_1 = TestCase $ assertEqual "Gilmore 1" expected (runSkolem (resolution3 
       fm :: Formula
       fm = exists "x" . for_all "y" . for_all "z" $
            ((f[y] .=>. g[y]) .<=>. f[x]) .&.
-           ((f[y] ==> h[y]) <=> g[x]) .&.
+           ((f[y] .=>. h[y]) .<=>. g[x]) .&.
            (((f[y] .=>. g[y]) .=>. h[y]) .<=>. h[x])
            .=>. f[z] .&. g[z] .&. h[z]
       [x, y, z] = [vt "x", vt "y", vt "z"] :: [SkTerm]

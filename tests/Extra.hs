@@ -1,12 +1,13 @@
 {-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, QuasiQuotes, ScopedTypeVariables #-}
 module Extra where
 
+import Apply (pApp)
 import Control.Applicative.Error (Failing(Failure, Success))
 import Data.List as List (map)
 import Data.Map as Map (empty)
 import Data.Set as Set (fromList, minView, null, Set, singleton)
 import Data.String (fromString)
-import FOL ((.=.), pApp, for_all, exists)
+import FOL ((.=.), for_all, exists)
 import Formulas
 import Lib (Depth(Depth))
 import Lit ((.~.))

@@ -33,6 +33,7 @@ Library
     -- Stal
     -- BDD
     Term
+    Apply
     FOL
     Parser
     ParserTests

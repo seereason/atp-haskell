@@ -7,11 +7,12 @@
 
 module Prolog where
 
+import Apply (HasApply(TermOf))
 import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (fromString)
-import FOL (var, HasApply(TermOf), lsubst)
+import FOL (var, lsubst)
 import Formulas (IsFormula(AtomOf))
 -- import Lib (deepen)
 import Lit (IsLiteral, JustLiteral)

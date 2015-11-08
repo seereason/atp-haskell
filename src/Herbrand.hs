@@ -13,12 +13,13 @@
 
 module Herbrand where
 
+import Apply (functions, HasApply(TermOf))
 import qualified Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace
 import DP (dpll)
-import FOL (functions, HasApply(TermOf), HasApply, IsFirstOrder, lsubst, fv, generalize)
+import FOL (IsFirstOrder, lsubst, fv, generalize)
 import Formulas (IsFormula(AtomOf), overatoms, atomic)
 import Lib (allpairs, distrib)
 import Lit ((.~.), JustLiteral, LFormula)

@@ -8,6 +8,7 @@ module ATP
     , module DefCNF
     , module DP
     , module Term
+    , module Apply
     , module FOL
     , module Skolem
     , module Parser
@@ -33,6 +34,7 @@ import PropExamples hiding (K)
 import DefCNF
 import DP
 import Term
+import Apply
 import FOL
 import Skolem
 import Parser
