@@ -7,6 +7,7 @@ module Parser where
 import Control.Monad.Identity
 import Data.Char (isSpace)
 import Data.String (fromString)
+import Equate ((.=.))
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Text.Parsec
 --import Text.Parsec.String
@@ -15,7 +16,7 @@ import Text.Parsec.Token
 import Text.Parsec.Language
 
 import Apply (pApp, Predicate)
-import FOL ((.=.), convertQuantified, exists, for_all)
+import FOL (convertQuantified, exists, for_all)
 import Formulas (true, false)
 import Lit ((.~.), LFormula)
 import Prop ((.&.), (.|.), (.=>.), (.<=>.), PFormula)

@@ -18,22 +18,8 @@
 
 module FOL
     (
-    -- * Atoms supporting Equate
-      HasApplyAndEquate(equate, foldEquate)
-    , zipEquates
-    , isEquate
-    , prettyEquate
-    , overtermsEq
-    , ontermsEq
-    , showApplyAndEquate
-    , showEquate
-    , convertEquate
-    , precedenceEquate
-    , associativityEquate
-    , FOL(R, Equals)
     -- * Quantified Formulas
-    , (.=.)
-    , Quant((:!:), (:?:))
+      Quant((:!:), (:?:))
     , IsQuantified(VarOf, quant, foldQuantified)
     , for_all, (∀)
     , exists, (∃)
@@ -62,13 +48,12 @@ module FOL
     , bool_interp
     , mod_interp
     -- * Concrete instances of types for use in unit tests.
-    , FTerm, ApAtom, EqAtom, ApFormula, EqFormula
+    , ApFormula, EqFormula
     -- * Tests
     , testFOL
     ) where
 
-import Apply (ApAtom, HasApply(PredOf, TermOf, applyPredicate, foldApply', overterms, onterms),
-              IsPredicate, Predicate, prettyApply, showApply)
+import Apply (ApAtom, HasApply(PredOf, TermOf, overterms, onterms), Predicate)
 import Data.Data (Data)
 --import Data.Function (on)
 import Data.Map as Map (empty, fromList, insert, lookup, Map)
@@ -76,115 +61,23 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
+import Equate ((.=.), EqAtom, foldEquate, HasEquate)
 import Formulas (fromBool, IsAtom, IsFormula(..), onatoms, prettyBool)
 import Lib (setAny, tryApplyD, undefine, (|->))
 import Lit ((.~.), foldLiteral, IsLiteral(foldLiteral'), IsLiteral(..), JustLiteral)
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity), Precedence,
                prettyShow, Side(Top, LHS, RHS, Unary), testParen, text,
-               andPrec, orPrec, impPrec, iffPrec, notPrec, atomPrec, leafPrec, quantPrec, eqPrec, pAppPrec)
+               andPrec, orPrec, impPrec, iffPrec, notPrec, leafPrec, quantPrec)
 import Prop (BinOp(..), binop, IsPropositional((.&.), (.|.), (.=>.), (.<=>.), foldPropositional', foldCombination))
-import Term (FName, foldTerm, FTerm, IsTerm(FunOf, TVarOf, vt, fApp), IsVariable, V, variant)
+import Term (FName, foldTerm, IsTerm(FunOf, TVarOf, vt, fApp), IsVariable, V, variant)
 import Text.PrettyPrint (fsep)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel)
 import Test.HUnit
 
----------------------------------
--- ATOM with the Equate predicate
----------------------------------
-
--- | Atoms that support equality must have HasApplyAndEquate instance
-class HasApply atom => HasApplyAndEquate atom where
-    equate :: TermOf atom -> TermOf atom -> atom
-    foldEquate :: (TermOf atom -> TermOf atom -> r) -> (PredOf atom -> [TermOf atom] -> r) -> atom -> r
-
--- | Zip two atoms that support equality
-zipEquates :: HasApplyAndEquate atom =>
-              (TermOf atom -> TermOf atom ->
-               TermOf atom -> TermOf atom -> Maybe r)
-           -> (PredOf atom -> [(TermOf atom, TermOf atom)] -> Maybe r)
-           -> atom -> atom -> Maybe r
-zipEquates eq ap atom1 atom2 =
-    foldEquate eq' ap' atom1
-    where
-      eq' l1 r1 = foldEquate (eq l1 r1) (\_ _ -> Nothing) atom2
-      ap' p1 ts1 = foldEquate (\_ _ -> Nothing) (ap'' p1 ts1) atom2
-      ap'' p1 ts1 p2 ts2 | p1 == p2 && length ts1 == length ts2 = ap p1 (zip ts1 ts2)
-      ap'' _ _ _ _ = Nothing
-
-isEquate :: HasApplyAndEquate atom => atom -> Bool
-isEquate = foldEquate (\_ _ -> True) (\_ _ -> False)
-
--- | Format the infix equality predicate applied to two terms.
-prettyEquate :: IsTerm term => PrettyLevel -> Rational -> term -> term -> Doc
-prettyEquate l p t1 t2 =
-    maybeParens (p > atomPrec) $ pPrintPrec l atomPrec t1 <> text "=" <> pPrintPrec l atomPrec t2
-
--- | Implementation of 'overterms' for 'HasApply' types.
-overtermsEq :: HasApplyAndEquate atom => ((TermOf atom) -> r -> r) -> r -> atom -> r
-overtermsEq f r0 = foldEquate (\t1 t2 -> f t2 (f t1 r0)) (\_ ts -> foldr f r0 ts)
-
--- | Implementation of 'onterms' for 'HasApply' types.
-ontermsEq :: HasApplyAndEquate atom => ((TermOf atom) -> (TermOf atom)) -> atom -> atom
-ontermsEq f = foldEquate (\t1 t2 -> equate (f t1) (f t2)) (\p ts -> applyPredicate p (map f ts))
-
--- | Implementation of Show for HasApplyAndEquate types
-showApplyAndEquate :: (HasApplyAndEquate atom, Show (TermOf atom)) => atom -> String
-showApplyAndEquate atom = foldEquate showEquate showApply atom
-
-showEquate :: Show term => term -> term -> String
-showEquate t1 t2 = "(" ++ show t1 ++ ") .=. (" ++ show t2 ++ ")"
-
-convertEquate :: (HasApplyAndEquate atom1, HasApplyAndEquate atom2) =>
-                 (PredOf atom1 -> PredOf atom2) -> (TermOf atom1 -> TermOf atom2) -> atom1 -> atom2
-convertEquate cp ct = foldEquate (\t1 t2 -> equate (ct t1) (ct t2)) (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
-
-precedenceEquate :: HasApplyAndEquate atom => atom -> Precedence
-precedenceEquate = foldEquate (\_ _ -> eqPrec) (\_ _ -> pAppPrec)
-
-associativityEquate :: HasApplyAndEquate atom => atom -> Associativity
-associativityEquate = foldEquate (\_ _ -> Pretty.InfixN) (\_ _ -> Pretty.InfixN)
-
--- | First order logic formula atom type with a distinct equality
--- predicate.
-data FOL predicate term = R predicate [term] | Equals term term deriving (Eq, Ord, Data, Typeable, Read)
-
-instance (IsPredicate predicate, IsTerm term) => HasApplyAndEquate (FOL predicate term) where
-    equate lhs rhs = Equals lhs rhs
-    foldEquate eq _ (Equals lhs rhs) = eq lhs rhs
-    foldEquate _ ap (R p ts) = ap p ts
-
-instance (IsPredicate predicate, IsTerm term) => IsAtom (FOL predicate term)
-
-instance (HasApply (FOL predicate term),
-          HasApplyAndEquate (FOL predicate term), IsTerm term) => Pretty (FOL predicate term) where
-    pPrintPrec d r = foldEquate (prettyEquate d r) prettyApply
-
-instance (IsPredicate predicate, IsTerm term) => HasApply (FOL predicate term) where
-    type PredOf (FOL predicate term) = predicate
-    type TermOf (FOL predicate term) = term
-    applyPredicate = R
-    foldApply' _ f (R p ts) = f p ts
-    foldApply' d _ x = d x
-    overterms = overtermsEq
-    onterms = ontermsEq
-
-instance (IsPredicate predicate, IsTerm term, Show predicate, Show term) => Show (FOL predicate term) where
-    show = foldEquate (\t1 t2 -> showEquate (t1 :: term) (t2 :: term))
-                      (\p ts -> showApply (p :: predicate) (ts :: [term]))
-
-instance  (IsPredicate predicate, IsTerm term) => HasFixity (FOL predicate term) where
-    precedence = precedenceEquate
-    associativity = associativityEquate
-
---------------
--- FORMULAS --
---------------
-
--- | Build an equality formula from two terms.
-(.=.) :: (IsFormula formula, HasApplyAndEquate atom, atom ~ AtomOf formula) => TermOf atom -> TermOf atom -> formula
-a .=. b = atomic (equate a b)
-infix 6 .=.
+-------------------------
+-- QUANTIFIED FORMULAS --
+-------------------------
 
 -- | The two types of quantification
 data Quant
@@ -425,9 +318,6 @@ instance (HasApply atom, v ~ TVarOf (TermOf atom)) => IsLiteral (QFormula v atom
           Not p -> ne p
           _ -> ho fm
 
--- | An atom type with equality predicate
-type EqAtom = FOL Predicate FTerm
-
 -- | A formula type with no equality predicate
 type ApFormula = QFormula V ApAtom
 instance IsFirstOrder ApFormula
@@ -614,7 +504,7 @@ holdsQuantified m v fm =
       at = (holds m v :: AtomOf formula -> Bool)
 
 -- | Implementation of holds for atoms with equate predicates.
-holdsAtom :: (HasApplyAndEquate atom, IsTerm term, Eq dom,
+holdsAtom :: (HasEquate atom, IsTerm term, Eq dom,
               term ~ TermOf atom, v ~ TVarOf term, function ~ FunOf term, predicate ~ PredOf atom) =>
              Interp function predicate dom -> Map v dom -> atom -> Bool
 holdsAtom m v at = foldEquate (\t1 t2 -> eqApply m (termval m v t1) (termval m v t2))

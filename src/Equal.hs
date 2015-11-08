@@ -19,8 +19,9 @@ import Apply (functions, HasApply(TermOf, PredOf, applyPredicate), pApp)
 import Data.List as List (foldr, map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
+import Equate ((.=.), HasEquate(foldEquate))
 import Formulas (IsFormula(AtomOf, atomic), atom_union)
-import FOL ((∃), (∀), (.=.), HasApplyAndEquate(foldEquate), IsQuantified(..))
+import FOL ((∃), (∀), IsQuantified(..))
 import Lib ((∅), Depth(Depth), Failing (Success, Failure))
 import Meson (meson)
 import Parser (fof)
@@ -57,7 +58,7 @@ predicates fm = atom_union Set.singleton fm
 -- | Code to generate equate axioms for functions.
 function_congruence :: forall fof atom term v p function.
                        (atom ~ AtomOf fof, term ~ TermOf atom, p ~ PredOf atom, v ~ VarOf fof, v ~ TVarOf term, function ~ FunOf term,
-                        IsQuantified fof, HasApplyAndEquate atom, IsTerm term, Ord fof) =>
+                        IsQuantified fof, HasEquate atom, IsTerm term, Ord fof) =>
                        (function, Int) -> Set fof
 function_congruence (_,0) = (∅)
 function_congruence (f,n) =
@@ -74,7 +75,7 @@ function_congruence (f,n) =
 
 -- | And for predicates.
 predicate_congruence :: (atom ~ AtomOf fof, predicate ~ PredOf atom, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
-                         IsQuantified fof, HasApplyAndEquate atom, IsTerm term, Ord predicate) =>
+                         IsQuantified fof, HasEquate atom, IsTerm term, Ord predicate) =>
                         AtomOf fof -> Set fof
 predicate_congruence =
     foldEquate (\_ _ -> Set.empty) (\p ts -> ap p (length ts))
@@ -92,7 +93,7 @@ predicate_congruence =
 -- | Hence implement logic with equate just by adding equate "axioms".
 equivalence_axioms :: forall fof atom term v.
                       (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof,
-                       IsQuantified fof, HasApplyAndEquate atom, IsTerm term, Ord fof) => Set fof
+                       IsQuantified fof, HasEquate atom, IsTerm term, Ord fof) => Set fof
 equivalence_axioms =
     Set.fromList
     [(∀) "x" (x .=. x),
@@ -107,7 +108,7 @@ equivalence_axioms =
 
 equalitize :: forall formula atom term v function.
               (atom ~ AtomOf formula, term ~ TermOf atom, v ~ VarOf formula, v ~ TVarOf term, function ~ FunOf term,
-               IsQuantified formula, HasApplyAndEquate atom,
+               IsQuantified formula, HasEquate atom,
                IsTerm term, Ord formula, Ord atom) =>
               formula -> formula
 equalitize fm =

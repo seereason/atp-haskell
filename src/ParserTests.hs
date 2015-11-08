@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings, QuasiQuotes, RankNTypes, ScopedTypeVariables #-}
 module ParserTests where
 
-import FOL ((.=.))
+import Equate ((.=.))
 import Language.Haskell.Exts hiding (Pretty)
 -- import Language.Haskell.Exts.Parser (parseExp)
 import Parser (fof)

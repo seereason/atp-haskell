@@ -27,7 +27,8 @@ import Data.Bool (bool)
 import Data.List as List (map)
 import Data.Map as Map
 import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
-import FOL (HasApplyAndEquate, tsubst, zipEquates)
+import Equate (HasEquate, zipEquates)
+import FOL (tsubst)
 import Formulas (IsFormula(AtomOf))
 import Lib (Failing(Success, Failure))
 import Lit (IsLiteral, zipLiterals')
@@ -119,7 +120,7 @@ unify_atoms :: (JustApply atom, term ~ TermOf atom, v ~ TVarOf term) =>
 unify_atoms (a1, a2) =
     maybe (fail "unify_atoms") id (zipApplys (\_ tpairs -> Just (unify_terms tpairs)) a1 a2)
 
-unify_atoms_eq :: (HasApplyAndEquate atom, term ~ TermOf atom, v ~ TVarOf term) =>
+unify_atoms_eq :: (HasEquate atom, term ~ TermOf atom, v ~ TVarOf term) =>
                   atom -> atom -> StateT (Map v term) Failing ()
 unify_atoms_eq a1 a2 =
     maybe (fail "unify_atoms") id (zipEquates (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))

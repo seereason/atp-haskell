@@ -9,6 +9,7 @@ module ATP
     , module DP
     , module Term
     , module Apply
+    , module Equate
     , module FOL
     , module Skolem
     , module Parser
@@ -35,6 +36,7 @@ import DefCNF
 import DP
 import Term
 import Apply
+import Equate
 import FOL
 import Skolem
 import Parser

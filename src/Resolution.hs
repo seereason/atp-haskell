@@ -31,7 +31,8 @@ import Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.Set as Set
 import Data.String (fromString)
-import FOL (exists, for_all, generalize, HasApplyAndEquate, IsFirstOrder, IsQuantified(VarOf), lsubst, var, zipEquates)
+import Equate (HasEquate, zipEquates)
+import FOL (exists, for_all, generalize, IsFirstOrder, IsQuantified(VarOf), lsubst, var)
 import Formulas (IsFormula(AtomOf))
 import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
             Failing(..), failing, (|->), setAll, setAny, settryfind)
@@ -198,7 +199,7 @@ match_atoms :: (JustApply atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term
 match_atoms env (a1, a2) =
     maybe (Failure ["match_atoms"]) id (zipApplys (\_ pairs -> Just (match_terms env pairs)) a1 a2)
 
-match_atoms_eq :: (HasApplyAndEquate atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) =>
+match_atoms_eq :: (HasEquate atom, IsTerm term, term ~ TermOf atom, v ~ TVarOf term) =>
                   Map v term -> (atom, atom) -> Failing (Map v term)
 match_atoms_eq env (a1, a2) =
     maybe (Failure ["match_atoms_eq"]) id (zipEquates (\l1 r1 l2 r2 -> Just (match_terms env [(l1, l2), (r1, r2)]))

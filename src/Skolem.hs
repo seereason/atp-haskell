@@ -51,7 +51,8 @@ import Data.Map as Map (singleton)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, insert, isProperSubsetOf, map, member, notMember, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
-import FOL (exists, for_all, FOL, fv, IsFirstOrder,
+import Equate (FOL)
+import FOL (exists, for_all, fv, IsFirstOrder,
             IsQuantified(VarOf, foldQuantified),
             QFormula, quant, Quant((:?:), (:!:)), subst)
 import Formulas (IsFormula(AtomOf), false, true, atomic)
