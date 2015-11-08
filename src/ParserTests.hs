@@ -4,7 +4,7 @@ module ParserTests where
 import Equate ((.=.))
 import Language.Haskell.Exts hiding (Pretty)
 -- import Language.Haskell.Exts.Parser (parseExp)
-import Parser (fof)
+import QuantifiedParser (fof)
 import Pretty (assertEqual', Pretty(..), prettyShow)
 import Prop ((.&.), (.=>.))
 import Test.HUnit

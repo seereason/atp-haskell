@@ -24,20 +24,23 @@ Library
     Lib
     Pretty
     Formulas
+    Term
+    TermParser
+    Apply
+    Equate
     --
     Lit
+    LitParser
     Prop
+    PropParser
     PropExamples
     DefCNF
     DP
     -- Stal
     -- BDD
-    Term
-    Apply
-    Equate
     Quantified
+    QuantifiedParser
     FOL
-    Parser
     ParserTests
     Skolem
     Herbrand

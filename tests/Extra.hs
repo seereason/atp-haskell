@@ -12,10 +12,10 @@ import Formulas
 import Lib (Depth(Depth))
 import Lit ((.~.))
 import Meson (meson)
-import Parser (fof)
 import Pretty (assertEqual', prettyShow)
 import Prop hiding (nnf)
 import Quantified (for_all, exists)
+import QuantifiedParser (fof)
 import Resolution
 import Skolem (Formula, HasSkolem(toSkolem), skolemize, runSkolem, SkAtom, SkTerm)
 import Tableaux (K(K), tab)

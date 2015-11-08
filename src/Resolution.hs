@@ -37,10 +37,10 @@ import Formulas (IsFormula(AtomOf))
 import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
             Failing(..), failing, (|->), setAll, setAny, settryfind)
 import Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive, zipLiterals')
-import Parser (fof)
 import Pretty (assertEqual', Pretty, prettyShow)
 import Prop ((.|.), (.&.), (.=>.), (.<=>.), list_conj, PFormula, simpcnf, trivial)
 import Quantified (exists, for_all, IsQuantified(VarOf))
+import QuantifiedParser (fof)
 import Skolem (askolemize, Formula, Function(Skolem), HasSkolem(SVarOf), pnf,
                runSkolem, simpdnf', SkAtom, skolemize, SkolemT, specialize, SkTerm)
 import Term (fApp, foldTerm, IsTerm(FunOf, TVarOf), prefix, V, vt)
