@@ -52,9 +52,7 @@ import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, insert, isProperSubsetOf, map, member, notMember, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
 import Equate (FOL)
-import FOL (exists, for_all, fv, IsFirstOrder,
-            IsQuantified(VarOf, foldQuantified),
-            QFormula, quant, Quant((:?:), (:!:)), subst)
+import FOL (fv, IsFirstOrder, subst)
 import Formulas (IsFormula(AtomOf), false, true, atomic)
 import Lib (setAny, distrib)
 import Lit ((.~.), negate)
@@ -62,6 +60,8 @@ import Prelude hiding (negate)
 import Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
 import Prop ((.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
              convertToPropositional, foldPropositional', IsPropositional, JustPropositional, PFormula, psimplify1, trivial)
+import Quantified (exists, for_all, IsQuantified(VarOf, foldQuantified),
+                   QFormula, quant, Quant((:?:), (:!:)))
 import Term (fApp, IsFunction(variantFunction), IsTerm(TVarOf, FunOf), IsVariable, Term, V, variant, vt)
 import Test.HUnit
 

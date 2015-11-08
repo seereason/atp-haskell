@@ -29,8 +29,7 @@ import Data.List as List (map)
 import Data.Map as Map
 import Data.Set as Set
 import Data.String (IsString(..))
-import FOL (asubst, exists, foldQuantified, for_all, fv, generalize,
-            IsFirstOrder, Quant((:!:)), subst)
+import FOL (asubst, fv, generalize, IsFirstOrder, subst)
 import Formulas (atomic, IsFormula(asBool, AtomOf), onatoms, overatoms)
 import Herbrand (davisputnam)
 import Lib ((|=>), allpairs, deepen, Depth(Depth), distrib, evalRS, Failing(Success, Failure), failing, settryfind, tryfindM)
@@ -38,6 +37,7 @@ import Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive)
 import Prelude hiding (compare)
 import Pretty (assertEqual', Pretty(pPrint), prettyShow, text)
 import Prop ( (.&.), (.=>.), (.<=>.), (.|.), BinOp((:&:), (:|:)), PFormula, simpdnf)
+import Quantified (exists, foldQuantified, for_all, Quant((:!:)))
 import Skolem (askolemize, Formula, HasSkolem(SVarOf, toSkolem), runSkolem, simpdnf', skolemize, SkTerm)
 import Term (fApp, IsTerm(TVarOf, FunOf), vt)
 import Test.HUnit hiding (State)

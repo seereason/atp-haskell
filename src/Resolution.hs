@@ -32,7 +32,7 @@ import Data.Maybe (fromMaybe)
 import Data.Set as Set
 import Data.String (fromString)
 import Equate (HasEquate, zipEquates)
-import FOL (exists, for_all, generalize, IsFirstOrder, IsQuantified(VarOf), lsubst, var)
+import FOL (generalize, IsFirstOrder, lsubst, var)
 import Formulas (IsFormula(AtomOf))
 import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
             Failing(..), failing, (|->), setAll, setAny, settryfind)
@@ -40,6 +40,7 @@ import Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive, zipLiterals')
 import Parser (fof)
 import Pretty (assertEqual', Pretty, prettyShow)
 import Prop ((.|.), (.&.), (.=>.), (.<=>.), list_conj, PFormula, simpcnf, trivial)
+import Quantified (exists, for_all, IsQuantified(VarOf))
 import Skolem (askolemize, Formula, Function(Skolem), HasSkolem(SVarOf), pnf,
                runSkolem, simpdnf', SkAtom, skolemize, SkolemT, specialize, SkTerm)
 import Term (fApp, foldTerm, IsTerm(FunOf, TVarOf), prefix, V, vt)

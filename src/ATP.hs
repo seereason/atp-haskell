@@ -10,6 +10,7 @@ module ATP
     , module Term
     , module Apply
     , module Equate
+    , module Quantified
     , module FOL
     , module Skolem
     , module Parser
@@ -37,6 +38,7 @@ import DP
 import Term
 import Apply
 import Equate
+import Quantified
 import FOL
 import Skolem
 import Parser

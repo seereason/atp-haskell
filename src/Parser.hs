@@ -16,10 +16,10 @@ import Text.Parsec.Token
 import Text.Parsec.Language
 
 import Apply (pApp, Predicate)
-import FOL (convertQuantified, exists, for_all)
 import Formulas (true, false)
 import Lit ((.~.), LFormula)
 import Prop ((.&.), (.|.), (.=>.), (.<=>.), PFormula)
+import Quantified (convertQuantified, exists, for_all)
 import Skolem (Formula, Function, SkAtom, SkTerm)
 import Term (fApp, Term(Var), V(V))
 

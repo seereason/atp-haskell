@@ -35,6 +35,7 @@ Library
     Term
     Apply
     Equate
+    Quantified
     FOL
     Parser
     ParserTests
