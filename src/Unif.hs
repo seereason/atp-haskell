@@ -26,6 +26,7 @@ import Control.Monad.State -- (evalStateT, runStateT, State, StateT, get)
 import Data.Bool (bool)
 import Data.List as List (map)
 import Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
 import Equate (HasEquate, zipEquates)
 import FOL (tsubst)
@@ -107,13 +108,12 @@ unify_literals :: (IsLiteral lit, HasApply atom, Unify atom v term,
                    atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
                   lit -> lit -> StateT (Map v term) Failing ()
 unify_literals f1 f2 =
-    maybe err id (zipLiterals' ho ne tf at f1 f2)
+    fromMaybe (fail "Can't unify literals") (zipLiterals' ho ne tf at f1 f2)
     where
       ho _ _ = Nothing
       ne p q = Just $ unify_literals p q
       tf p q = if p == q then Just (unify_terms []) else Nothing
-      at a1 a2 = Just $ unify a1 a2
-      err = fail "Can't unify literals"
+      at a1 a2 = Just (unify a1 a2)
 
 unify_atoms :: (JustApply atom, term ~ TermOf atom, v ~ TVarOf term) =>
                (atom, atom) -> StateT (Map v term) Failing ()
