@@ -95,7 +95,7 @@ parseFOLTerm str = parse folsubterm "" (dropWhile isSpace str)
 
 def :: forall s u m. Stream s m Char => GenLanguageDef s u m
 def = emptyDef{ identStart = letter
-              , identLetter = alphaNum
+              , identLetter = alphaNum <|> oneOf "'"
               , opStart = oneOf (nub (map head allOps))
               , opLetter = oneOf (nub (concat (map tail allOps)))
               , reservedOpNames = allOps
