@@ -40,7 +40,7 @@ import Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive, zipLiterals')
 import Pretty (assertEqual', Pretty, prettyShow)
 import Prop ((.|.), (.&.), (.=>.), (.<=>.), list_conj, PFormula, simpcnf, trivial)
 import Quantified (exists, for_all, IsQuantified(VarOf))
-import QuantifiedParser (fof)
+import Parser (fof)
 import Skolem (askolemize, Formula, Function(Skolem), HasSkolem(SVarOf), pnf,
                runSkolem, simpdnf', SkAtom, skolemize, SkolemT, specialize, SkTerm)
 import Term (fApp, foldTerm, IsTerm(FunOf, TVarOf), prefix, V, vt)

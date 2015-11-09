@@ -27,7 +27,7 @@ import Prelude hiding ((*))
 import Pretty (assertEqual')
 import Prop ((.&.), (.=>.), (∧), (⇒))
 import Quantified ((∃), (∀), IsQuantified(..))
-import QuantifiedParser (fof)
+import Parser (fof)
 import Skolem (runSkolem, Formula)
 import Term (IsTerm(..))
 import Test.HUnit

@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -ddump-splices #-}
@@ -21,6 +22,7 @@ module Pretty
     , testParen
     -- , parenthesize
     , assertEqual'
+    , testEquals
     , leafPrec
     , boolPrec
     , notPrec
@@ -39,7 +41,8 @@ import Data.Map as Map (Map, toList)
 import Data.Monoid ((<>))
 import Data.Set as Set (Set, toAscList)
 import GHC.Stack
-import Test.HUnit (Assertion, assertFailure)
+import Language.Haskell.TH (ExpQ, litE, stringL)
+import Test.HUnit (Assertion, assertFailure, Test(TestLabel, TestCase))
 import Text.PrettyPrint.HughesPJClass (brackets, comma, Doc, fsep, hcat, nest, Pretty(pPrint, pPrintPrec), prettyShow, punctuate, text)
 
 -- | A class to extract the fixity of a formula so they can be
@@ -111,6 +114,9 @@ assertEqual' preface expected actual =
   unless (actual == expected) (assertFailure msg)
  where msg = (if null preface then "" else preface ++ "\n") ++
              "expected: " ++ prettyShow expected ++ "\n but got: " ++ prettyShow actual
+
+testEquals :: String -> ExpQ
+testEquals label = [| \expected actual -> TestLabel $(litE (stringL label)) $ TestCase $ assertEqual' $(litE (stringL label)) expected actual|]
 
 leafPrec :: Num a => a
 leafPrec = 9

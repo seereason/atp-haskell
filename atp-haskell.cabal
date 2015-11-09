@@ -25,21 +25,18 @@ Library
     Pretty
     Formulas
     Term
-    TermParser
     Apply
     Equate
     --
     Lit
-    LitParser
     Prop
-    PropParser
     PropExamples
     DefCNF
     DP
     -- Stal
     -- BDD
     Quantified
-    QuantifiedParser
+    Parser
     FOL
     ParserTests
     Skolem

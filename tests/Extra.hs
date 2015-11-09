@@ -15,7 +15,7 @@ import Meson (meson)
 import Pretty (assertEqual', prettyShow)
 import Prop hiding (nnf)
 import Quantified (for_all, exists)
-import QuantifiedParser (fof)
+import Parser (fof)
 import Resolution
 import Skolem (Formula, HasSkolem(toSkolem), skolemize, runSkolem, SkAtom, SkTerm)
 import Tableaux (K(K), tab)
