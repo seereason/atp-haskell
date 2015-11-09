@@ -3,13 +3,12 @@ module ParserTests where
 
 import Equate ((.=.))
 import Language.Haskell.Exts hiding (Pretty)
--- import Language.Haskell.Exts.Parser (parseExp)
-import QuantifiedParser (fof)
 import Pretty (assertEqual', Pretty(..), prettyShow)
-import Formulas
-import Lit
 import Prop ((.&.), (.=>.))
+import QuantifiedParser (fof, parseFOL)
+import Skolem (Formula)
 import Test.HUnit
+import Text.Parsec (ParseError)
 
 t :: (Eq a, Pretty a) => String -> a -> a -> Test
 t label expected actual = TestLabel label (TestCase (assertEqual' label expected actual))
@@ -17,20 +16,20 @@ t label expected actual = TestLabel label (TestCase (assertEqual' label expected
 testParser :: Test
 testParser =
     TestLabel "Parser"
-      (TestList [ TestLabel "precedence 1a" $ TestCase $ assertEqual' "precedence 1a"  [fof| ∃x. (true & (∃y. true)) |]    [fof| ∃x. (true & ∃y. true) |]
+      (TestList [ TestLabel "precedence 1a" $ TestCase $ assertEqual' "precedence 1a"  (Right [fof| ∃x. (true & (∃y. true)) |])    (parseFOL " ∃x. (true & ∃y. true) ")
                 , TestLabel "precedence 1b" $ TestCase $ assertEqual' "precedence 1b"  [fof| (∃x. true) & (∃y. true) |]      [fof| ∃x. true & ∃y. true |]
                 , TestLabel "precedence 2" $ TestCase $ assertEqual' "precedence 2"    [fof| (true & false) | true |]      [fof| true & false | true |]
                 , TestLabel "precedence 3" $ TestCase $ assertEqual' "precedence 3"    [fof| (true | false) <==> true |]   [fof| true | false <==> true |]
                 , TestLabel "precedence 4" $ TestCase $ assertEqual' "precedence 4"    [fof| true <==> (false ==> true) |] [fof| true <==> false ==> true |]
                 , TestLabel "precedence 5" $ TestCase $ assertEqual' "precedence 5"    [fof| (~ true) & false |]           [fof| ~ true & false |]
                 -- repeated prefix operator with same precedences fails:
-             -- , TestLabel "precedence 6" $ TestCase $ assertEqual' "precedence 6"    [fof| ∃ x. (∃ y. x=y) |]            [fof| ∃x. ∃y. x=y |]
+                , TestLabel "precedence 6" $ TestCase $ assertEqual "precedence 6"    (Right [fof| ∃ x. (∃ y. x=y) |])    (parseFOL " ∃x. ∃y. x=y " :: Either ParseError Formula)
                 , TestLabel "precedence 7" $ TestCase $ assertEqual' "precedence 7"    [fof| ∃x. (∃y. (x=y)) |]            [fof| ∃x y. x=y |]
                 , TestLabel "precedence 8" $ TestCase $ assertEqual' "precedence 8"    [fof| ∀x. (∃y. (x=y)) |]            [fof| ∀x. ∃y. x=y |]
                 , TestLabel "precedence 9" $ TestCase $ assertEqual' "precedence 9"    [fof| ∃y. (∀x. (x=y)) |]            [fof| ∃y. (∀x. x=y) |]
                 , TestLabel "precedence 10" $ TestCase $ assertEqual' "precedence 10"  [fof| (~P) & Q |]                   [fof| ~P & Q |] -- ~ vs &
                 -- repeated prefix operator with same precedences fails:
-             -- , TestLabel "precedence 10" $ TestCase $ assertEqual' "precedence 10a" [fof| ~(~P) |]                     [fof| ~~P |] -- ~ vs &
+                , TestLabel "precedence 10" $ TestCase $ assertEqual "precedence 10a" (Right [fof| ~(~P) |])              (parseFOL " ~~P " :: Either ParseError Formula)
                 , TestLabel "precedence 11" $ TestCase $ assertEqual' "precedence 11"  [fof| (P & Q) | R |]                [fof| P & Q | R |] -- & vs |
                 , TestLabel "precedence 12" $ TestCase $ assertEqual' "precedence 12"  [fof| (P | Q) ==> R |]              [fof| P | Q ==> R |] -- or vs imp
                 , TestLabel "precedence 13" $ TestCase $ assertEqual' "precedence 13"  [fof| (P ==> Q) <==> R |]           [fof| P ==> Q <==> R |] -- imp vs iff
@@ -38,6 +37,9 @@ testParser =
                 , TestLabel "precedence 14a" $ TestCase $ assertEqual' "precedence 14a"  [fof| ((x = y) ∧ (x = z)) ⇒ (y = z) |] ("x" .=. "y" .&. "x" .=. "z" .=>. "y" .=. "z")
                 , TestLabel "pretty 1" $ TestCase $ assertEqual' "pretty 1" "∃x y. (∀z. (F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))"
                                                                             (prettyShow [fof| ∃ x y. (∀ z. ((F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z)))) |])
+                , TestLabel "pretty 2" $ TestCase $ assertEqual' "pretty 2" [fof| (∃x. ((x)=(f((g((x))))))∧(∀x'. (x')=(f((g((x')))))⇒(x)=(x')))⇔(∃y. (y)=(g((f((y)))))∧(∀y'. (y')=(g((f((y')))))⇒(y)=(y'))) |]
+                                                                            [fof| (exists x. (x = f(g(x))) /\ forall x'. (x' = f(g(x'))) ==> (x = x')) .<=>.
+                                                                                  (exists y. (y = g(f(y))) /\ forall y'. (y' = g(f(y'))) ==> (y = y')) |]
                 -- We could use haskell-src-meta to perform the third
                 -- step of the round trip, roughly
                 --
