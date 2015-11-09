@@ -90,7 +90,7 @@ import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf,
                         minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
 import Formulas (atom_union, fromBool, IsAtom,
-                 IsFormula(AtomOf, asBool, true, false, atomic, overatoms, onatoms))
+                 IsFormula(AtomOf, asBool, true, false, atomic, overatoms, onatoms), prettyBool)
 import Lib ((|=>), distrib, fpf, setAny)
 import Lit ((.~.), (¬), convertLiteral, convertToLiteral, IsLiteral(foldLiteral', naiveNegate, foldNegation),
             JustLiteral, LFormula, negate, positive, )
@@ -264,7 +264,7 @@ prettyPropositional side l r fm =
       co p (:=>:) q = prettyPropositional LHS l (precedence fm) p <> text "⇒" <> prettyPropositional RHS l (precedence fm) q
       co p (:<=>:) q = prettyPropositional LHS l (precedence fm) p <> text "⇔" <> prettyPropositional RHS l (precedence fm) q
       ne p = text "¬" <> prettyPropositional Unary l (precedence fm) p
-      tf x = pPrint x
+      tf x = prettyBool x
       at x = pPrintPrec l r x
 
 -- | Implementation of 'show' for any 'JustPropositional' type.  For clarity, show methods fully parenthesize

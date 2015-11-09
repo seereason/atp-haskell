@@ -33,7 +33,7 @@ module Quantified
 import Apply (HasApply(TermOf))
 import Data.Data (Data)
 import Data.Typeable (Typeable)
-import Formulas (fromBool, IsAtom, IsFormula(..), onatoms)
+import Formulas (fromBool, IsAtom, IsFormula(..), onatoms, prettyBool)
 import Lit ((.~.), IsLiteral(foldLiteral'), IsLiteral(..))
 import Prelude hiding (pred)
 import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity), Precedence,
@@ -127,7 +127,7 @@ prettyQuantified side l r fm =
       co p (:=>:) q = prettyQuantified LHS l (precedence fm) p <> text "⇒" <> prettyQuantified RHS l (precedence fm) q
       co p (:<=>:) q = prettyQuantified LHS l (precedence fm) p <> text "⇔" <> prettyQuantified RHS l (precedence fm) q
       ne p = text "¬" <> prettyQuantified Unary l (precedence fm) p
-      tf x = pPrint x
+      tf x = prettyBool x
       at x = pPrintPrec l r x -- maybeParens (d > PrettyLevel atomPrec) $ pPrint x
 
 -- | Implementation of 'showsPrec' for 'IsQuantified' types.

@@ -10,6 +10,7 @@
 
 module PropParser
     ( pf, parsePF
+    , propdef
     , propexprtable
     ) where
 
@@ -20,9 +21,10 @@ import Formulas (IsFormula(AtomOf))
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import LitParser
 import Prop ((.&.), (.|.), (.=>.), (.<=>.), IsPropositional, JustPropositional, PFormula)
-import TermParser
 import Text.Parsec
 import Text.Parsec.Expr
+import Text.Parsec.Language
+import Text.Parsec.Token
 
 -- | QuasiQuote for a propositional formula.  Exactly like fof, but no quantifiers.
 pf :: QuasiQuoter
@@ -34,35 +36,30 @@ pf = QuasiQuoter
     }
 
 parsePF :: (JustPropositional formula, HasEquate (AtomOf formula), Stream String Identity Char) => String -> formula
-parsePF str = either (error . show) id $ parse (exprparser propexprtable) "" str
+parsePF str = either (error . show) id $ parse (exprparser propexprtable >>= \r -> eof >> return r) "" str
+
+ands, ors, imps, iffs, constants :: [String]
+ands = [".&.", "&", "∧", "⋀", "/\\", "·"]
+ors = ["|", "∨", "⋁", "+", ".|.", "\\/"]
+imps = ["==>", "⇒", "⟹", ".=>.", "→", "⊃"]
+iffs = ["<==>", "⇔", ".<=>.", "↔"]
+constants = ["nil"] -- I don't know what this means
 
 propexprtable :: (IsPropositional a, Stream s m Char) => [[Operator s u m a]]
 propexprtable =
           litexprtable ++
-          [ [Infix (m_reservedOp ".&." >> return (.&.)) AssocRight,
-             Infix (m_reservedOp "&" >> return (.&.)) AssocRight,
-             Infix (m_reservedOp "∧" >> return (.&.)) AssocRight,
-             Infix (m_reservedOp "⋀" >> return (.&.)) AssocRight,
-             Infix (m_reservedOp "/\\" >> return (.&.)) AssocRight,
-             Infix (m_reservedOp "·" >> return (.&.)) AssocRight]
+          [ map (\s -> Infix (reservedOp tok s >> return (.&.)) AssocLeft) ands
+          , map (\s -> Infix (reservedOp tok s >> return (.|.)) AssocLeft) ors
+          , map (\s -> Infix (reservedOp tok s >> return (.=>.)) AssocRight) imps
+          , map (\s -> Infix (reservedOp tok s >> return (.<=>.)) AssocLeft) iffs]
 
-          , [Infix (m_reservedOp ".|." >> return (.|.)) AssocRight,
-             Infix (m_reservedOp "|" >> return (.|.)) AssocRight,
-             Infix (m_reservedOp "∨" >> return (.|.)) AssocRight,
-             Infix (m_reservedOp "⋁" >> return (.|.)) AssocRight,
-             Infix (m_reservedOp "\\/" >> return (.|.)) AssocRight,
-             Infix (m_reservedOp "+" >> return (.|.)) AssocRight]
+tok :: Stream t t2 Char => GenTokenParser t t1 t2
+tok = makeTokenParser propdef
 
-          , [Infix (m_reservedOp ".=>." >> return (.=>.)) AssocRight,
-             Infix (m_reservedOp "==>" >> return (.=>.)) AssocRight,
-             Infix (m_reservedOp "⇒" >> return (.=>.)) AssocRight,
-             Infix (m_reservedOp "⟹" >> return (.=>.)) AssocRight,
-             Infix (m_reservedOp "→" >> return (.=>.)) AssocRight,
-             Infix (m_reservedOp "⊃" >> return (.=>.)) AssocRight]
-
-          , [Infix (m_reservedOp ".<=>." >> return (.<=>.)) AssocRight,
-             Infix (m_reservedOp "<==>" >> return (.<=>.)) AssocRight,
-             Infix (m_reservedOp "⇔" >> return (.<=>.)) AssocRight,
-             Infix (m_reservedOp "↔" >> return (.<=>.)) AssocRight,
-             Infix (m_reservedOp "≡" >> return (.<=>.)) AssocRight]
-          ]
+propdef :: forall s u m. Stream s m Char => GenLanguageDef s u m
+propdef =
+    -- Make the type of litdef match propdef
+    let def = litdef :: GenLanguageDef s u m in
+    def { reservedOpNames = (reservedOpNames def :: [String]) ++ ands ++ ors ++ imps ++ iffs
+        , reservedNames = reservedNames def ++ constants
+        }

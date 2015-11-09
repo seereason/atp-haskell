@@ -9,10 +9,10 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module TermParser
-    ( term, parseFOLTerm
-    , predicate_infix_symbols, folsubterm
-    , m_parens, m_angles, m_symbol, m_integer
-    , m_identifier, m_reservedOp, m_reserved
+    ( term, parseFOLTerm, termdef
+    , folsubterm
+    -- , m_parens, m_angles, m_symbol, m_integer
+    -- , m_identifier, m_reservedOp, m_reserved
     ) where
 
 -- Parsing expressions and statements
@@ -38,84 +38,68 @@ term = QuasiQuoter
     }
 
 parseFOLTerm :: forall term s. (IsTerm term, Stream s Identity Char) => s -> term
-parseFOLTerm str = either (error . show) id $ parse folsubterm "" str
-
-def :: forall s u m. Stream s m Char => GenLanguageDef s u m
-def = emptyDef{ identStart = letter
-              , identLetter = alphaNum <|> char '\'' <|> char '_'
-              , opStart = oneOf "~&|=<:*/+->"
-              , opLetter = oneOf "~&|=><:-"
-              , reservedOpNames = ["~", "¬", "&", "∧", "⋀", "·", "|", "∨", "⋁", "+", "<==>", "⇔", "==>", "⇒", "⟹", ":-", "::", "*", "/", "+", "-", "∃", "∀"] ++ predicate_infix_symbols
-              , reservedNames = ["true", "false", "exists", "forall", "for_all"] ++ constants
-              }
+parseFOLTerm str = either (error . show) id $ parse (folsubterm >>= \r ->  eof >> return r) "" str
 
 -- ~(((p v q) ⊃ (r v s)) ⊃ ((p · ~r) ⊃ s))
 
-m_parens :: forall t t1 t2. Stream t t2 Char => forall a. ParsecT t t1 t2 a -> ParsecT t t1 t2 a
-m_angles :: forall t t1 t2. Stream t t2 Char => forall a. ParsecT t t1 t2 a -> ParsecT t t1 t2 a
-m_symbol :: forall t t1 t2. Stream t t2 Char => String -> ParsecT t t1 t2 String
-m_integer :: forall t t1 t2. Stream t t2 Char => ParsecT t t1 t2 Integer
-m_identifier :: forall t t1 t2. Stream t t2 Char => ParsecT t t1 t2 String
-m_reservedOp :: forall t t1 t2. Stream t t2 Char => String -> ParsecT t t1 t2 ()
-m_reserved :: forall t t1 t2. Stream t t2 Char => String -> ParsecT t t1 t2 ()
---m_whiteSpace :: forall t t1 t2. Stream t t2 Char => ParsecT t t1 t2 ()
-TokenParser{ parens = m_parens
-           , angles = m_angles
---           , brackets = m_brackets
-           , symbol = m_symbol
-           , integer = m_integer
-           , identifier = m_identifier
-           , reservedOp = m_reservedOp
-           , reserved = m_reserved
---           , semiSep1 = m_semiSep1
---           , whiteSpace = m_whiteSpace
-           } = makeTokenParser def
-
-predicate_infix_symbols :: [[Char]]
-predicate_infix_symbols = ["=","<",">","<=",">="]
-
 folfunction :: forall term s u m. (IsTerm term, Stream s m Char) => ParsecT s u m term
 folfunction = do
-   fname <- m_identifier
-   xs <- m_parens (sepBy1 folsubterm (m_symbol ","))
+   fname <- identifier tok
+   xs <- parens tok (sepBy1 folsubterm (symbol tok ","))
    return (fApp (fromString fname :: FunOf term) xs)
 
 folconstant_numeric :: forall term t t1 t2. (IsTerm term, Stream t t2 Char) => ParsecT t t1 t2 term
 folconstant_numeric = do
-   i <- m_integer
+   i <- integer tok
    return (fApp (fromString (show i) :: FunOf term) [])
 
 folconstant_reserved :: forall term t t1 t2. (IsTerm term, Stream t t2 Char) => String -> ParsecT t t1 t2 term
 folconstant_reserved str = do
-   m_reserved str
+   reserved tok str
    return (fApp (fromString str :: FunOf term) [])
 
 folconstant :: forall term t t1 t2. (IsTerm term, Stream t t2 Char) => ParsecT t t1 t2 term
 folconstant = do
-   name <- m_angles m_identifier
+   name <- (angles tok (identifier tok))
    return (fApp (fromString name :: FunOf term) [])
 
 folsubterm :: forall term s u m. (IsTerm term, Stream s m Char) => ParsecT s u m term
 folsubterm = folfunction_infix <|> folsubterm_prefix
 
-constants :: [[Char]]
-constants = ["nil"]
-
 folsubterm_prefix :: forall term s u m. (IsTerm term, Stream s m Char) => ParsecT s u m term
 folsubterm_prefix =
-   m_parens folfunction_infix
+   parens tok folfunction_infix
    <|> try folfunction
    <|> choice (map folconstant_reserved constants)
    <|> folconstant_numeric
    <|> folconstant
-   <|> (fmap (vt . fromString) m_identifier)
+   <|> (fmap (vt . fromString) (identifier tok))
 
 folfunction_infix :: forall term s u m. (IsTerm term, Stream s m Char) => ParsecT s u m term
 folfunction_infix = buildExpressionParser table folsubterm_prefix <?> "expression"
  where
-  table = [ [Infix (m_reservedOp "::" >> return (\x y -> fApp (fromString "::" :: FunOf term) [x,y])) AssocRight]
-          , [Infix (m_reservedOp "*" >> return (\x y -> fApp (fromString "*" :: FunOf term) [x,y])) AssocLeft,
-             Infix (m_reservedOp "/" >> return (\x y -> fApp (fromString "/" :: FunOf term) [x,y])) AssocLeft]
-          , [Infix (m_reservedOp "+" >> return (\x y -> fApp (fromString "+" :: FunOf term) [x,y])) AssocLeft,
-             Infix (m_reservedOp "-" >> return (\x y -> fApp (fromString "-" :: FunOf term) [x,y])) AssocLeft]
+  table = [ [Infix (reservedOp tok "::" >> return (\x y -> fApp (fromString "::" :: FunOf term) [x,y])) AssocRight]
+          , [Infix (reservedOp tok "*" >> return (\x y -> fApp (fromString "*" :: FunOf term) [x,y])) AssocLeft,
+             Infix (reservedOp tok "/" >> return (\x y -> fApp (fromString "/" :: FunOf term) [x,y])) AssocLeft]
+          , [Infix (reservedOp tok "+" >> return (\x y -> fApp (fromString "+" :: FunOf term) [x,y])) AssocLeft,
+             Infix (reservedOp tok "-" >> return (\x y -> fApp (fromString "-" :: FunOf term) [x,y])) AssocLeft]
           ]
+
+tok :: Stream s m Char => GenTokenParser s u m
+tok = makeTokenParser termdef
+
+termdef :: forall s u m. Stream s m Char => GenLanguageDef s u m
+termdef = emptyDef
+              { identStart = letter
+              , identLetter = alphaNum <|> char '\'' <|> char '_'
+              , opStart =  oneOf "~&|=<:->*/+"
+              , opLetter = oneOf "~&|=<:->"
+              , reservedOpNames = function_infix_symbols
+              , reservedNames = constants
+              }
+
+function_infix_symbols :: [String]
+function_infix_symbols =  ["*", "/", "+", "-"]
+
+constants :: [String]
+constants = ["nil"]

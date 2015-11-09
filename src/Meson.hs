@@ -41,8 +41,8 @@ import Unif (Unify, unify_literals)
 
 test00 :: Test
 test00 =
-    let fm1 = [fof| ∀a. ¬(P(a)∧(∀y z. Q(y)∨R(z))∧¬P(a)) |]
-        fm2 = [fof| ∀a. ¬(P(a)∧¬P(a)∧(∀y z. Q(y)∨R(z))) |]
+    let fm1 = [fof| ∀a. (¬(P(a)∧((∀y z. Q(y))∨R(z))∧¬P(a))) |]
+        fm2 = [fof| ∀a. (¬(P(a)∧¬P(a)∧((∀y z. Q(y))∨R(z)))) |]
         {- fm3 = [fof| ¬p ∧ (p ∨ q) ∧ (r ∨ s) ∧ (¬q ∨ t ∨ u) ∧
                     (¬r ∨ ¬t) ∧ (¬r ∨ ¬u) ∧ (¬q ∨ v ∨ w) ∧
                (¬s ∨ ¬v) ∧ (¬s ∨ ¬w) |] -}
@@ -72,6 +72,9 @@ END_INTERACTIVE;;
 -- -------------------------------------------------------------------------
 -- Example of naivety of tableau prover.
 -- -------------------------------------------------------------------------
+
+test001 :: Test
+test001 = TestCase $ assertEqual' "test001" (Success ((K 0, Map.empty), Depth 0)) (tab Nothing [fof| ¬p∧(p∨q)∧(r∨s)∧(¬q∨t∨u)∧(¬r∨¬t)∧(¬r∨¬u)∧(¬q∨v∨w)∧(¬s∨¬v)∧(¬s∨¬w)⇒⊥|])
 
 test01 :: Test
 test01 = TestLabel "Meson 1" $ TestCase $ assertEqual' "meson dp example (p. 220)" expected input
@@ -739,4 +742,4 @@ END_INTERACTIVE;;
 -}
 
 testMeson :: Test
-testMeson = TestLabel "Meson" (TestList [test00, test01, test02])
+testMeson = TestLabel "Meson" (TestList [test00, test001, test01, test02])

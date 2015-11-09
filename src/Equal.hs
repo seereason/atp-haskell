@@ -21,7 +21,7 @@ import Data.Set as Set
 import Data.String (IsString(fromString))
 import Equate ((.=.), HasEquate(foldEquate))
 import Formulas (IsFormula(AtomOf, atomic), atom_union)
-import Lib ((∅), Depth(Depth), Failing (Success, Failure))
+import Lib ((∅), Depth(Depth), Failing (Success, Failure), timeMessage)
 import Meson (meson)
 import Prelude hiding ((*))
 import Pretty (assertEqual')
@@ -215,11 +215,30 @@ testEqual03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (
 -- More challenging equational problems. (Size 18, 61814 seconds.)
 -- -------------------------------------------------------------------------
 
+{-
+(meson ** equalitize)
+ <<(forall x y z. x * (y * z) = (x * y) * z) /\
+   (forall x. 1 * x = x) /\
+   (forall x. i(x) * x = 1)
+   ==> forall x. x * i(x) = 1>>;;
+-}
+
 testEqual04 :: Test
-testEqual04 = TestLabel "equalitize 3 (p. 248)" $ TestCase $ assertEqual' "equalitize 3 (p. 248)" (expected, expectedProof) input
+testEqual04 = TestLabel "equalitize 3 (p. 248)" $ TestCase $
+  timeMessage (\_ t -> "\nCompute time: " ++ show t) $
+  assertEqual' "equalitize 3 (p. 248)" (expected, expectedProof) input
     where
       input = (equalitize fm, runSkolem (meson (Just (Depth 20)) . equalitize $ fm))
       fm :: Formula
+      fm = [fof| (forall x y z. x * (y * z) = (x * y) * z) .&.
+                 (forall x. 1 * x = x) .&.
+                 (forall x. i(x) * x = 1)
+                 ==> (forall x. x * i(x) = 1) |]
+{-
+      fm = [fof| (∀x y z. ((*) ["x'", (*) ["y'", "z'"]] .=. (*) [((*) ["x'", "y'"]), "z'"]) ∧
+           (∀) "x" ((*) [one, "x'"] .=. "x'") ∧
+           (∀) "x" ((*) [i ["x'"], "x'"] .=. one) ⇒
+           (∀) "x" ((*) ["x'", i ["x'"]] .=. one)
       fm = ((∀) "x" . (∀) "y" . (∀) "z") ((*) ["x'", (*) ["y'", "z'"]] .=. (*) [((*) ["x'", "y'"]), "z'"]) ∧
            (∀) "x" ((*) [one, "x'"] .=. "x'") ∧
            (∀) "x" ((*) [i ["x'"], "x'"] .=. one) ⇒
@@ -227,15 +246,16 @@ testEqual04 = TestLabel "equalitize 3 (p. 248)" $ TestCase $ assertEqual' "equal
       (*) = fApp (fromString "*")
       i = fApp (fromString "i")
       one = fApp (fromString "1") []
+-}
       expected :: Formula
       expected =
           [fof| (∀x. x=x)∧
                 (∀x y z. x=y∧x=z⇒y=z)∧
-                (∀x1 x2 y1 y2. x1=y1∧x2=y2⇒*(x1, x2)=*(y1, y2))⇒
-                (∀x y z. *(x', *(y', z'))=*(*(x', y'), z'))∧
-                (∀x. *(1, x')=x')∧
-                (∀x. *(i(x'), x')=1)⇒
-                (∀x. *(x', i(x'))=1) |]
+                (∀x' x'' y' y''. x'=y'∧x''=y''⇒(x' * x'')=(y' * y''))⇒
+                (∀x y z. (x' * (y' * z'))=((x'* y') * z'))∧
+                (∀x. (1 * x')=x')∧
+                (∀x. (i(x') * x')=1)⇒
+                (∀x. (x' * i(x'))=1) |]
 {-
           ((∀) "x" ("x" .=. "x") .&.
            ((∀) "x" ((∀) "y" ((∀) "z" ((("x" .=. "y") .&. ("x" .=. "z")) .=>. ("y" .=. "z")))) .&.
@@ -250,7 +270,7 @@ testEqual04 = TestLabel "equalitize 3 (p. 248)" $ TestCase $ assertEqual' "equal
       expectedProof = Set.fromList [Failure ["Exceeded maximum depth limit"]]
 
 testEqual :: Test
-testEqual = TestLabel "Equal" (TestList [testEqual01, testEqual02, testEqual03, testEqual04])
+testEqual = TestLabel "Equal" (TestList [testEqual01, testEqual02, testEqual03 {-, testEqual04-}])
 
 -- -------------------------------------------------------------------------
 -- Other variants not mentioned in book.

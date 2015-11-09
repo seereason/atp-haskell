@@ -6,6 +6,8 @@ import Language.Haskell.Exts hiding (Pretty)
 -- import Language.Haskell.Exts.Parser (parseExp)
 import QuantifiedParser (fof)
 import Pretty (assertEqual', Pretty(..), prettyShow)
+import Formulas
+import Lit
 import Prop ((.&.), (.=>.))
 import Test.HUnit
 
@@ -15,8 +17,8 @@ t label expected actual = TestLabel label (TestCase (assertEqual' label expected
 testParser :: Test
 testParser =
     TestLabel "Parser"
-      (TestList [ TestLabel "precedence 1a" $ TestCase $ assertEqual' "precedence 1a"  [fof| (∃x. true) & (∃y. true) |]    [fof| (∃x. true) & (∃y. true) |]
-                , TestLabel "precedence 1b" $ TestCase $ assertEqual' "precedence 1b"  [fof| ∃x. true & (∃y. true) |]      [fof| ∃x. (true & (∃y. true)) |]
+      (TestList [ TestLabel "precedence 1a" $ TestCase $ assertEqual' "precedence 1a"  [fof| ∃x. (true & (∃y. true)) |]    [fof| ∃x. (true & ∃y. true) |]
+                , TestLabel "precedence 1b" $ TestCase $ assertEqual' "precedence 1b"  [fof| (∃x. true) & (∃y. true) |]      [fof| ∃x. true & ∃y. true |]
                 , TestLabel "precedence 2" $ TestCase $ assertEqual' "precedence 2"    [fof| (true & false) | true |]      [fof| true & false | true |]
                 , TestLabel "precedence 3" $ TestCase $ assertEqual' "precedence 3"    [fof| (true | false) <==> true |]   [fof| true | false <==> true |]
                 , TestLabel "precedence 4" $ TestCase $ assertEqual' "precedence 4"    [fof| true <==> (false ==> true) |] [fof| true <==> false ==> true |]
@@ -47,16 +49,20 @@ testParser =
                                                                                                   (App (Var (UnQual (Ident "for_all"))) (Lit (String "x")))
                                                                                                   (Paren (Lit (String "x")))) (QVarOp (UnQual (Symbol ".=."))) (Paren (Lit (String "x"))))))
                              $(show (parseExp (show [fof| ∀x. (x=x) |])))
-                , TestLabel "read 2" $ TestCase $ assertEqual' "read 2" (show (ParseOk (InfixApp (App
-                                                                                                  (App
-                                                                                                   (App (App (Var (UnQual (Ident "for_all"))) (Lit (String "x"))) (Var (UnQual (Ident "pApp"))))
-                                                                                                   (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "P")))))
-                                                                                                  (List [Lit (String "x")]))
+                , TestLabel "read 2" $ TestCase $ assertEqual' "read 2" (show (ParseOk (InfixApp (Paren (App (App (App (App (Var (UnQual (Ident "for_all"))) (Lit (String "x")))
+                                                                                                                   (Var (UnQual (Ident "pApp"))))
+                                                                                                              (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "P")))))
+                                                                                                         (List [Lit (String "x")])))
                                                                                         (QVarOp (UnQual (Symbol ".&.")))
-                                                                                        (App
-                                                                                         (App
-                                                                                          (Var (UnQual (Ident "pApp")))
-                                                                                          (Paren (App (Var (UnQual (Ident "fromString"))) (Lit (String "Q")))))
+                                                                                        (App (App (Var (UnQual (Ident "pApp")))
+                                                                                              (Paren (App (Var (UnQual (Ident "fromString")))
+                                                                                                      (Lit (String "Q")))))
                                                                                          (List [Lit (String "x")])))))
                              (show (parseExp (show [fof| ∀x. P(x) ∧ Q(x) |])))
+
+                , TestLabel "parse 1" $ TestCase $ assertEqual' "parse 1" [fof| (forall x. i(x) * x = 1) ==> (forall x. i(x) * x = 1) |] [fof| (forall x. i(x) * x = 1) ==> forall x. i(x) * x = 1 |]
+                , TestLabel "parse 2" $ TestCase $ assertEqual' "parse 2" "i(x) * x = 1" (prettyShow [fof| (i(x) * x = 1) |])
+                , TestLabel "parse 3" $ TestCase $ assertEqual' "parse 3" [fof| ⊤⇒(∀x. ⊤) |] [fof| true ==> forall x. true |]
+                , TestLabel "parse 4" $ TestCase $ assertEqual' "parse 4" "⊤" (prettyShow [fof| true |])
+                , TestLabel "parse 5" $ TestCase $ assertEqual' "parse 5" "⊥" (prettyShow [fof| false |])
                 ])

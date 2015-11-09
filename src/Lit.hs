@@ -35,8 +35,7 @@ module Lit
 
 import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
-import Formulas (IsAtom, IsFormula(atomic, AtomOf), overatoms, onatoms)
-import Formulas (IsFormula(asBool, false, true), fromBool)
+import Formulas (IsAtom, IsFormula(atomic, AtomOf, asBool, false, true), fromBool, overatoms, onatoms, prettyBool)
 import Prelude hiding (negate, null)
 import Pretty (Associativity(..), boolPrec, Doc, HasFixity(precedence, associativity), notPrec, Precedence, Pretty(pPrint), text)
 
@@ -133,7 +132,7 @@ prettyLiteral lit =
     foldLiteral ne tf at lit
     where
       ne p = text "¬" <> prettyLiteral p
-      tf = pPrint
+      tf = prettyBool
       at a = pPrint a
 
 showLiteral :: JustLiteral lit => lit -> String

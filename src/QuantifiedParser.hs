@@ -19,13 +19,14 @@ import Equate (HasEquate)
 import Formulas (IsFormula(AtomOf))
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import LitParser (exprparser)
-import PropParser (propexprtable)
+import PropParser (propexprtable, propdef)
 import Quantified (exists, for_all, IsQuantified)
 import Skolem (Formula)
 import Term (IsVariable)
-import TermParser (m_reservedOp, m_identifier, m_symbol)
 import Text.Parsec
 import Text.Parsec.Expr
+import Text.Parsec.Language
+import Text.Parsec.Token
 
 -- | QuasiQuote for a first order formula.  Loading this symbol into the interpreter
 -- and setting -XQuasiQuotes lets you type expressions like [fof| ∃ x. p(x) |]
@@ -40,7 +41,7 @@ fof = QuasiQuoter
 -- parseProlog :: forall s lit. Stream s Identity Char => s -> PrologRule lit
 -- parseProlog str = either (error . show) id $ parse prologparser "" str
 parseFOL :: (IsQuantified formula, HasEquate (AtomOf formula), Stream String Identity Char) => String -> formula
-parseFOL str = either (error . show) id $ parse (exprparser folexprtable) "" str
+parseFOL str = either (error . show) id $ parse (exprparser folexprtable >>= \r -> eof >> return r) "" str
 
 -- prologparser :: forall s u m lit. Stream s m Char => ParsecT s u m (PrologRule lit)
 -- prologparser = try (do
@@ -53,21 +54,40 @@ parseFOL str = either (error . show) id $ parse (exprparser folexprtable) "" str
 --    return (Prolog mempty left))
 --    <?> "prolog expression"
 
+foralls, forallOps, existss, existsOps :: [String]
+foralls = ["forall", "for_all"]
+forallOps= ["∀"]
+existss = ["exists"]
+existsOps = ["∃"]
+
 folexprtable :: (IsQuantified formula, Stream s m Char) => [[Operator s u m formula]]
 folexprtable =
     -- ∀x. ∃y. x=y becomes ∀x. (∃y. (x=y))
     -- ∃x. ∀y. x=y is a parse error
-    propexprtable ++ [ [Prefix existentialPrefix]
-                     , [Prefix forallPrefix] ]
+    [ [Prefix existentialPrefix]
+    , [Prefix forallPrefix] ]
+    ++ propexprtable
     where
       existentialPrefix :: forall formula s u m. (IsQuantified formula, Stream s m Char) => ParsecT s u m (formula -> formula)
-      existentialPrefix = quantifierPrefix "∃" exists <|> quantifierPrefix "exists" exists
+      existentialPrefix = foldr1 (<|>) (map (\s -> quantifierPrefix s exists) (existss ++ existsOps))
       forallPrefix :: forall formula s u m. (IsQuantified formula, Stream s m Char) => ParsecT s u m (formula -> formula)
-      forallPrefix = quantifierPrefix "∀" for_all <|> quantifierPrefix "for_all" for_all <|> quantifierPrefix "forall" for_all
+      forallPrefix = foldr1 (<|>) (map (\s -> quantifierPrefix s for_all) (foralls ++ forallOps))
 
-      quantifierPrefix :: forall formula v s u m. (IsVariable v, Stream s m Char) => String -> (v -> formula -> formula) -> ParsecT s u m (formula -> formula)
+      quantifierPrefix :: forall formula v s u m. (IsVariable v, Stream s m Char) =>
+                          String -> (v -> formula -> formula) -> ParsecT s u m (formula -> formula)
       quantifierPrefix name op = do
-        m_reservedOp name
-        is <- map fromString <$> many1 m_identifier
-        _ <- m_symbol "."
+        reservedOp tok name
+        is <- map fromString <$> many1 (identifier tok)
+        _ <- symbol tok "."
         return (\fm -> foldr op fm is)
+
+tok :: Stream t t2 Char => GenTokenParser t t1 t2
+tok = makeTokenParser foldef
+
+foldef :: forall s u m. Stream s m Char => GenLanguageDef s u m
+foldef =
+    -- Make the type of propdef match foldef
+    let def = propdef :: GenLanguageDef s u m in
+    def { reservedOpNames = reservedOpNames def ++ forallOps ++ existsOps
+        , reservedNames = reservedNames def ++ foralls ++ existss
+        }
