@@ -26,9 +26,20 @@ import Data.String (fromString)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Term (fApp, FTerm, IsTerm(FunOf, vt))
 import Text.Parsec
+import Text.Parsec.Error
 import Text.Parsec.Expr
 import Text.Parsec.Token
 import Text.Parsec.Language
+import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
+
+instance Pretty ParseError where
+    pPrint = text . show
+
+instance Pretty Message where
+    pPrint (SysUnExpect s) = text ("SysUnExpect " ++ show s)
+    pPrint (UnExpect s) = text ("UnExpect " ++ show s)
+    pPrint (Expect s) = text ("Expect " ++ show s)
+    pPrint (Message s) = text ("Message " ++ show s)
 
 -- | QuasiQuote for a propositional formula.  Exactly like fof, but no quantifiers.
 term :: QuasiQuoter
