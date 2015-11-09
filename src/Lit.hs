@@ -37,7 +37,8 @@ import Data.Generics (Data, Typeable)
 import Data.Monoid ((<>))
 import Formulas (IsAtom, IsFormula(atomic, AtomOf, asBool, false, true), fromBool, overatoms, onatoms, prettyBool)
 import Prelude hiding (negate, null)
-import Pretty (Associativity(..), boolPrec, Doc, HasFixity(precedence, associativity), notPrec, Precedence, Pretty(pPrint), text)
+import Pretty (Associativity(..), boolPrec, Doc, HasFixity(precedence, associativity), notPrec, Precedence, text)
+import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel, prettyNormal)
 
 -- | The class of formulas that can be negated.  Literals are the
 -- building blocks of the clause and implicative normal forms.  They
@@ -127,11 +128,11 @@ associativityLiteral :: JustLiteral lit => lit -> Associativity
 associativityLiteral = foldLiteral (const InfixA) (const InfixN) associativity
 
 -- | Implementation of 'pPrint' for -- 'JustLiteral' types.
-prettyLiteral :: JustLiteral lit => lit -> Doc
-prettyLiteral lit =
-    foldLiteral ne tf at lit
+prettyLiteral :: JustLiteral lit => PrettyLevel -> Rational -> lit -> Doc
+prettyLiteral l r lit =
+    maybeParens (l > prettyNormal || r > precedence lit) (foldLiteral ne tf at lit)
     where
-      ne p = text "¬" <> prettyLiteral p
+      ne p = text "¬" <> prettyLiteral l (precedence lit) p
       tf = prettyBool
       at a = pPrint a
 
@@ -197,4 +198,4 @@ instance IsAtom atom => HasFixity (LFormula atom) where
     associativity = associativityLiteral
 
 instance IsAtom atom => Pretty (LFormula atom) where
-    pPrint = prettyLiteral
+    pPrintPrec = prettyLiteral

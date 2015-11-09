@@ -11,7 +11,7 @@
 module TermParser
     ( term, parseFOLTerm, termdef
     , termOps, termIds
-    , folsubterm
+    , termParser
     -- , m_parens, m_angles, m_symbol, m_integer
     -- , m_identifier, m_reservedOp, m_reserved
     ) where
@@ -51,12 +51,12 @@ term = QuasiQuoter
     }
 
 parseFOLTerm :: forall term s. (IsTerm term, Stream s Identity Char) => s -> Either ParseError term
-parseFOLTerm str = parse (folsubterm >>= \r ->  eof >> return r) "" str
+parseFOLTerm str = parse (termParser >>= \r ->  eof >> return r) "" str
 
 folfunction :: forall term s u m. (IsTerm term, Stream s m Char) => ParsecT s u m term
 folfunction = do
    fname <- identifier tok
-   xs <- parens tok (sepBy1 folsubterm (symbol tok ","))
+   xs <- parens tok (sepBy1 termParser (symbol tok ","))
    return (fApp (fromString fname :: FunOf term) xs)
 
 folconstant_numeric :: forall term t t1 t2. (IsTerm term, Stream t t2 Char) => ParsecT t t1 t2 term
@@ -74,8 +74,8 @@ folconstant = do
    name <- (angles tok (identifier tok))
    return (fApp (fromString name :: FunOf term) [])
 
-folsubterm :: forall term s u m. (IsTerm term, Stream s m Char) => ParsecT s u m term
-folsubterm = folfunction_infix <|> folsubterm_prefix
+termParser :: forall term s u m. (IsTerm term, Stream s m Char) => ParsecT s u m term
+termParser = folfunction_infix <|> folsubterm_prefix
 
 folsubterm_prefix :: forall term s u m. (IsTerm term, Stream s m Char) => ParsecT s u m term
 folsubterm_prefix =

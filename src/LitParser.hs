@@ -12,6 +12,7 @@ module LitParser
     ( lit, parseLit
     , litdef, litOps, litIds
     , exprparser, litexprtable
+    , testLit
     ) where
 
 import Apply (pApp, HasApply(PredOf))
@@ -23,11 +24,13 @@ import Equate ((.=.), EqAtom, HasEquate)
 import Formulas (IsFormula(AtomOf), true, false)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Lit ((.~.), IsLiteral, JustLiteral, LFormula)
-import TermParser (folsubterm, termdef, termIds, termOps)
+import TermParser (termParser, termdef, termIds, termOps)
+import Test.HUnit
 import Text.Parsec
 import Text.Parsec.Expr
 import Text.Parsec.Language
 import Text.Parsec.Token
+import Text.PrettyPrint.HughesPJClass (pPrintPrec, PrettyLevel(PrettyLevel))
 
 -- | QuasiQuote for a propositional formula.  Exactly like fof, but no quantifiers.
 lit :: QuasiQuoter
@@ -80,20 +83,20 @@ folpredicate_infix :: forall formula s u m. (IsFormula formula, HasEquate (AtomO
 folpredicate_infix = choice (map (try . app) (equateOps ++ predicate_infix_symbols))
  where
   app op | elem op equateOps = do
-   x <- folsubterm
+   x <- termParser
    reservedOp tok op
-   y <- folsubterm
+   y <- termParser
    return (x .=. y)
   app op = do
-   x <- folsubterm
+   x <- termParser
    reservedOp tok op
-   y <- folsubterm
+   y <- termParser
    return (pApp (fromString op :: PredOf (AtomOf formula)) [x,y])
 
 folpredicate :: forall formula s u m. (IsFormula formula, HasApply (AtomOf formula), Stream s m Char) => ParsecT s u m formula
 folpredicate = do
    p <- foldr1 (<|>) (identifier tok : map (symbol tok) provesOps)
-   xs <- option [] (parens tok (sepBy1 folsubterm (symbol tok ",")))
+   xs <- option [] (parens tok (sepBy1 termParser (symbol tok ",")))
    return (pApp (fromString p :: PredOf (AtomOf formula)) xs)
 
 tok :: Stream s m Char => GenTokenParser s u m
@@ -108,3 +111,11 @@ litdef =
         , opStart =  oneOf (nub (map head litOps))
         , opLetter = oneOf (nub (concat (map tail litOps)))
         }
+
+testLit :: Test
+testLit = TestLabel "Lit" $
+          TestList
+          [ TestCase (assertEqual "pretty 1" (Right ((.~.) (fromString "x" .=. fromString "x"))) (parseLit "~x=x" :: Either ParseError (LFormula EqAtom)))
+          , TestCase (assertEqual "pretty 2" "(¬(x=x))" (let Right l = parseLit "~x=x" :: Either ParseError (LFormula EqAtom)
+                                                         in show (pPrintPrec (PrettyLevel 1) 0 l)))
+          ]
