@@ -64,9 +64,9 @@ folexprtable :: (IsQuantified formula, Stream s m Char) => [[Operator s u m form
 folexprtable =
     -- ∀x. ∃y. x=y becomes ∀x. (∃y. (x=y))
     -- ∃x. ∀y. x=y is a parse error
+    propexprtable ++
     [ [Prefix existentialPrefix]
     , [Prefix forallPrefix] ]
-    ++ propexprtable
     where
       existentialPrefix :: forall formula s u m. (IsQuantified formula, Stream s m Char) => ParsecT s u m (formula -> formula)
       existentialPrefix = foldr1 (<|>) (map (\s -> quantifierPrefix s exists) (existss ++ existsOps))

@@ -201,7 +201,7 @@ wishnu = [fof| (∃x. x=f (g (x))∧(∀x'. x'=f (g (x'))⇒x=x'))⇔(∃y. y=g 
 -- This takes 0.7 seconds on my machine.
 testEqual03 :: Test
 testEqual03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (p. 241)" (expected, expectedProof) input
-    where input = (equalitize wishnu, runSkolem (meson (Just (Depth 30)) (equalitize wishnu)))
+    where input = (equalitize wishnu, runSkolem (meson Nothing (equalitize wishnu)))
           expected :: Formula
           expected = [fof| (∀x. x=x)∧
                            (∀x y z. x=y∧x=z⇒y=z)∧
