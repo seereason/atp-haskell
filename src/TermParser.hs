@@ -10,6 +10,7 @@
 
 module TermParser
     ( term, parseFOLTerm, termdef
+    , termOps, termIds
     , folsubterm
     -- , m_parens, m_angles, m_symbol, m_integer
     -- , m_identifier, m_reservedOp, m_reserved
@@ -20,6 +21,7 @@ module TermParser
 
 import Control.Monad.Identity
 import Data.Char (isSpace)
+import Data.List (nub)
 import Data.String (fromString)
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import Term (fApp, FTerm, IsTerm(FunOf, vt))
@@ -73,6 +75,17 @@ folsubterm_prefix =
    <|> folconstant
    <|> (fmap (vt . fromString) (identifier tok))
 
+function_infix_symbols :: [String]
+function_infix_symbols =  ["*", "/", "+", "-"]
+
+constants :: [String]
+constants = ["nil"]
+
+termOps, termIds :: [String]
+termOps = function_infix_symbols ++ ["::"]
+termIds = constants
+
+
 folfunction_infix :: forall term s u m. (IsTerm term, Stream s m Char) => ParsecT s u m term
 folfunction_infix = buildExpressionParser table folsubterm_prefix <?> "expression"
  where
@@ -90,14 +103,8 @@ termdef :: forall s u m. Stream s m Char => GenLanguageDef s u m
 termdef = emptyDef
               { identStart = letter
               , identLetter = alphaNum <|> char '\'' <|> char '_'
-              , opStart =  oneOf "~&|=<:->*/+"
-              , opLetter = oneOf "~&|=<:->"
+              , opStart =  oneOf (nub (map head termOps))
+              , opLetter = oneOf (nub (concat (map tail termOps)))
               , reservedOpNames = function_infix_symbols
               , reservedNames = constants
               }
-
-function_infix_symbols :: [String]
-function_infix_symbols =  ["*", "/", "+", "-"]
-
-constants :: [String]
-constants = ["nil"]

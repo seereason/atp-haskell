@@ -14,12 +14,13 @@ module QuantifiedParser
 
 import Control.Monad.Identity
 import Data.Char (isSpace)
+import Data.List (nub)
 import Data.String (fromString)
 import Equate (HasEquate)
 import Formulas (IsFormula(AtomOf))
 import Language.Haskell.TH.Quote (QuasiQuoter(..))
 import LitParser (exprparser)
-import PropParser (propexprtable, propdef)
+import PropParser (propexprtable, propdef, propIds, propOps)
 import Quantified (exists, for_all, IsQuantified)
 import Skolem (Formula)
 import Term (IsVariable)
@@ -54,11 +55,15 @@ parseFOL str = parse (exprparser folexprtable >>= \r -> eof >> return r) "" str
 --    return (Prolog mempty left))
 --    <?> "prolog expression"
 
-foralls, forallOps, existss, existsOps :: [String]
-foralls = ["forall", "for_all"]
+forallIds, forallOps, existsIds, existsOps :: [String]
+forallIds = ["forall", "for_all"]
 forallOps= ["∀"]
-existss = ["exists"]
+existsIds = ["exists"]
 existsOps = ["∃"]
+
+quantOps , quantIds :: [String]
+quantOps = propOps ++ forallOps ++ existsOps
+quantIds = propIds ++ forallIds ++ existsIds
 
 folexprtable :: (IsQuantified formula, Stream s m Char) => [[Operator s u m formula]]
 folexprtable =
@@ -69,9 +74,9 @@ folexprtable =
     , [Prefix forallPrefix] ]
     where
       existentialPrefix :: forall formula s u m. (IsQuantified formula, Stream s m Char) => ParsecT s u m (formula -> formula)
-      existentialPrefix = foldr1 (<|>) (map (\s -> quantifierPrefix s exists) (existss ++ existsOps))
+      existentialPrefix = foldr1 (<|>) (map (\s -> quantifierPrefix s exists) (existsIds ++ existsOps))
       forallPrefix :: forall formula s u m. (IsQuantified formula, Stream s m Char) => ParsecT s u m (formula -> formula)
-      forallPrefix = foldr1 (<|>) (map (\s -> quantifierPrefix s for_all) (foralls ++ forallOps))
+      forallPrefix = foldr1 (<|>) (map (\s -> quantifierPrefix s for_all) (forallIds ++ forallOps))
 
       quantifierPrefix :: forall formula v s u m. (IsVariable v, Stream s m Char) =>
                           String -> (v -> formula -> formula) -> ParsecT s u m (formula -> formula)
@@ -88,6 +93,8 @@ foldef :: forall s u m. Stream s m Char => GenLanguageDef s u m
 foldef =
     -- Make the type of propdef match foldef
     let def = propdef :: GenLanguageDef s u m in
-    def { reservedOpNames = reservedOpNames def ++ forallOps ++ existsOps
-        , reservedNames = reservedNames def ++ foralls ++ existss
+    def { reservedOpNames = quantOps
+        , reservedNames = quantIds
+        , opStart = oneOf (nub (map head quantOps))
+        , opLetter = oneOf (nub (concat (map tail quantOps)))
         }
