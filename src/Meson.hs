@@ -7,6 +7,7 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wall #-}
 
@@ -20,14 +21,13 @@ module Meson
 import Apply (HasApply(TermOf, PredOf), pApp)
 import Control.Monad.State (execStateT)
 import Data.Map as Map
-import Data.Monoid ((<>))
 import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
 import FOL (generalize, IsFirstOrder)
 import Formulas (false, IsFormula(AtomOf))
 import Lib (Depth(Depth), deepen)
 import Lit ((.~.), JustLiteral, LFormula, negative)
-import Pretty (assertEqual', prettyShow)
+import Pretty (assertEqual', prettyShow, testEquals)
 import Prolog (PrologRule(Prolog), renamerule)
 import Prop ((.&.), (.|.), (.=>.), list_conj, PFormula, simpcnf)
 import Quantified (exists, for_all, IsQuantified(VarOf))
@@ -39,19 +39,17 @@ import Term (fApp, IsTerm(FunOf, TVarOf), vt)
 import Test.HUnit
 import Unif (Unify, unify_literals)
 
-test00 :: Test
-test00 =
-    let fm1 = [fof| ∀a. (¬(P(a)∧((∀y z. Q(y))∨R(z))∧¬P(a))) |]
-        fm2 = [fof| ∀a. (¬(P(a)∧¬P(a)∧((∀y z. Q(y))∨R(z)))) |]
+test03 :: Test
+test03 = let fm = [fof| ∀a. ¬(P(a)∧(∀y. (∀z. Q(y)∨R(z))∧¬P(a))) |] in
+         $(testEquals "TAB 1") (Success ((K 2, Map.empty),Depth 2)) (tab Nothing fm)
+
+test04 :: Test
+test04 = let fm = [fof| ∀a. ¬(P(a)∧¬P(a)∧(∀y z. Q(y)∨R(z))) |] in
+         $(testEquals "TAB 2") (Success ((K 0, Map.empty),Depth 0)) (tab Nothing fm)
+
         {- fm3 = [fof| ¬p ∧ (p ∨ q) ∧ (r ∨ s) ∧ (¬q ∨ t ∨ u) ∧
                     (¬r ∨ ¬t) ∧ (¬r ∨ ¬u) ∧ (¬q ∨ v ∨ w) ∧
                (¬s ∨ ¬v) ∧ (¬s ∨ ¬w) |] -}
-    in
-    TestList
-    [ TestLabel ("TAB 1: " <> prettyShow fm1) $ TestCase $ assertEqual ("TAB 1: " <> prettyShow fm1) (Success ((K 2, Map.empty),Depth 2)) (tab Nothing fm1)
-    , TestLabel ("TAB 2: " <> prettyShow fm2) $ TestCase $ assertEqual ("TAB 2: " <> prettyShow fm2) (Success ((K 0, Map.empty),Depth 0)) (tab Nothing fm2)
-    -- , TestCase $ assertEqual ("TAB 3: " <> prettyShow fm3) (Success ((K 0, Map.empty),Depth 0)) (tab (Just (Depth 1000000)) fm3)
-    ]
 
 {-
 START_INTERACTIVE;;
@@ -73,8 +71,9 @@ END_INTERACTIVE;;
 -- Example of naivety of tableau prover.
 -- -------------------------------------------------------------------------
 
-test001 :: Test
-test001 = TestCase $ assertEqual' "test001" (Success ((K 0, Map.empty), Depth 0)) (tab Nothing [fof| ¬p∧(p∨q)∧(r∨s)∧(¬q∨t∨u)∧(¬r∨¬t)∧(¬r∨¬u)∧(¬q∨v∨w)∧(¬s∨¬v)∧(¬s∨¬w)⇒⊥|])
+test05 :: Test
+test05 = $(testEquals "test001") (Success ((K 0, Map.empty), Depth 0))
+         (tab Nothing [fof| ¬p∧(p∨q)∧(r∨s)∧(¬q∨t∨u)∧(¬r∨¬t)∧(¬r∨¬u)∧(¬q∨v∨w)∧(¬s∨¬v)∧(¬s∨¬w)⇒⊥|])
 
 test01 :: Test
 test01 = TestLabel "Meson 1" $ TestCase $ assertEqual' "meson dp example (p. 220)" expected input
@@ -82,14 +81,14 @@ test01 = TestLabel "Meson 1" $ TestCase $ assertEqual' "meson dp example (p. 220
           expected :: Set (Failing Depth)
           expected = Set.singleton (Success (Depth 8))
 
+test06 :: Test
+test06 = $(testEquals "meson dp example, step 1 (p. 220)") [fof| ∃x y. (∀z. (F(x,y)⇒F(y,z)∧F(z,z))∧(F(x,y)∧G(x,y)⇒G(x,z)∧G(z,z))) |]
+           davis_putnam_example_formula
+
 test02 :: Test
 test02 =
     TestLabel "Meson 2" $
-    TestList [TestCase (assertEqual' "meson dp example, step 1 (p. 220)"
-                                     [fof| exists x y. (forall z. (((F (x,y)) ==> ((F (y,z)) & (F (z,z)))) &
-                                                                  (((F (x,y)) & (G (x,y))) ==> ((G (x,z)) & (G (z,z)))))) |]
-                                    davis_putnam_example_formula),
-              TestCase (assertEqual' "meson dp example, step 2 (p. 220)"
+    TestList [TestCase (assertEqual' "meson dp example, step 2 (p. 220)"
                                     (exists "x" (exists "y" (for_all "z" (((f [x,y]) .=>. ((f [y,z]) .&. (f [z,z]))) .&.
                                                                                   (((f [x,y]) .&. (g [x,y])) .=>. ((g [x,z]) .&. (g [z,z])))))))
                                     (generalize davis_putnam_example_formula)),
@@ -742,4 +741,4 @@ END_INTERACTIVE;;
 -}
 
 testMeson :: Test
-testMeson = TestLabel "Meson" (TestList [test00, test001, test01, test02])
+testMeson = TestLabel "Meson" (TestList [test03, test04, test05, test01, test06, test02])

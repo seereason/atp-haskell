@@ -1,4 +1,4 @@
-{-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, QuasiQuotes, ScopedTypeVariables #-}
+{-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, QuasiQuotes, ScopedTypeVariables, TemplateHaskell #-}
 module Extra where
 
 import Apply (pApp)
@@ -12,7 +12,7 @@ import Formulas
 import Lib (Depth(Depth))
 import Lit ((.~.))
 import Meson (meson)
-import Pretty (assertEqual', prettyShow)
+import Pretty (prettyShow, testEquals)
 import Prop hiding (nnf)
 import Quantified (for_all, exists)
 import Parser (fof)
@@ -23,7 +23,7 @@ import Term (vt, fApp)
 import Test.HUnit
 
 testExtra :: Test
-testExtra = TestList [test05, test06, test07, test00]
+testExtra = TestList [test01, test02, test05, test06, test07]
 
 test05 :: Test
 test05 = TestLabel "Socrates syllogism" $ TestCase $ assertEqual "Socrates syllogism" expected input
@@ -106,19 +106,14 @@ fms = [ let [x, y] = [vt "x", vt "y"] :: [SkTerm] in
 test07 :: Test
 test07 = TestList (List.map mesonTest fms)
 
-test00 :: Test
-test00 =
-    let [a, y, z] = List.map vt ["a", "y", "z"] :: [SkTerm]
-        [p, q, r] = List.map (pApp . fromString) ["P", "Q", "R"] :: [[SkTerm] -> Formula]
-        fm1 = for_all "a" ((.~.)(p[a] .&. (for_all "y" (for_all "z" (q[y] .|. r[z]) .&. (.~.)(p[a]))))) -- [fof| ∀a. ¬(P(a)∧(∀y. (∀z. Q(y)∨R(z))∧¬P(a))) |]
-        fm2 = for_all "a" ((.~.)(p[a] .&. (.~.)(p[a]) .&. (for_all "y" (for_all "z" (q[y] .|. r[z]))))) in
-    TestList
-    [ TestLabel "MESON 1" $ TestCase $ assertEqual' "MESON 1"
-                   (show [fof| ∀a. ¬(P(a)∧(∀y z. (Q(y)∨R(z)))∧¬P(a)) |], Success ((K 2, Map.empty),Depth 2))
-                   (show fm1, tab Nothing fm1),
-      TestLabel "MESON 2" $ TestCase $ assertEqual' "MESON 2"
-                   (show [fof| ∀a. ¬(P(a)∧¬P(a)∧(∀y z. Q(y)∨R(z))) |], Success ((K 0, Map.empty),Depth 0))
-                   (show fm2, tab Nothing fm2) ]
+test01 :: Test
+test01 = let fm1 = [fof| ∀a. ¬(P(a)∧(∀y. (∀z. Q(y)∨R(z))∧¬P(a))) |] :: Formula in
+         $(testEquals "MESON 1") ([fof| ∀a. ¬(P(a)∧(∀y. (∀z. Q(y)∨R(z))∧¬P(a))) |], Success ((K 2, Map.empty),Depth 2))
+              (fm1, tab Nothing fm1)
+test02 :: Test
+test02 = let fm2 = [fof| ∀a. ¬(P(a)∧¬P(a)∧(∀y z. Q(y)∨R(z))) |] :: Formula in
+         $(testEquals "MESON 2") ([fof| ∀a. ¬(P(a)∧¬P(a)∧(∀y z. Q(y)∨R(z))) |], Success ((K 0, Map.empty),Depth 0))
+              (fm2, tab Nothing fm2)
 {-
 i = for_all "a" ((.~.)(p[a] .&. (for_all "y" (for_all "z" (q[y] .|. r[z]) .&. (.~.)(p[a])))))
 
