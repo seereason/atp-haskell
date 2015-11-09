@@ -153,8 +153,8 @@ propexprparser trm = buildExpressionParser table trm <?> "prop"
   table = [ map (\op -> Prefix (m_reservedOp op >> return (.~.))) notOps
           , map (\op -> Infix (m_reservedOp op >> return (.&.)) AssocRight) andOps -- should these be assocLeft?
           , map (\op -> Infix (m_reservedOp op >> return (.|.)) AssocRight) orOps
-          , map (\op -> Infix (m_reservedOp op >> return (.<=>.)) AssocRight) iffOps -- are iff and imp swapped?
           , map (\op -> Infix (m_reservedOp op >> return (.=>.)) AssocRight) impOps
+          , map (\op -> Infix (m_reservedOp op >> return (.<=>.)) AssocRight) iffOps
           ]
 
 litterm :: forall formula s u m. (JustLiteral formula, HasEquate (AtomOf formula), Stream s m Char) => ParsecT s u m formula
