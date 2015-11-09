@@ -42,7 +42,7 @@ import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(prece
 import Prop (BinOp(..), binop, IsPropositional((.&.), (.|.), (.=>.), (.<=>.), foldPropositional', foldCombination))
 import Term (IsTerm(TVarOf), IsVariable)
 import Text.PrettyPrint (fsep)
-import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel)
+import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel, prettyNormal)
 
 -------------------------
 -- QUANTIFIED FORMULAS --
@@ -106,7 +106,7 @@ associativityQuantified = foldQuantified qu co ne tf at
 prettyQuantified :: forall fof v. (IsQuantified fof, v ~ VarOf fof) =>
                     Side -> PrettyLevel -> Rational -> fof -> Doc
 prettyQuantified side l r fm =
-    maybeParens (testParen side r (precedence fm) (associativity fm)) $ foldQuantified (\op v p -> qu op [v] p) co ne tf at fm
+    maybeParens (l > prettyNormal || testParen side r (precedence fm) (associativity fm)) $ foldQuantified (\op v p -> qu op [v] p) co ne tf at fm
     -- maybeParens (r > precedence fm) $ foldQuantified (\op v p -> qu op [v] p) co ne tf at fm
     where
       -- Collect similarly quantified variables

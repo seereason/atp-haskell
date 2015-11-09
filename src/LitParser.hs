@@ -31,14 +31,14 @@ import Text.Parsec.Token
 -- | QuasiQuote for a propositional formula.  Exactly like fof, but no quantifiers.
 lit :: QuasiQuoter
 lit = QuasiQuoter
-    { quoteExp = \str -> [| parseLit (dropWhile isSpace str) :: LFormula EqAtom |]
+    { quoteExp = \str -> [| (either (error . show) id . parseLit . dropWhile isSpace) str :: LFormula EqAtom |]
     , quoteType = error "pfQQ does not implement quoteType"
     , quotePat  = error "pfQQ does not implement quotePat"
     , quoteDec  = error "pfQQ does not implement quoteDec"
     }
 
-parseLit :: (JustLiteral formula, HasEquate (AtomOf formula), Stream String Identity Char) => String -> formula
-parseLit str = either (error . show) id $ parse (exprparser litexprtable >>= \r -> eof >> return r) "" str
+parseLit :: (JustLiteral formula, HasEquate (AtomOf formula), Stream String Identity Char) => String -> Either ParseError formula
+parseLit str = parse (exprparser litexprtable >>= \r -> eof >> return r) "" str
 
 nots :: [String]
 nots = ["¬", "~", ".~."]

@@ -40,9 +40,9 @@ import Data.Set as Set (empty, insert, member, Set, singleton)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Prelude hiding (pred)
-import Pretty ((<>), Doc, prettyShow, text)
+import Pretty ((<>), Doc, HasFixity(precedence), prettyShow, text)
 import Text.PrettyPrint (parens, brackets, punctuate, comma, fsep, space)
-import Text.PrettyPrint.HughesPJClass (Pretty(pPrint))
+import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel, prettyNormal)
 import Test.HUnit
 
 ---------------
@@ -121,7 +121,7 @@ instance Pretty FName where pPrint (FName s) = text s
 
 -- | A term is an expression representing a domain element, either as
 -- a variable reference or a function applied to a list of terms.
-class (Eq term, Ord term, Pretty term, Show term, IsString term,
+class (Eq term, Ord term, Pretty term, Show term, IsString term, HasFixity term,
        IsVariable (TVarOf term), IsFunction (FunOf term)) => IsTerm term where
     type TVarOf term
     -- ^ The associated variable type
@@ -160,13 +160,14 @@ convertTerm :: (IsTerm term1, v1 ~ TVarOf term1, f1 ~ FunOf term1,
 convertTerm cv cf = foldTerm (vt . cv) (\f ts -> fApp (cf f) (map (convertTerm cv cf) ts))
 
 -- | Implementation of pPrint for any term
-prettyTerm :: (v ~ TVarOf term, function ~ FunOf term, IsTerm term, Pretty v, Pretty function) => term -> Doc
-prettyTerm = foldTerm pPrint prettyFunctionApply
+prettyTerm :: (v ~ TVarOf term, function ~ FunOf term, IsTerm term, HasFixity term, Pretty v, Pretty function) =>
+              PrettyLevel -> Rational -> term -> Doc
+prettyTerm l r tm = maybeParens (l > prettyNormal || r > precedence tm) (foldTerm pPrint (prettyFunctionApply l) tm)
 
 -- | Format a function application: F(x,y)
-prettyFunctionApply :: (function ~ FunOf term, IsTerm term) => function -> [term] -> Doc
-prettyFunctionApply f [] = pPrint f
-prettyFunctionApply f ts = pPrint f <> parens (fsep (punctuate comma (map prettyTerm ts)))
+prettyFunctionApply :: (function ~ FunOf term, IsTerm term, HasFixity term) => PrettyLevel -> function -> [term] -> Doc
+prettyFunctionApply _l f [] = pPrint f
+prettyFunctionApply l f ts = pPrint f <> parens (fsep (punctuate comma (map (prettyTerm l 0) ts)))
 
 -- | Implementation of show for any term
 showTerm :: (v ~ TVarOf term, function ~ FunOf term, IsTerm term, Pretty v, Pretty function) => term -> String
@@ -190,6 +191,10 @@ instance (IsVariable v, IsFunction function) => IsString (Term function v) where
 instance (IsVariable v, IsFunction function) => Show (Term function v) where
     show = showTerm
 
+instance HasFixity (Term function v) where
+    precedence (Var v) = 0
+    precedence (FApply _ _ ) = 0
+
 instance (IsFunction function, IsVariable v) => IsTerm (Term function v) where
     type TVarOf (Term function v) = v
     type FunOf (Term function v) = function
@@ -201,7 +206,7 @@ instance (IsFunction function, IsVariable v) => IsTerm (Term function v) where
           FApply f ts -> fn f ts
 
 instance (IsTerm (Term function v)) => Pretty (Term function v) where
-    pPrint = prettyTerm
+    pPrintPrec = prettyTerm
 
 -- | A term type with no Skolem functions
 type FTerm = Term FName V

@@ -31,16 +31,14 @@ import Text.Parsec.Language
 -- | QuasiQuote for a propositional formula.  Exactly like fof, but no quantifiers.
 term :: QuasiQuoter
 term = QuasiQuoter
-    { quoteExp = \str -> [| parseFOLTerm (dropWhile isSpace str) :: FTerm |]
+    { quoteExp = \str -> [| (either (error . show) id . parseFOLTerm . dropWhile isSpace) str :: FTerm |]
     , quoteType = error "pfQQ does not implement quoteType"
     , quotePat  = error "pfQQ does not implement quotePat"
     , quoteDec  = error "pfQQ does not implement quoteDec"
     }
 
-parseFOLTerm :: forall term s. (IsTerm term, Stream s Identity Char) => s -> term
-parseFOLTerm str = either (error . show) id $ parse (folsubterm >>= \r ->  eof >> return r) "" str
-
--- ~(((p v q) ⊃ (r v s)) ⊃ ((p · ~r) ⊃ s))
+parseFOLTerm :: forall term s. (IsTerm term, Stream s Identity Char) => s -> Either ParseError term
+parseFOLTerm str = parse (folsubterm >>= \r ->  eof >> return r) "" str
 
 folfunction :: forall term s u m. (IsTerm term, Stream s m Char) => ParsecT s u m term
 folfunction = do

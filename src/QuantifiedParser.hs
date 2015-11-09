@@ -32,7 +32,7 @@ import Text.Parsec.Token
 -- and setting -XQuasiQuotes lets you type expressions like [fof| ∃ x. p(x) |]
 fof :: QuasiQuoter
 fof = QuasiQuoter
-    { quoteExp = \str -> [| parseFOL (dropWhile isSpace str) :: Formula |]
+    { quoteExp = \str -> [| (either (error . show) id . parseFOL . dropWhile isSpace) str :: Formula |]
     , quoteType = error "fofQQ does not implement quoteType"
     , quotePat  = error "fofQQ does not implement quotePat"
     , quoteDec  = error "fofQQ does not implement quoteDec"
@@ -40,8 +40,8 @@ fof = QuasiQuoter
 
 -- parseProlog :: forall s lit. Stream s Identity Char => s -> PrologRule lit
 -- parseProlog str = either (error . show) id $ parse prologparser "" str
-parseFOL :: (IsQuantified formula, HasEquate (AtomOf formula), Stream String Identity Char) => String -> formula
-parseFOL str = either (error . show) id $ parse (exprparser folexprtable >>= \r -> eof >> return r) "" str
+parseFOL :: (IsQuantified formula, HasEquate (AtomOf formula), Stream String Identity Char) => String -> Either ParseError formula
+parseFOL str = parse (exprparser folexprtable >>= \r -> eof >> return r) "" str
 
 -- prologparser :: forall s u m lit. Stream s m Char => ParsecT s u m (PrologRule lit)
 -- prologparser = try (do

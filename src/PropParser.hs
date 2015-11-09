@@ -29,14 +29,14 @@ import Text.Parsec.Token
 -- | QuasiQuote for a propositional formula.  Exactly like fof, but no quantifiers.
 pf :: QuasiQuoter
 pf = QuasiQuoter
-    { quoteExp = \str -> [| parsePF (dropWhile isSpace str) :: PFormula EqAtom |]
+    { quoteExp = \str -> [| (either (error . show) id . parsePF . dropWhile isSpace) str :: PFormula EqAtom |]
     , quoteType = error "pfQQ does not implement quoteType"
     , quotePat  = error "pfQQ does not implement quotePat"
     , quoteDec  = error "pfQQ does not implement quoteDec"
     }
 
-parsePF :: (JustPropositional formula, HasEquate (AtomOf formula), Stream String Identity Char) => String -> formula
-parsePF str = either (error . show) id $ parse (exprparser propexprtable >>= \r -> eof >> return r) "" str
+parsePF :: (JustPropositional formula, HasEquate (AtomOf formula), Stream String Identity Char) => String -> Either ParseError formula
+parsePF str = parse (exprparser propexprtable >>= \r -> eof >> return r) "" str
 
 ands, ors, imps, iffs, constants :: [String]
 ands = [".&.", "&", "∧", "⋀", "/\\", "·"]
