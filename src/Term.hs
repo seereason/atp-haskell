@@ -24,6 +24,8 @@ module Term
     , IsTerm(TVarOf, FunOf, vt, fApp, foldTerm)
     , zipTerms
     , convertTerm
+    , precedenceTerm
+    , associativityTerm
     , prettyTerm
     , prettyFunctionApply
     , showTerm
@@ -40,7 +42,7 @@ import Data.Set as Set (empty, insert, member, Set, singleton)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Prelude hiding (pred)
-import Pretty ((<>), Doc, HasFixity(precedence), prettyShow, text)
+import Pretty ((<>), Associativity(InfixN), Doc, HasFixity(associativity, precedence), Precedence, prettyShow, text)
 import Text.PrettyPrint (parens, brackets, punctuate, comma, fsep, space)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel, prettyNormal)
 import Test.HUnit
@@ -159,6 +161,12 @@ convertTerm :: (IsTerm term1, v1 ~ TVarOf term1, f1 ~ FunOf term1,
             -> term1 -> term2
 convertTerm cv cf = foldTerm (vt . cv) (\f ts -> fApp (cf f) (map (convertTerm cv cf) ts))
 
+precedenceTerm :: IsTerm term => term -> Precedence
+precedenceTerm = const 0
+
+associativityTerm :: IsTerm term => term -> Associativity
+associativityTerm = const InfixN
+
 -- | Implementation of pPrint for any term
 prettyTerm :: (v ~ TVarOf term, function ~ FunOf term, IsTerm term, HasFixity term, Pretty v, Pretty function) =>
               PrettyLevel -> Rational -> term -> Doc
@@ -191,9 +199,9 @@ instance (IsVariable v, IsFunction function) => IsString (Term function v) where
 instance (IsVariable v, IsFunction function) => Show (Term function v) where
     show = showTerm
 
-instance HasFixity (Term function v) where
-    precedence (Var v) = 0
-    precedence (FApply _ _ ) = 0
+instance (IsFunction function, IsVariable v) => HasFixity (Term function v) where
+    precedence = precedenceTerm
+    associativity = associativityTerm
 
 instance (IsFunction function, IsVariable v) => IsTerm (Term function v) where
     type TVarOf (Term function v) = v
