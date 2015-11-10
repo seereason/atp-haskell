@@ -111,7 +111,7 @@ convertApply cp ct = foldApply (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 -- | Special case of applying a subfunction to the top *terms*.
 onformula :: (IsFormula formula, HasApply atom, atom ~ AtomOf formula, term ~ TermOf atom) =>
              (term -> term) -> formula -> formula
-onformula f = onatoms (atomic . onterms f)
+onformula f = onatoms (onterms f)
 
 -- | Build a formula from a predicate and a list of terms.
 pApp :: (IsFormula formula, HasApply atom, atom ~ AtomOf formula) => PredOf atom -> [TermOf atom] -> formula

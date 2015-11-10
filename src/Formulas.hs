@@ -41,8 +41,8 @@ class (Pretty formula, HasFixity formula, IsAtom (AtomOf formula)) => IsFormula 
     -- ^ Build a formula from an atom.
     overatoms :: (AtomOf formula -> r -> r) -> formula -> r -> r
     -- ^ Formula analog of iterator 'foldr'.
-    onatoms :: (AtomOf formula -> formula) -> formula -> formula
-    -- ^ Apply a function to the atoms, otherwise keeping structure.
+    onatoms :: (AtomOf formula -> AtomOf formula) -> formula -> formula
+    -- ^ Apply a function to the atoms, otherwise keeping structure (new sig)
 
 (⊤) :: IsFormula p => p
 (⊤) = true

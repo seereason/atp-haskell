@@ -69,7 +69,7 @@ prawitz_loop :: forall lit atom v term.
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
     let inst = Map.fromList (zip fvs (List.map newvar [1..]))
-        djs1 = distrib (Set.map (Set.map (onatoms (atomic . asubst inst))) djs0) djs in
+        djs1 = distrib (Set.map (Set.map (onatoms (asubst inst))) djs0) djs in
     case unify_refute djs1 Map.empty of
       Failure _ -> prawitz_loop djs0 fvs djs1 (n + 1)
       Success env -> (env, n + 1)

@@ -144,13 +144,13 @@ showLiteral lit = foldLiteral ne tf at lit
       at = show
 
 -- | Implementation of 'onatoms' for 'JustLiteral' types.
-onatomsLiteral :: JustLiteral lit => (AtomOf lit -> lit) -> lit -> lit
+onatomsLiteral :: JustLiteral lit => (AtomOf lit -> AtomOf lit) -> lit -> lit
 onatomsLiteral f fm =
     foldLiteral ne tf at fm
     where
       ne p = (.~.) (onatomsLiteral f p)
       tf = fromBool
-      at x = f x
+      at x = atomic (f x)
 
 -- | implementation of 'overatoms' for 'JustLiteral' types.
 overatomsLiteral :: JustLiteral lit => (AtomOf lit -> r -> r) -> lit -> r -> r

@@ -85,6 +85,7 @@ import Data.Function (on)
 import Data.Generics (Data, Typeable)
 import Data.List as List (groupBy, intercalate, map, sortBy)
 import Data.Map as Map (Map)
+import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map,
                         minView, partition, Set, singleton, toAscList, union)
@@ -281,14 +282,14 @@ showPropositional side parentPrec fm =
       at x = showString "atomic " . showsPrec (precedence fm) x
 
 -- | Implementation of 'onatoms' for any 'JustPropositional' type.
-onatomsPropositional :: JustPropositional pf => (AtomOf pf -> pf) -> pf -> pf
+onatomsPropositional :: JustPropositional pf => (AtomOf pf -> AtomOf pf) -> pf -> pf
 onatomsPropositional f fm =
     foldPropositional co ne tf at fm
     where
       co p op q = binop (onatomsPropositional f p) op (onatomsPropositional f q)
       ne p = (.~.) (onatomsPropositional f p)
       tf flag = fromBool flag
-      at x = f x
+      at x = atomic (f x)
 
 -- | Implementation of 'overatoms' for any 'JustPropositional' type.
 overatomsPropositional :: JustPropositional pf => (AtomOf pf -> r -> r) -> pf -> r -> r
@@ -627,8 +628,14 @@ test13 :: Test
 test13 = TestCase $ assertEqual "tautology 4 (p. 41)" True (tautology $ (p .|. q) .&. ((.~.)(p .&. q)) .=>. ((.~.)p .<=>. q)) where (p, q) = (Atom (P "p"), Atom (P "q"))
 
 -- | Substitution operation.
-psubst :: IsPropositional formula => Map (AtomOf formula) formula -> formula -> formula
-psubst subfn fm = onatoms (\ p -> maybe (atomic p) id (fpf subfn p)) fm
+psubst :: JustPropositional formula => Map (AtomOf formula) formula -> formula -> formula
+psubst subfn fm =
+    foldPropositional co ne tf at fm
+    where
+      co p op q = binop (psubst subfn p) op (psubst subfn q)
+      ne p = (.~.) (psubst subfn p)
+      tf = fromBool
+      at p = fromMaybe (atomic p) (fpf subfn p)
 
 -- Example
 test14 :: Test

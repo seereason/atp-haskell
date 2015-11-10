@@ -183,7 +183,7 @@ convertQuantified ca cv f1 =
       at :: AtomOf f1 -> f2
       at = atomic . ca
 
-onatomsQuantified :: IsQuantified formula => (AtomOf formula -> formula) -> formula -> formula
+onatomsQuantified :: IsQuantified formula => (AtomOf formula -> AtomOf formula) -> formula -> formula
 onatomsQuantified f fm =
     foldQuantified qu co ne tf at fm
     where
@@ -191,7 +191,7 @@ onatomsQuantified f fm =
       ne p = (.~.) (onatomsQuantified f p)
       co p op q = binop (onatomsQuantified f p) op (onatomsQuantified f q)
       tf flag = fromBool flag
-      at x = f x
+      at x = atomic (f x)
 
 overatomsQuantified :: IsQuantified fof => (AtomOf fof -> r -> r) -> fof -> r -> r
 overatomsQuantified f fof r0 =
