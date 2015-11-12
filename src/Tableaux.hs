@@ -26,7 +26,7 @@ import Apply (HasApply(TermOf), pApp)
 import Control.Monad.RWS (RWS)
 import Control.Monad.State (execStateT, StateT)
 import Data.List as List (map)
-import Data.Map as Map
+import Data.Map.Strict as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import FOL (asubst, fv, generalize, IsFirstOrder, subst)

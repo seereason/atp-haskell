@@ -23,7 +23,7 @@ module DefCNF
 
 import Data.Function (on)
 import Data.List as List
-import Data.Map as Map hiding (fromList)
+import Data.Map.Strict as Map hiding (fromList)
 import Data.Set as Set
 import Formulas as P
 import Lit ((.~.), (¬), convertLiteral, IsLiteral, JustLiteral, LFormula)

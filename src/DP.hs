@@ -15,7 +15,7 @@ module DP
     , testDP
     ) where
 
-import Data.Map as Map (empty, Map)
+import Data.Map.Strict as Map (empty, Map)
 import Data.Set as Set (delete, difference, empty, filter, findMin, fold, insert, intersection, map, member,
                         minView, null, partition, Set, singleton, size, union)
 import DefCNF (NumAtom(ai, ma), defcnfs)

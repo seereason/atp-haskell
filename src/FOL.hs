@@ -37,7 +37,7 @@ module FOL
     ) where
 
 import Apply (ApAtom, HasApply(PredOf, TermOf, overterms, onterms), Predicate)
-import Data.Map as Map (empty, fromList, insert, lookup, Map)
+import Data.Map.Strict as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))

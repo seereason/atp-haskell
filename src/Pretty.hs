@@ -37,7 +37,7 @@ module Pretty
     ) where
 
 import Control.Monad (unless)
-import Data.Map as Map (Map, toList)
+import Data.Map.Strict as Map (Map, toList)
 import Data.Monoid ((<>))
 import Data.Set as Set (Set, toAscList)
 import GHC.Stack

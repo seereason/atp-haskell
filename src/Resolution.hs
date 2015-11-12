@@ -27,7 +27,7 @@ module Resolution
 import Apply (HasApply(TermOf), JustApply, pApp, zipApplys)
 import Control.Monad.State (execStateT, get, StateT)
 import Data.List as List (map)
-import Data.Map as Map
+import Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Set as Set
 import Data.String (fromString)

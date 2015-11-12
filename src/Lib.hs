@@ -61,7 +61,7 @@ import Data.Foldable as Foldable
 import Data.Function (on)
 import Data.Generics
 import qualified Data.List as List (map)
-import Data.Map as Map (delete, findMin, insert, lookup, Map, member, singleton)
+import Data.Map.Strict as Map (delete, findMin, insert, lookup, Map, member, singleton)
 import Data.Maybe
 import Data.Monoid ((<>))
 import Data.Sequence as Seq (Seq, viewl, ViewL(EmptyL, (:<)), (><), singleton)

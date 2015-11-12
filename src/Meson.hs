@@ -20,7 +20,7 @@ module Meson
 
 import Apply (HasApply(TermOf, PredOf), pApp)
 import Control.Monad.State (execStateT)
-import Data.Map as Map
+import Data.Map.Strict as Map
 import Data.Set as Set
 import Lib (Failing(Failure, Success), setAll, settryfind)
 import FOL (generalize, IsFirstOrder)

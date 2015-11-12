@@ -25,7 +25,7 @@ import Apply (HasApply(TermOf), JustApply, zipApplys)
 import Control.Monad.State -- (evalStateT, runStateT, State, StateT, get)
 import Data.Bool (bool)
 import Data.List as List (map)
-import Data.Map as Map
+import Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
 import Equate (HasEquate, zipEquates)

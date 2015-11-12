@@ -84,7 +84,7 @@ import Data.Foldable as Foldable (null)
 import Data.Function (on)
 import Data.Generics (Data, Typeable)
 import Data.List as List (groupBy, intercalate, map, sortBy)
-import Data.Map as Map (Map)
+import Data.Map.Strict as Map (Map)
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map,

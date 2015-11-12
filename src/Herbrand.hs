@@ -14,7 +14,7 @@
 module Herbrand where
 
 import Apply (functions, HasApply(TermOf))
-import qualified Data.Map as Map
+import qualified Data.Map.Strict as Map
 import Data.Set as Set
 import Data.String (IsString(..))
 import Debug.Trace
