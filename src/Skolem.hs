@@ -16,7 +16,7 @@
 module Skolem
     (
     -- * Class of Skolem functions
-      HasSkolem(SVarOf, toSkolem, foldSkolem)
+      HasSkolem(SVarOf, toSkolem, foldSkolem, variantSkolem)
     , showSkolem
     , prettySkolem
     -- * Skolem monad
@@ -62,7 +62,7 @@ import Prop ((.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:))
              convertToPropositional, foldPropositional', JustPropositional, PFormula, psimplify1, trivial)
 import Quantified (exists, for_all, IsQuantified(VarOf, foldQuantified),
                    QFormula, quant, Quant((:?:), (:!:)))
-import Term (fApp, IsFunction(variantFunction), IsTerm(TVarOf, FunOf), IsVariable, Term, V, variant, vt)
+import Term (fApp, IsFunction, IsTerm(TVarOf, FunOf), IsVariable, Term, V, variant, vt)
 import Test.HUnit
 
 -- | Class of functions that include embedded Skolem functions
@@ -87,6 +87,10 @@ class (IsFunction function, IsVariable (SVarOf function)) => HasSkolem function 
     -- ^ Create a skolem function with a variant number that differs
     -- from all the members of the set.
     foldSkolem :: (function -> r) -> (SVarOf function -> Int -> r) -> function -> r
+    variantSkolem :: function -> Set function -> function
+    -- ^ Return a function based on f but different from any set
+    -- element.  The result may be f itself if f is not a member of
+    -- the set.
 
 -- fromSkolem :: HasSkolem function v => function -> Maybe v
 -- fromSkolem = foldSkolem (const Nothing) Just
@@ -304,7 +308,7 @@ skolem fm =
 
 newSkolem :: (Monad m, HasSkolem function, v ~ SVarOf function) => v -> SkolemT m function function
 newSkolem v = do
-  f <- variantFunction (toSkolem v 1) <$> skolemSet <$> get
+  f <- variantSkolem (toSkolem v 1) <$> skolemSet <$> get
   modify (\s -> s {skolemSet = Set.insert f (skolemSet s)})
   return f
 
@@ -357,10 +361,7 @@ data Function
     | Skolem V Int
     deriving (Eq, Ord, Data, Typeable, Read)
 
-instance IsFunction Function where
-    variantFunction f fns | Set.notMember f fns = f
-    variantFunction (Fn s) fns = variantFunction (fromString (s ++ "'")) fns
-    variantFunction (Skolem v n) fns = variantFunction (Skolem v (succ n)) fns
+instance IsFunction Function
 
 instance IsString Function where
     fromString = Fn
@@ -376,6 +377,9 @@ instance HasSkolem Function where
     toSkolem = Skolem
     foldSkolem _ sk (Skolem v n) = sk v n
     foldSkolem other _ f = other f
+    variantSkolem f fns | Set.notMember f fns = f
+    variantSkolem (Fn s) fns = variantSkolem (fromString (s ++ "'")) fns
+    variantSkolem (Skolem v n) fns = variantSkolem (Skolem v (succ n)) fns
 
 -- | A first order logic formula type with an equality predicate and skolem functions.
 type Formula = QFormula V SkAtom
