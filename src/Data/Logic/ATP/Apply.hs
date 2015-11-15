@@ -11,7 +11,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module Apply
+module Data.Logic.ATP.Apply
     ( IsPredicate
     , HasApply(TermOf, PredOf, applyPredicate, foldApply', overterms, onterms)
     , atomFuncs
@@ -32,13 +32,13 @@ module Apply
     ) where
 
 import Data.Data (Data)
+import Data.Logic.ATP.Formulas (IsAtom, IsFormula(..), onatoms)
+import Data.Logic.ATP.Pretty as Pretty ((<>), Associativity(InfixN), Doc, HasFixity(associativity, precedence), pAppPrec, text)
+import Data.Logic.ATP.Term (Arity, FTerm, IsTerm(FunOf, TVarOf), funcs)
 import Data.Set as Set (Set, union)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
-import Formulas (IsAtom, IsFormula(..), onatoms)
 import Prelude hiding (pred)
-import Pretty ((<>), Associativity(InfixN), Doc, HasFixity(associativity, precedence), pAppPrec, text)
-import Term (Arity, FTerm, IsTerm(FunOf, TVarOf), funcs)
 import Text.PrettyPrint (parens, brackets, punctuate, comma, fcat, space)
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint))
 

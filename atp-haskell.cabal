@@ -20,58 +20,58 @@ Library
   GHC-options: -Wall -O2
   Hs-Source-Dirs: src
   Exposed-Modules:
-    ATP
-    Lib
-    Pretty
-    Formulas
-    Term
-    Apply
-    Equate
+    Data.Logic.ATP
+    Data.Logic.ATP.Lib
+    Data.Logic.ATP.Pretty
+    Data.Logic.ATP.Formulas
+    Data.Logic.ATP.Term
+    Data.Logic.ATP.Apply
+    Data.Logic.ATP.Equate
     --
-    Lit
-    Prop
-    PropExamples
-    DefCNF
-    DP
-    -- Stal
-    -- BDD
-    Quantified
-    Parser
-    FOL
-    ParserTests
-    Skolem
-    Herbrand
-    Unif
-    Tableaux
-    Resolution
-    Prolog
-    Meson
-    -- Skolems
-    Equal
-    -- Cong
-    -- Rewrite
-    -- Order
-    -- Completion
-    -- Eqelim
-    -- Paramodulation
+    Data.Logic.ATP.Lit
+    Data.Logic.ATP.Prop
+    Data.Logic.ATP.PropExamples
+    Data.Logic.ATP.DefCNF
+    Data.Logic.ATP.DP
+    -- Data.Logic.ATP.Stal
+    -- Data.Logic.ATP.BDD
+    Data.Logic.ATP.Quantified
+    Data.Logic.ATP.Parser
+    Data.Logic.ATP.FOL
+    Data.Logic.ATP.ParserTests
+    Data.Logic.ATP.Skolem
+    Data.Logic.ATP.Herbrand
+    Data.Logic.ATP.Unif
+    Data.Logic.ATP.Tableaux
+    Data.Logic.ATP.Resolution
+    Data.Logic.ATP.Prolog
+    Data.Logic.ATP.Meson
+    -- Data.Logic.ATP.Skolems
+    Data.Logic.ATP.Equal
+    -- Data.Logic.ATP.Cong
+    -- Data.Logic.ATP.Rewrite
+    -- Data.Logic.ATP.Order
+    -- Data.Logic.ATP.Completion
+    -- Data.Logic.ATP.Eqelim
+    -- Data.Logic.ATP.Paramodulation
     --
-    -- Decidable
-    -- Qelim
-    -- Cooper
-    -- Complex
-    -- Real
-    -- Grobner
-    -- Geom
-    -- Interpolation
-    -- Combining
+    -- Data.Logic.ATP.Decidable
+    -- Data.Logic.ATP.Qelim
+    -- Data.Logic.ATP.Cooper
+    -- Data.Logic.ATP.Complex
+    -- Data.Logic.ATP.Real
+    -- Data.Logic.ATP.Grobner
+    -- Data.Logic.ATP.Geom
+    -- Data.Logic.ATP.Interpolation
+    -- Data.Logic.ATP.Combining
 
-    -- Lcf
-    -- Lcfprop
-    -- Folderived
-    -- Lcffol
-    -- Tactics
+    -- Data.Logic.ATP.Lcf
+    -- Data.Logic.ATP.Lcfprop
+    -- Data.Logic.ATP.Folderived
+    -- Data.Logic.ATP.Lcffol
+    -- Data.Logic.ATP.Tactics
 
-    -- Limitations
+    -- Data.Logic.ATP.Limitations
 
 Test-Suite atp-haskell-tests
   Type: exitcode-stdio-1.0

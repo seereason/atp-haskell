@@ -12,7 +12,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Equate
+module Data.Logic.ATP.Equate
     ( HasEquate(equate, foldEquate)
     , (.=.)
     , zipEquates
@@ -29,14 +29,14 @@ module Equate
     , EqAtom
     ) where
 
-import Apply (HasApply(PredOf, TermOf, applyPredicate, foldApply', overterms, onterms),
-              IsPredicate, Predicate, prettyApply, showApply)
 import Data.Data (Data)
+import Data.Logic.ATP.Apply (HasApply(PredOf, TermOf, applyPredicate, foldApply', overterms, onterms),
+                             IsPredicate, Predicate, prettyApply, showApply)
+import Data.Logic.ATP.Formulas (IsAtom, IsFormula(..))
+import Data.Logic.ATP.Pretty as Pretty ((<>), Associativity(InfixN), atomPrec, Doc, eqPrec, HasFixity(associativity, precedence), pAppPrec, Precedence, text)
+import Data.Logic.ATP.Term (FTerm, IsTerm)
 import Data.Typeable (Typeable)
-import Formulas (IsAtom, IsFormula(..))
 import Prelude hiding (pred)
-import Pretty ((<>), Associativity(InfixN), atomPrec, Doc, eqPrec, HasFixity(associativity, precedence), pAppPrec, Precedence, text)
-import Term (FTerm, IsTerm)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrintPrec), PrettyLevel)
 
 -- | Atoms that support equality must have HasEquate instance

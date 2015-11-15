@@ -13,7 +13,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Skolem
+module Data.Logic.ATP.Skolem
     (
     -- * Class of Skolem functions
       HasSkolem(SVarOf, toSkolem, foldSkolem, variantSkolem)
@@ -42,27 +42,27 @@ module Skolem
     , testSkolem
     ) where
 
-import Apply (functions, HasApply(TermOf, PredOf), pApp, Predicate)
 import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT, get, modify)
 import Data.Generics (Data, Typeable)
 import Data.List as List (map)
+import Data.Logic.ATP.Apply (functions, HasApply(TermOf, PredOf), pApp, Predicate)
+import Data.Logic.ATP.Equate (FOL)
+import Data.Logic.ATP.FOL (fv, IsFirstOrder, subst)
+import Data.Logic.ATP.Formulas (IsFormula(AtomOf), false, true, atomic)
+import Data.Logic.ATP.Lib (setAny, distrib)
+import Data.Logic.ATP.Lit ((.~.), negate)
+import Data.Logic.ATP.Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
+import Data.Logic.ATP.Prop ((.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
+                            convertToPropositional, foldPropositional', JustPropositional, PFormula, psimplify1, trivial)
+import Data.Logic.ATP.Quantified (exists, for_all, IsQuantified(VarOf, foldQuantified),
+                                  QFormula, quant, Quant((:?:), (:!:)))
+import Data.Logic.ATP.Term (fApp, IsFunction, IsTerm(TVarOf, FunOf), IsVariable, Term, V, variant, vt)
 import Data.Map.Strict as Map (singleton)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, insert, isProperSubsetOf, map, member, notMember, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
-import Equate (FOL)
-import FOL (fv, IsFirstOrder, subst)
-import Formulas (IsFormula(AtomOf), false, true, atomic)
-import Lib (setAny, distrib)
-import Lit ((.~.), negate)
 import Prelude hiding (negate)
-import Pretty (brackets, Doc, Pretty(pPrint), prettyShow, text)
-import Prop ((.&.), (.|.), (.=>.), (.<=>.), BinOp((:&:), (:|:), (:=>:), (:<=>:)),
-             convertToPropositional, foldPropositional', JustPropositional, PFormula, psimplify1, trivial)
-import Quantified (exists, for_all, IsQuantified(VarOf, foldQuantified),
-                   QFormula, quant, Quant((:?:), (:!:)))
-import Term (fApp, IsFunction, IsTerm(TVarOf, FunOf), IsVariable, Term, V, variant, vt)
 import Test.HUnit
 
 -- | Class of functions that include embedded Skolem functions

@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP, NoMonomorphismRestriction, FlexibleContexts, FlexibleInstances, ScopedTypeVariables, TemplateHaskell, TypeFamilies #-}
-module Parser where
+module Data.Logic.ATP.Parser where
 
 -- Parsing expressions and statements
 -- https://wiki.haskell.org/Parsing_expressions_and_statements
@@ -16,14 +16,14 @@ import Text.Parsec.Token
 import Text.Parsec.Language
 import Text.PrettyPrint.HughesPJClass (Pretty(pPrint), text)
 
-import Apply
-import Equate
-import Formulas
-import Lit
-import Prop
-import Quantified
-import Skolem
-import Term
+import Data.Logic.ATP.Apply
+import Data.Logic.ATP.Equate
+import Data.Logic.ATP.Formulas
+import Data.Logic.ATP.Lit
+import Data.Logic.ATP.Prop
+import Data.Logic.ATP.Quantified
+import Data.Logic.ATP.Skolem
+import Data.Logic.ATP.Term
 
 instance Pretty ParseError where
     pPrint = text . show

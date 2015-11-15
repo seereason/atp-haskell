@@ -17,8 +17,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Prop
-    ( 
+module Data.Logic.ATP.Prop
+    ( -- * binary operations
       BinOp(..), binop
     -- * Propositional formulas
     , IsPropositional((.|.), (.&.), (.<=>.), (.=>.), foldPropositional', foldCombination)
@@ -36,7 +36,7 @@ module Prop
     , showPropositional
     , onatomsPropositional
     , overatomsPropositional
-    -- * Restricted propositional formula classes
+    -- * Restricted propositional formula class
     , JustPropositional
     -- * Interpretation of formulas.
     , eval
@@ -84,21 +84,21 @@ import Data.Foldable as Foldable (null)
 import Data.Function (on)
 import Data.Generics (Data, Typeable)
 import Data.List as List (groupBy, intercalate, map, sortBy)
+import Data.Logic.ATP.Formulas (atom_union, fromBool, IsAtom,
+                                IsFormula(AtomOf, asBool, true, false, atomic, overatoms, onatoms), prettyBool)
+import Data.Logic.ATP.Lib ((|=>), distrib, fpf, setAny)
+import Data.Logic.ATP.Lit ((.~.), (¬), convertLiteral, convertToLiteral, IsLiteral(foldLiteral', naiveNegate, foldNegation),
+                           JustLiteral, LFormula, negate, positive, )
+import Data.Logic.ATP.Pretty (Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity),
+                              Precedence, Pretty(pPrint, pPrintPrec), prettyShow, Side(Top, LHS, RHS, Unary), testParen, text,
+                              notPrec, andPrec, orPrec, impPrec, iffPrec, leafPrec, boolPrec)
 import Data.Map.Strict as Map (Map)
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map,
                         minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
-import Formulas (atom_union, fromBool, IsAtom,
-                 IsFormula(AtomOf, asBool, true, false, atomic, overatoms, onatoms), prettyBool)
-import Lib ((|=>), distrib, fpf, setAny)
-import Lit ((.~.), (¬), convertLiteral, convertToLiteral, IsLiteral(foldLiteral', naiveNegate, foldNegation),
-            JustLiteral, LFormula, negate, positive, )
 import Prelude hiding (negate, null)
-import Pretty (Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity),
-               Precedence, Pretty(pPrint, pPrintPrec), prettyShow, Side(Top, LHS, RHS, Unary), testParen, text,
-               notPrec, andPrec, orPrec, impPrec, iffPrec, leafPrec, boolPrec)
 import Text.PrettyPrint.HughesPJClass (maybeParens, PrettyLevel, vcat)
 import Test.HUnit
 

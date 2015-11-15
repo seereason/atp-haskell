@@ -13,7 +13,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Quantified
+module Data.Logic.ATP.Quantified
     ( Quant((:!:), (:?:))
     , IsQuantified(VarOf, quant, foldQuantified)
     , for_all, (∀)
@@ -30,17 +30,18 @@ module Quantified
     , QFormula(F, T, Atom, Not, And, Or, Imp, Iff, Forall, Exists)
     ) where
 
-import Apply (HasApply(TermOf))
 import Data.Data (Data)
+import Data.Logic.ATP.Apply (HasApply(TermOf))
+import Data.Logic.ATP.Formulas (fromBool, IsAtom, IsFormula(..), onatoms, prettyBool)
+import Data.Logic.ATP.Lit ((.~.), IsLiteral(foldLiteral'), IsLiteral(..))
+import Data.Logic.ATP.Pretty as Pretty
+    ((<>), Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity),
+     Precedence, Side(Top, LHS, RHS, Unary), testParen, text,
+     andPrec, orPrec, impPrec, iffPrec, notPrec, leafPrec, quantPrec)
+import Data.Logic.ATP.Prop (BinOp(..), binop, IsPropositional((.&.), (.|.), (.=>.), (.<=>.), foldPropositional', foldCombination))
+import Data.Logic.ATP.Term (IsTerm(TVarOf), IsVariable)
 import Data.Typeable (Typeable)
-import Formulas (fromBool, IsAtom, IsFormula(..), onatoms, prettyBool)
-import Lit ((.~.), IsLiteral(foldLiteral'), IsLiteral(..))
 import Prelude hiding (pred)
-import Pretty ((<>), Associativity(InfixN, InfixR, InfixA), Doc, HasFixity(precedence, associativity), Precedence,
-               Side(Top, LHS, RHS, Unary), testParen, text,
-               andPrec, orPrec, impPrec, iffPrec, notPrec, leafPrec, quantPrec)
-import Prop (BinOp(..), binop, IsPropositional((.&.), (.|.), (.=>.), (.<=>.), foldPropositional', foldCombination))
-import Term (IsTerm(TVarOf), IsVariable)
 import Text.PrettyPrint (fsep)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel, prettyNormal)
 

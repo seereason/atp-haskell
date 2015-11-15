@@ -7,7 +7,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module DP
+module Data.Logic.ATP.DP
     ( dp,   dpsat,   dptaut
     , dpli, dplisat, dplitaut
     , dpll, dpllsat, dplltaut
@@ -15,17 +15,16 @@ module DP
     , testDP
     ) where
 
+import Data.Logic.ATP.DefCNF (NumAtom(ai, ma), defcnfs)
+import Data.Logic.ATP.Formulas (IsFormula(AtomOf))
+import Data.Logic.ATP.Lib (Failing(Success, Failure), failing, allpairs, minimize, maximize, defined, (|->), setmapfilter, flatten)
+import Data.Logic.ATP.Lit (IsLiteral, (.~.), negative, positive, negate, negated)
+import Data.Logic.ATP.Prop (trivial, JustPropositional, PFormula)
+import Data.Logic.ATP.PropExamples (Knows(K), prime)
 import Data.Map.Strict as Map (empty, Map)
 import Data.Set as Set (delete, difference, empty, filter, findMin, fold, insert, intersection, map, member,
                         minView, null, partition, Set, singleton, size, union)
-import DefCNF (NumAtom(ai, ma), defcnfs)
-import Formulas (IsFormula(AtomOf))
-import Lib (Failing(Success, Failure), failing, allpairs, minimize, maximize, defined, (|->), setmapfilter, flatten)
-import Lit (IsLiteral, (.~.), negative, positive, negate, negated)
 import Prelude hiding (negate, pure)
-import Prop (trivial, JustPropositional, PFormula)
-import PropExamples (Knows(K), prime)
-import PropExamples ()
 import Test.HUnit
 
 instance NumAtom (Knows Integer) where

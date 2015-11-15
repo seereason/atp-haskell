@@ -11,33 +11,32 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# OPTIONS_GHC -Wall #-}
 
-module Meson
+module Data.Logic.ATP.Meson
     ( meson1
     , meson2
     , meson
     , testMeson
     ) where
 
-import Apply (HasApply(TermOf, PredOf), pApp)
 import Control.Monad.State (execStateT)
+import Data.Logic.ATP.Apply (HasApply(TermOf, PredOf), pApp)
+import Data.Logic.ATP.FOL (generalize, IsFirstOrder)
+import Data.Logic.ATP.Formulas (false, IsFormula(AtomOf))
+import Data.Logic.ATP.Lib (Depth(Depth), deepen, Failing(Failure, Success), setAll, settryfind)
+import Data.Logic.ATP.Lit ((.~.), JustLiteral, LFormula, negative)
+import Data.Logic.ATP.Parser (fof)
+import Data.Logic.ATP.Pretty (assertEqual', prettyShow, testEquals)
+import Data.Logic.ATP.Prolog (PrologRule(Prolog), renamerule)
+import Data.Logic.ATP.Prop ((.&.), (.|.), (.=>.), list_conj, PFormula, simpcnf)
+import Data.Logic.ATP.Quantified (exists, for_all, IsQuantified(VarOf))
+import Data.Logic.ATP.Resolution (davis_putnam_example_formula)
+import Data.Logic.ATP.Skolem (askolemize, Formula, HasSkolem(SVarOf), pnf, runSkolem, SkolemT, simpdnf', specialize, toSkolem)
+import Data.Logic.ATP.Tableaux (K(K), tab)
+import Data.Logic.ATP.Term (fApp, IsTerm(FunOf, TVarOf), vt)
+import Data.Logic.ATP.Unif (Unify, unify_literals)
 import Data.Map.Strict as Map
 import Data.Set as Set
-import Lib (Failing(Failure, Success), setAll, settryfind)
-import FOL (generalize, IsFirstOrder)
-import Formulas (false, IsFormula(AtomOf))
-import Lib (Depth(Depth), deepen)
-import Lit ((.~.), JustLiteral, LFormula, negative)
-import Pretty (assertEqual', prettyShow, testEquals)
-import Prolog (PrologRule(Prolog), renamerule)
-import Prop ((.&.), (.|.), (.=>.), list_conj, PFormula, simpcnf)
-import Quantified (exists, for_all, IsQuantified(VarOf))
-import Parser (fof)
-import Resolution (davis_putnam_example_formula)
-import Skolem (askolemize, Formula, HasSkolem(SVarOf), pnf, runSkolem, SkolemT, simpdnf', specialize, toSkolem)
-import Tableaux (K(K), tab)
-import Term (fApp, IsTerm(FunOf, TVarOf), vt)
 import Test.HUnit
-import Unif (Unify, unify_literals)
 
 test03 :: Test
 test03 = let fm = [fof| ∀a. ¬(P(a)∧(∀y. (∀z. Q(y)∨R(z))∧¬P(a))) |] in

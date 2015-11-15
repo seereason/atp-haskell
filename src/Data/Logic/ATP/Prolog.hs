@@ -5,18 +5,18 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall #-}
 
-module Prolog where
+module Data.Logic.ATP.Prolog where
 
-import Apply (HasApply(TermOf))
 import Data.List as List (map)
+import Data.Logic.ATP.Apply (HasApply(TermOf))
+import Data.Logic.ATP.FOL (var, lsubst)
+import Data.Logic.ATP.Formulas (IsFormula(AtomOf))
+-- import Data.Logic.ATP.Lib (deepen)
+import Data.Logic.ATP.Lit (IsLiteral, JustLiteral)
+import Data.Logic.ATP.Term (IsTerm(TVarOf), vt)
 import Data.Map.Strict as Map
 import Data.Set as Set
 import Data.String (fromString)
-import FOL (var, lsubst)
-import Formulas (IsFormula(AtomOf))
--- import Lib (deepen)
-import Lit (IsLiteral, JustLiteral)
-import Term (IsTerm(TVarOf), vt)
 import Test.HUnit
 
 data PrologRule lit = Prolog (Set lit) lit deriving (Eq, Ord)

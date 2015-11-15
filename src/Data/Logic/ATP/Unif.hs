@@ -9,7 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Unif
+module Data.Logic.ATP.Unif
     ( Unify(unify)
     , unify_terms
     , unify_literals
@@ -21,20 +21,20 @@ module Unif
     , testUnif
     ) where
 
-import Apply (HasApply(TermOf), JustApply, zipApplys)
 import Control.Monad.State -- (evalStateT, runStateT, State, StateT, get)
 import Data.Bool (bool)
 import Data.List as List (map)
+import Data.Logic.ATP.Apply (HasApply(TermOf), JustApply, zipApplys)
+import Data.Logic.ATP.Equate (HasEquate, zipEquates)
+import Data.Logic.ATP.FOL (tsubst)
+import Data.Logic.ATP.Formulas (IsFormula(AtomOf))
+import Data.Logic.ATP.Lib (Failing(Success, Failure))
+import Data.Logic.ATP.Lit (IsLiteral, zipLiterals')
+import Data.Logic.ATP.Skolem (SkAtom, SkTerm)
+import Data.Logic.ATP.Term (IsTerm(..), V)
 import Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
-import Equate (HasEquate, zipEquates)
-import FOL (tsubst)
-import Formulas (IsFormula(AtomOf))
-import Lib (Failing(Success, Failure))
-import Lit (IsLiteral, zipLiterals')
-import Skolem (SkAtom, SkTerm)
-import Term (IsTerm(..), V)
 import Test.HUnit hiding (State)
 
 -- | Main unification procedure.

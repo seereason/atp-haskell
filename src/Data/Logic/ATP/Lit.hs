@@ -12,7 +12,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Lit
+module Data.Logic.ATP.Lit
     ( IsLiteral(naiveNegate, foldNegation, foldLiteral')
     , (.~.), (¬), negate
     , negated
@@ -34,10 +34,10 @@ module Lit
     ) where
 
 import Data.Generics (Data, Typeable)
+import Data.Logic.ATP.Formulas (IsAtom, IsFormula(atomic, AtomOf, asBool, false, true), fromBool, overatoms, onatoms, prettyBool)
+import Data.Logic.ATP.Pretty (Associativity(..), boolPrec, Doc, HasFixity(precedence, associativity), notPrec, Precedence, text)
 import Data.Monoid ((<>))
-import Formulas (IsAtom, IsFormula(atomic, AtomOf, asBool, false, true), fromBool, overatoms, onatoms, prettyBool)
 import Prelude hiding (negate, null)
-import Pretty (Associativity(..), boolPrec, Doc, HasFixity(precedence, associativity), notPrec, Precedence, text)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel, prettyNormal)
 
 -- | The class of formulas that can be negated.  Literals are the

@@ -1,25 +1,25 @@
 {-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, QuasiQuotes, ScopedTypeVariables, TemplateHaskell #-}
 module Extra where
 
-import Apply (pApp)
 import Control.Applicative.Error (Failing(Failure, Success))
 import Data.List as List (map)
+import Data.Logic.ATP.Apply (pApp)
+import Data.Logic.ATP.Equate ((.=.))
+import Data.Logic.ATP.Formulas
+import Data.Logic.ATP.Lib (Depth(Depth))
+import Data.Logic.ATP.Lit ((.~.))
+import Data.Logic.ATP.Meson (meson)
+import Data.Logic.ATP.Pretty (prettyShow, testEquals)
+import Data.Logic.ATP.Prop hiding (nnf)
+import Data.Logic.ATP.Quantified (for_all, exists)
+import Data.Logic.ATP.Parser (fof)
+import Data.Logic.ATP.Resolution
+import Data.Logic.ATP.Skolem (Formula, HasSkolem(toSkolem), skolemize, runSkolem, SkAtom, SkTerm)
+import Data.Logic.ATP.Tableaux (K(K), tab)
+import Data.Logic.ATP.Term (vt, fApp)
 import Data.Map as Map (empty)
 import Data.Set as Set (fromList, minView, null, Set, singleton)
 import Data.String (fromString)
-import Equate ((.=.))
-import Formulas
-import Lib (Depth(Depth))
-import Lit ((.~.))
-import Meson (meson)
-import Pretty (prettyShow, testEquals)
-import Prop hiding (nnf)
-import Quantified (for_all, exists)
-import Parser (fof)
-import Resolution
-import Skolem (Formula, HasSkolem(toSkolem), skolemize, runSkolem, SkAtom, SkTerm)
-import Tableaux (K(K), tab)
-import Term (vt, fApp)
 import Test.HUnit
 
 testExtra :: Test

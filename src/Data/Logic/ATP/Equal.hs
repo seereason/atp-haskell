@@ -7,7 +7,7 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, RankNTypes, ScopedTypeVariables, TypeSynonymInstances #-}
 {-# OPTIONS_GHC -Wall #-}
 
-module Equal
+module Data.Logic.ATP.Equal
     ( function_congruence
     , equalitize
     -- * Tests
@@ -15,21 +15,21 @@ module Equal
     , testEqual
     ) where
 
-import Apply (functions, HasApply(TermOf, PredOf, applyPredicate), pApp)
+import Data.Logic.ATP.Apply (functions, HasApply(TermOf, PredOf, applyPredicate), pApp)
+import Data.Logic.ATP.Equate ((.=.), HasEquate(foldEquate))
+import Data.Logic.ATP.Formulas (IsFormula(AtomOf, atomic), atom_union)
+import Data.Logic.ATP.Lib ((∅), Depth(Depth), Failing (Success, Failure), timeMessage)
+import Data.Logic.ATP.Meson (meson)
+import Data.Logic.ATP.Pretty (assertEqual')
+import Data.Logic.ATP.Prop ((.&.), (.=>.), (∧), (⇒))
+import Data.Logic.ATP.Quantified ((∃), (∀), IsQuantified(..))
+import Data.Logic.ATP.Parser (fof)
+import Data.Logic.ATP.Skolem (runSkolem, Formula)
+import Data.Logic.ATP.Term (IsTerm(..))
 import Data.List as List (foldr, map)
 import Data.Set as Set
 import Data.String (IsString(fromString))
-import Equate ((.=.), HasEquate(foldEquate))
-import Formulas (IsFormula(AtomOf, atomic), atom_union)
-import Lib ((∅), Depth(Depth), Failing (Success, Failure), timeMessage)
-import Meson (meson)
 import Prelude hiding ((*))
-import Pretty (assertEqual')
-import Prop ((.&.), (.=>.), (∧), (⇒))
-import Quantified ((∃), (∀), IsQuantified(..))
-import Parser (fof)
-import Skolem (runSkolem, Formula)
-import Term (IsTerm(..))
 import Test.HUnit
 
 -- is_eq :: (IsQuantified fof atom v, IsAtomWithEquate atom p term) => fof -> Bool
@@ -200,7 +200,9 @@ wishnu = [fof| (∃x. x=f (g (x))∧(∀x'. x'=f (g (x'))⇒x=x'))⇔(∃y. y=g 
 
 -- This takes 0.7 seconds on my machine.
 testEqual03 :: Test
-testEqual03 = TestLabel "equalitize 2" $ TestCase $ assertEqual' "equalitize 2 (p. 241)" (expected, expectedProof) input
+testEqual03 =
+    (TestLabel "equalitize 2" . TestCase . timeMessage (\_ t -> "\nEqualitize 2 compute time: " ++ show t))
+       (assertEqual' "equalitize 2 (p. 241)" (expected, expectedProof) input)
     where input = (equalitize wishnu, runSkolem (meson Nothing (equalitize wishnu)))
           expected :: Formula
           expected = [fof| (∀x. x=x)∧

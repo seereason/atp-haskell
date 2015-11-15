@@ -10,7 +10,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
-module PropExamples
+module Data.Logic.ATP.PropExamples
     ( Knows(K)
     , mk_knows, mk_knows2
     , prime
@@ -20,13 +20,13 @@ module PropExamples
 
 import Data.Bits (Bits, shiftR)
 import Data.List as List (map)
+import Data.Logic.ATP.Formulas
+import Data.Logic.ATP.Lib (allsets, timeMessage)
+import Data.Logic.ATP.Lit ((.~.))
+import Data.Logic.ATP.Pretty (HasFixity(precedence), Pretty(pPrint), prettyShow, text)
+import Data.Logic.ATP.Prop
 import Data.Set as Set
 import Prelude hiding (sum)
-import Formulas
-import Lib (allsets, timeMessage)
-import Lit ((.~.))
-import Pretty (HasFixity(precedence), Pretty(pPrint), prettyShow, text)
-import Prop
 import Test.HUnit
 
 -- | Generate assertion equivalent to R(s,t) <= n for the Ramsey number R(s,t)

@@ -9,7 +9,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Formulas
+module Data.Logic.ATP.Formulas
     ( IsAtom
     , IsFormula(AtomOf, true, false, asBool, atomic, overatoms, onatoms)
     , (⊥), (⊤)
@@ -18,9 +18,9 @@ module Formulas
     , atom_union
     ) where
 
+import Data.Logic.ATP.Pretty (Doc, HasFixity, Pretty, text)
 import Data.Set as Set (Set, empty, union)
 import Prelude hiding (negate)
-import Pretty (Doc, HasFixity, Pretty, text)
 
 -- | Basic properties of an atomic formula
 class (Ord atom, Show atom, HasFixity atom, Pretty atom) => IsAtom atom

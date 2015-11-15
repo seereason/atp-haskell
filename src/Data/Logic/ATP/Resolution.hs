@@ -12,7 +12,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -Wall #-}
 
-module Resolution
+module Data.Logic.ATP.Resolution
     ( match_atoms
     , match_atoms_eq
     , resolution1
@@ -24,28 +24,28 @@ module Resolution
     , testResolution
     ) where
 
-import Apply (HasApply(TermOf), JustApply, pApp, zipApplys)
 import Control.Monad.State (execStateT, get, StateT)
 import Data.List as List (map)
+import Data.Logic.ATP.Apply (HasApply(TermOf), JustApply, pApp, zipApplys)
+import Data.Logic.ATP.Equate (HasEquate, zipEquates)
+import Data.Logic.ATP.FOL (generalize, IsFirstOrder, lsubst, var)
+import Data.Logic.ATP.Formulas (IsFormula(AtomOf))
+import Data.Logic.ATP.Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
+                           Failing(..), failing, (|->), setAll, setAny, settryfind)
+import Data.Logic.ATP.Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive, zipLiterals')
+import Data.Logic.ATP.Pretty (assertEqual', Pretty, prettyShow)
+import Data.Logic.ATP.Prop ((.|.), (.&.), (.=>.), (.<=>.), list_conj, PFormula, simpcnf, trivial)
+import Data.Logic.ATP.Quantified (exists, for_all, IsQuantified(VarOf))
+import Data.Logic.ATP.Parser (fof)
+import Data.Logic.ATP.Skolem (askolemize, Formula, Function(Skolem), HasSkolem(SVarOf), pnf,
+                              runSkolem, simpdnf', SkAtom, skolemize, SkolemT, specialize, SkTerm)
+import Data.Logic.ATP.Term (fApp, foldTerm, IsTerm(FunOf, TVarOf), prefix, V, vt)
+import Data.Logic.ATP.Unif (solve, Unify, unify_literals)
 import Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 import Data.Set as Set
 import Data.String (fromString)
-import Equate (HasEquate, zipEquates)
-import FOL (generalize, IsFirstOrder, lsubst, var)
-import Formulas (IsFormula(AtomOf))
-import Lib (allpairs, allsubsets, allnonemptysubsets, apply, defined,
-            Failing(..), failing, (|->), setAll, setAny, settryfind)
-import Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive, zipLiterals')
-import Pretty (assertEqual', Pretty, prettyShow)
-import Prop ((.|.), (.&.), (.=>.), (.<=>.), list_conj, PFormula, simpcnf, trivial)
-import Quantified (exists, for_all, IsQuantified(VarOf))
-import Parser (fof)
-import Skolem (askolemize, Formula, Function(Skolem), HasSkolem(SVarOf), pnf,
-               runSkolem, simpdnf', SkAtom, skolemize, SkolemT, specialize, SkTerm)
-import Term (fApp, foldTerm, IsTerm(FunOf, TVarOf), prefix, V, vt)
 import Test.HUnit
-import Unif (solve, Unify, unify_literals)
 
 -- | Barber's paradox is an example of why we need factoring.
 test01 :: Test

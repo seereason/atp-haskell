@@ -10,7 +10,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Term
+module Data.Logic.ATP.Term
     ( -- * Variables
       IsVariable(variant, prefix)
     , variants
@@ -37,12 +37,11 @@ module Term
     ) where
 
 import Data.Data (Data)
---import Data.Function (on)
+import Data.Logic.ATP.Pretty ((<>), Associativity(InfixN), Doc, HasFixity(associativity, precedence), Precedence, prettyShow, text)
 import Data.Set as Set (empty, insert, member, Set, singleton)
 import Data.String (IsString(fromString))
 import Data.Typeable (Typeable)
 import Prelude hiding (pred)
-import Pretty ((<>), Associativity(InfixN), Doc, HasFixity(associativity, precedence), Precedence, prettyShow, text)
 import Text.PrettyPrint (parens, brackets, punctuate, comma, fsep, space)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel, prettyNormal)
 import Test.HUnit

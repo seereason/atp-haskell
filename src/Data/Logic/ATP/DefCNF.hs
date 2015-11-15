@@ -9,7 +9,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module DefCNF
+module Data.Logic.ATP.DefCNF
     ( NumAtom(ma, ai)
     , defcnfs
     , defcnf1
@@ -23,14 +23,14 @@ module DefCNF
 
 import Data.Function (on)
 import Data.List as List
+import Data.Logic.ATP.Formulas as P
+import Data.Logic.ATP.Lit ((.~.), (¬), convertLiteral, IsLiteral, JustLiteral, LFormula)
+import Data.Logic.ATP.Pretty (assertEqual', HasFixity, Pretty(pPrint), prettyShow, text)
+import Data.Logic.ATP.Prop (cnf', foldPropositional, IsPropositional(foldPropositional'), JustPropositional,
+                            list_conj, list_disj, nenf, PFormula, Prop(P), simpcnf,
+                            (∨), (∧), (.<=>.), (.&.), (.|.), BinOp(..))
 import Data.Map.Strict as Map hiding (fromList)
 import Data.Set as Set
-import Formulas as P
-import Lit ((.~.), (¬), convertLiteral, IsLiteral, JustLiteral, LFormula)
-import Pretty (assertEqual', HasFixity, Pretty(pPrint), prettyShow, text)
-import Prop (cnf', foldPropositional, IsPropositional(foldPropositional'), JustPropositional,
-             list_conj, list_disj, nenf, PFormula, Prop(P), simpcnf,
-             (∨), (∧), (.<=>.), (.&.), (.|.), BinOp(..))
 import Test.HUnit
 
 -- | Example (p. 74)

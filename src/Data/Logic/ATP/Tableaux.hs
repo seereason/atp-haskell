@@ -15,33 +15,33 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wall #-}
 
-module Tableaux
+module Data.Logic.ATP.Tableaux
     ( prawitz
     , K(K)
     , tab
     , testTableaux
     ) where
 
-import Apply (HasApply(TermOf), pApp)
+import Data.Logic.ATP.Apply (HasApply(TermOf), pApp)
 import Control.Monad.RWS (RWS)
 import Control.Monad.State (execStateT, StateT)
 import Data.List as List (map)
+import Data.Logic.ATP.FOL (asubst, fv, generalize, IsFirstOrder, subst)
+import Data.Logic.ATP.Formulas (atomic, IsFormula(asBool, AtomOf), onatoms, overatoms)
+import Data.Logic.ATP.Herbrand (davisputnam)
+import Data.Logic.ATP.Lib ((|=>), allpairs, deepen, Depth(Depth), distrib, evalRS, Failing(Success, Failure), failing, settryfind, tryfindM)
+import Data.Logic.ATP.Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive)
+import Data.Logic.ATP.Pretty (assertEqual', Pretty(pPrint), prettyShow, text)
+import Data.Logic.ATP.Prop ( (.&.), (.=>.), (.<=>.), (.|.), BinOp((:&:), (:|:)), PFormula, simpdnf)
+import Data.Logic.ATP.Quantified (exists, foldQuantified, for_all, Quant((:!:)))
+import Data.Logic.ATP.Skolem (askolemize, Formula, HasSkolem(SVarOf, toSkolem), runSkolem, simpdnf', skolemize, SkTerm)
+import Data.Logic.ATP.Term (fApp, IsTerm(TVarOf, FunOf), vt)
+import Data.Logic.ATP.Unif (Unify, unify_literals)
 import Data.Map.Strict as Map
 import Data.Set as Set
 import Data.String (IsString(..))
-import FOL (asubst, fv, generalize, IsFirstOrder, subst)
-import Formulas (atomic, IsFormula(asBool, AtomOf), onatoms, overatoms)
-import Herbrand (davisputnam)
-import Lib ((|=>), allpairs, deepen, Depth(Depth), distrib, evalRS, Failing(Success, Failure), failing, settryfind, tryfindM)
-import Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive)
 import Prelude hiding (compare)
-import Pretty (assertEqual', Pretty(pPrint), prettyShow, text)
-import Prop ( (.&.), (.=>.), (.<=>.), (.|.), BinOp((:&:), (:|:)), PFormula, simpdnf)
-import Quantified (exists, foldQuantified, for_all, Quant((:!:)))
-import Skolem (askolemize, Formula, HasSkolem(SVarOf, toSkolem), runSkolem, simpdnf', skolemize, SkTerm)
-import Term (fApp, IsTerm(TVarOf, FunOf), vt)
 import Test.HUnit hiding (State)
-import Unif (Unify, unify_literals)
 
 -- | Unify complementary literals.
 unify_complements :: (IsLiteral lit, HasApply atom, Unify atom v term,

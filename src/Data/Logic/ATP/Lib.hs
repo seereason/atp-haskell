@@ -6,7 +6,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS_GHC -Wall -fno-warn-orphans -fno-warn-unused-binds #-}
 
-module Lib
+module Data.Logic.ATP.Lib
     ( Failing(Success, Failure)
     , failing
     , SetLike(slView, slMap, slUnion, slEmpty, slSingleton), slInsert, prettyFoldable

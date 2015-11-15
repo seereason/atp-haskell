@@ -14,7 +14,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module FOL
+module Data.Logic.ATP.FOL
     ( IsFirstOrder
     -- * Semantics
     , Interp
@@ -36,20 +36,20 @@ module FOL
     , testFOL
     ) where
 
-import Apply (ApAtom, HasApply(PredOf, TermOf, overterms, onterms), Predicate)
+import Data.Logic.ATP.Apply (ApAtom, HasApply(PredOf, TermOf, overterms, onterms), Predicate)
+import Data.Logic.ATP.Equate ((.=.), EqAtom, foldEquate, HasEquate)
+import Data.Logic.ATP.Formulas (fromBool, IsFormula(..))
+import Data.Logic.ATP.Lib (setAny, tryApplyD, undefine, (|->))
+import Data.Logic.ATP.Lit ((.~.), foldLiteral, JustLiteral)
+import Data.Logic.ATP.Pretty (prettyShow)
+import Data.Logic.ATP.Prop (BinOp(..), IsPropositional((.&.), (.|.), (.=>.), (.<=>.)))
+import Data.Logic.ATP.Quantified (exists, foldQuantified, for_all, IsQuantified(VarOf), Quant((:!:), (:?:)), QFormula)
+import Data.Logic.ATP.Term (FName, foldTerm, IsTerm(FunOf, TVarOf, vt, fApp), V, variant)
 import Data.Map.Strict as Map (empty, fromList, insert, lookup, Map)
 import Data.Maybe (fromMaybe)
 import Data.Set as Set (difference, empty, fold, fromList, member, Set, singleton, union, unions)
 import Data.String (IsString(fromString))
-import Equate ((.=.), EqAtom, foldEquate, HasEquate)
-import Formulas (fromBool, IsFormula(..))
-import Lib (setAny, tryApplyD, undefine, (|->))
-import Lit ((.~.), foldLiteral, JustLiteral)
 import Prelude hiding (pred)
-import Pretty (prettyShow)
-import Prop (BinOp(..), IsPropositional((.&.), (.|.), (.=>.), (.<=>.)))
-import Quantified (exists, foldQuantified, for_all, IsQuantified(VarOf), Quant((:!:), (:?:)), QFormula)
-import Term (FName, foldTerm, IsTerm(FunOf, TVarOf, vt, fApp), V, variant)
 import Test.HUnit
 
 -- | Combine IsQuantified, HasApply, IsTerm, and make sure the term is

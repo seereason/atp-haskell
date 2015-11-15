@@ -1,12 +1,12 @@
 {-# LANGUAGE OverloadedStrings, QuasiQuotes, RankNTypes, ScopedTypeVariables, TemplateHaskell #-}
-module ParserTests where
+module Data.Logic.ATP.ParserTests where
 
-import Equate ((.=.))
+import Data.Logic.ATP.Equate ((.=.))
+import Data.Logic.ATP.Pretty (assertEqual', Pretty(..), prettyShow, testEquals)
+import Data.Logic.ATP.Prop ((.&.), (.=>.))
+import Data.Logic.ATP.Parser (fof, parseFOL)
+import Data.Logic.ATP.Skolem (Formula)
 import Language.Haskell.Exts hiding (Pretty)
-import Pretty (assertEqual', Pretty(..), prettyShow, testEquals)
-import Prop ((.&.), (.=>.))
-import Parser (fof, parseFOL)
-import Skolem (Formula)
 import Test.HUnit
 
 t :: (Eq a, Pretty a) => String -> a -> a -> Test

@@ -11,7 +11,7 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# OPTIONS_GHC -ddump-splices #-}
 
-module Pretty
+module Data.Logic.ATP.Pretty
     ( (<>)
     , Pretty(pPrint, pPrintPrec)
     , module Text.PrettyPrint.HughesPJClass
