@@ -8,13 +8,17 @@ Description:      This package is a liberal translation from OCaml to Haskell of
 Homepage:         https://github.com/seereason/atp-haskell
 License:          BSD3
 License-File:     LICENSE.txt
-Author:           John Harrison, David Fox <dsf@seereason.com>
+Author:           John Harrison
 Maintainer:       David Fox <dsf@seereason.com>
 Bug-Reports:      https://github.com/seereason/atp-haskell/issues
 Category:         Logic, Theorem Provers
 Cabal-version:    >= 1.9
 Build-Type:       Simple
-Extra-Source-Files: tests/Extra.hs
+Extra-Source-Files: tests/Extra.hs, .travis.yml, .ghci
+
+Source-Repository head
+  type: git
+  location: https://github.com/seereason/atp-haskell
 
 Library
   Build-Depends:
