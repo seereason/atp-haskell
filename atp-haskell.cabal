@@ -6,6 +6,7 @@ Description:      This package is a liberal translation from OCaml to Haskell of
                   John Harrison's book "Practical Logic and Automated
                   Reasoning".  Click on module ATP below for an overview.
 Homepage:         https://github.com/seereason/atp-haskell
+License:          BSD3
 License-File:     LICENSE.txt
 Author:           John Harrison, David Fox <dsf@seereason.com>
 Maintainer:       David Fox <dsf@seereason.com>
