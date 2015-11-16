@@ -5,4 +5,4 @@
 :set -XFlexibleInstances
 :set -XQuasiQuotes
 :set prompt "λ "
-:load ATP
+:load Data.Logic.ATP

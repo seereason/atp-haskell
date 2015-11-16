@@ -22,6 +22,7 @@ module Data.Logic.ATP
     , module Data.Logic.ATP.Meson
     , module Data.Logic.ATP.Equal
     , module Text.PrettyPrint.HughesPJClass
+    , module Test.HUnit
     ) where
 
 import Data.String ({-instances-})
@@ -49,3 +50,4 @@ import Data.Logic.ATP.Resolution
 import Data.Logic.ATP.Prolog
 import Data.Logic.ATP.Meson
 import Data.Logic.ATP.Equal
+import Test.HUnit
