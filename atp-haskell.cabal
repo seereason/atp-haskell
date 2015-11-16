@@ -16,23 +16,16 @@ Cabal-version:    >= 1.9
 Build-Type:       Simple
 Extra-Source-Files: tests/Extra.hs
 
-flag pretty-112
-  Description: prettyclass was merged into pretty-1.1.2
-  Default: True
-
 Library
   Build-Depends:
-    base < 5,
+    base >= 4.8 && < 5,
     containers,
     HUnit,
     mtl,
     parsec,
+    pretty >= 1.1.2,
     template-haskell,
     time
-  if flag(pretty-112)
-    Build-Depends: pretty >= 1.1.2
-  else
-    Build-Depends: pretty < 1.1.2, prettyclass
   GHC-options: -Wall -O2
   Hs-Source-Dirs: src
   Exposed-Modules:
