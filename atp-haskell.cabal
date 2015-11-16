@@ -17,7 +17,19 @@ Build-Type:       Simple
 Extra-Source-Files: tests/Extra.hs
 
 Library
-  Build-Depends: applicative-extras, base, containers, hashable, haskell-src-exts, HUnit, mtl, parsec, pretty >= 1.1.2, syb, template-haskell, time
+  Build-Depends:
+    applicative-extras,
+    base < 5,
+    containers,
+    hashable,
+    haskell-src-exts,
+    HUnit,
+    mtl,
+    parsec,
+    pretty >= 1.1.2,
+    syb,
+    template-haskell,
+    time
   GHC-options: -Wall -O2
   Hs-Source-Dirs: src
   Exposed-Modules:
