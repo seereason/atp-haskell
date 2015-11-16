@@ -33,10 +33,11 @@ module Data.Logic.ATP.Lit
     , Lit(L, lname)
     ) where
 
-import Data.Generics (Data, Typeable)
+import Data.Data (Data)
 import Data.Logic.ATP.Formulas (IsAtom, IsFormula(atomic, AtomOf, asBool, false, true), fromBool, overatoms, onatoms, prettyBool)
 import Data.Logic.ATP.Pretty (Associativity(..), boolPrec, Doc, HasFixity(precedence, associativity), notPrec, Precedence, text)
 import Data.Monoid ((<>))
+import Data.Typeable (Typeable)
 import Prelude hiding (negate, null)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrint, pPrintPrec), PrettyLevel, prettyNormal)
 

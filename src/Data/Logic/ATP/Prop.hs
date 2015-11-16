@@ -82,7 +82,7 @@ module Data.Logic.ATP.Prop
 
 import Data.Foldable as Foldable (null)
 import Data.Function (on)
-import Data.Generics (Data, Typeable)
+import Data.Data (Data)
 import Data.List as List (groupBy, intercalate, map, sortBy)
 import Data.Logic.ATP.Formulas (atom_union, fromBool, IsAtom,
                                 IsFormula(AtomOf, asBool, true, false, atomic, overatoms, onatoms), prettyBool)
@@ -98,6 +98,7 @@ import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, fromList, intersection, isProperSubsetOf, map,
                         minView, partition, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
+import Data.Typeable (Typeable)
 import Prelude hiding (negate, null)
 import Text.PrettyPrint.HughesPJClass (maybeParens, PrettyLevel, vcat)
 import Test.HUnit

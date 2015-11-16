@@ -44,7 +44,7 @@ module Data.Logic.ATP.Skolem
 
 import Control.Monad.Identity (Identity, runIdentity)
 import Control.Monad.State (runStateT, StateT, get, modify)
-import Data.Generics (Data, Typeable)
+import Data.Data (Data)
 import Data.List as List (map)
 import Data.Logic.ATP.Apply (functions, HasApply(TermOf, PredOf), pApp, Predicate)
 import Data.Logic.ATP.Equate (FOL)
@@ -62,6 +62,7 @@ import Data.Map.Strict as Map (singleton)
 import Data.Monoid ((<>))
 import Data.Set as Set (empty, filter, insert, isProperSubsetOf, map, member, notMember, Set, singleton, toAscList, union)
 import Data.String (IsString(fromString))
+import Data.Typeable (Typeable)
 import Prelude hiding (negate)
 import Test.HUnit
 

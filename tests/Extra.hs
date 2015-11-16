@@ -1,12 +1,11 @@
 {-# LANGUAGE GADTs, MultiParamTypeClasses, OverloadedStrings, QuasiQuotes, ScopedTypeVariables, TemplateHaskell #-}
 module Extra where
 
-import Control.Applicative.Error (Failing(Failure, Success))
 import Data.List as List (map)
 import Data.Logic.ATP.Apply (pApp)
 import Data.Logic.ATP.Equate ((.=.))
 import Data.Logic.ATP.Formulas
-import Data.Logic.ATP.Lib (Depth(Depth))
+import Data.Logic.ATP.Lib (Depth(Depth), Failing(Failure, Success))
 import Data.Logic.ATP.Lit ((.~.))
 import Data.Logic.ATP.Meson (meson)
 import Data.Logic.ATP.Pretty (prettyShow, testEquals)
