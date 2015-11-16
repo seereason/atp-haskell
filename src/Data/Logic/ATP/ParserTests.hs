@@ -6,7 +6,6 @@ import Data.Logic.ATP.Pretty (assertEqual', Pretty(..), prettyShow, testEquals)
 import Data.Logic.ATP.Prop ((.&.), (.=>.))
 import Data.Logic.ATP.Parser (fof, parseFOL)
 import Data.Logic.ATP.Skolem (Formula)
-import Language.Haskell.Exts hiding (Pretty)
 import Test.HUnit
 
 t :: (Eq a, Pretty a) => String -> a -> a -> Test
@@ -69,6 +68,7 @@ testParser =
                 --   2. formula expression to parsed haskell-src-exts expression (show and th-lift?)
                 --   3. haskell-src-exts to template-haskell expression (the toExp method of haskell-src-meta)
                 --   4. template haskell back to haskell expression (template-haskell unquote)
+{-
                 , $(testEquals "read 1") (show (ParseOk (InfixApp (App
                                                                                                   (App (Var (UnQual (Ident "for_all"))) (Lit (String "x")))
                                                                                                   (Paren (Lit (String "x")))) (QVarOp (UnQual (Symbol ".=."))) (Paren (Lit (String "x"))))))
@@ -83,7 +83,7 @@ testParser =
                                                                                                       (Lit (String "Q")))))
                                                                                          (List [Lit (String "x")])))))
                        (show (parseExp (show [fof| ∀x. P(x) ∧ Q(x) |])))
-
+-}
                 , $(testEquals "parse 1") [fof| (forall x. i(x) * x = 1) ==> (forall x. i(x) * x = 1) |]
                        [fof| (forall x. i(x) * x = 1) ==> forall x. i(x) * x = 1 |]
                 , $(testEquals "parse 2") "(*(i(x), x))=(1)" -- "i(x) * x = 1"
