@@ -44,13 +44,13 @@ import Prelude hiding (compare)
 import Test.HUnit hiding (State)
 
 -- | Unify complementary literals.
-unify_complements :: (IsLiteral lit, HasApply atom, Unify atom v term,
-                      atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
-                     lit -> lit -> StateT (Map v term) Failing ()
+unify_complements :: (IsLiteral lit1, IsLiteral lit2, HasApply atom1, HasApply atom2, Unify atom1 atom2 v term,
+                      atom1 ~ AtomOf lit1, atom2 ~ AtomOf lit2, term ~ TermOf atom1, term ~ TermOf atom2, v ~ TVarOf term) =>
+                     lit1 -> lit2 -> StateT (Map v term) Failing ()
 unify_complements p q = unify_literals p ((.~.) q)
 
 -- | Unify and refute a set of disjuncts.
-unify_refute :: (IsLiteral lit, Ord lit, HasApply atom, Unify atom v term, IsTerm term,
+unify_refute :: (IsLiteral lit, Ord lit, HasApply atom, Unify atom atom v term, IsTerm term,
                  atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
@@ -64,7 +64,7 @@ unify_refute djs env =
 
 -- | Hence a Prawitz-like procedure (using unification on DNF).
 prawitz_loop :: forall lit atom v term.
-                (JustLiteral lit, Ord lit, HasApply atom, Unify atom v term,
+                (JustLiteral lit, Ord lit, HasApply atom, Unify atom atom v term,
                  atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
                 Set (Set lit) -> [v] -> Set (Set lit) -> Int -> (Map v term, Int)
 prawitz_loop djs0 fvs djs n =
@@ -77,7 +77,7 @@ prawitz_loop djs0 fvs djs n =
       newvar k = vt (fromString ("_" ++ show (n * length fvs + k)))
 
 prawitz :: forall formula atom term function v.
-           (IsFirstOrder formula, Ord formula, Unify atom v term, HasSkolem function, Show formula,
+           (IsFirstOrder formula, Ord formula, Unify atom atom v term, HasSkolem function, Show formula,
             atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
             v ~ TVarOf term, v ~ SVarOf function) =>
            formula -> Int
@@ -106,7 +106,7 @@ p20 = TestCase $ assertEqual' "p20 - prawitz (p. 175)" expected input
 -- Comparison of number of ground instances.
 -- -------------------------------------------------------------------------
 
-compare :: (IsFirstOrder formula, Ord formula, Unify atom v term, HasSkolem function, Show formula,
+compare :: (IsFirstOrder formula, Ord formula, Unify atom atom v term, HasSkolem function, Show formula,
             atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
             v ~ TVarOf term, v ~ SVarOf function) =>
            formula -> (Int, Int)
@@ -174,7 +174,7 @@ instance Pretty K where
 
 -- | More standard tableau procedure, effectively doing DNF incrementally.  (p. 177)
 tableau :: forall formula atom term v function.
-           (IsFirstOrder formula, Unify atom v term,
+           (IsFirstOrder formula, Unify atom atom v term,
             atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term, v ~ TVarOf term) =>
            [formula] -> Depth -> RWS () () () (Failing (K, Map v term))
 tableau fms n0 =
@@ -209,14 +209,14 @@ tableau fms n0 =
             tryLit :: formula -> formula -> RWS () () () (Failing (K, Map v term))
             tryLit fm' l = failing (return . Failure) (\env' -> cont (k, env')) (execStateT (unify_complements fm' l) env)
 
-tabrefute :: (IsFirstOrder formula, Unify atom v term,
+tabrefute :: (IsFirstOrder formula, Unify atom atom v term,
               atom ~ AtomOf formula, term ~ TermOf atom, v ~ TVarOf term) =>
              Maybe Depth -> [formula] -> Failing ((K, Map v term), Depth)
 tabrefute limit fms =
     let r = deepen (\n -> (,n) <$> evalRS (tableau fms n) () ()) (Depth 0) limit in
     failing Failure (Success . fst) r
 
-tab :: (IsFirstOrder formula, Unify atom v term, Pretty formula, HasSkolem function,
+tab :: (IsFirstOrder formula, Unify atom atom v term, Pretty formula, HasSkolem function,
         atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
         v ~ TVarOf term, v ~ SVarOf function) =>
        Maybe Depth -> formula -> Failing ((K, Map v term), Depth)
@@ -283,7 +283,7 @@ END_INTERACTIVE;;
 -- Try to split up the initial formula first; often a big improvement.
 -- -------------------------------------------------------------------------
 splittab :: forall formula atom term v function.
-            (IsFirstOrder formula, Unify atom v term, Ord formula, Pretty formula, HasSkolem function,
+            (IsFirstOrder formula, Unify atom atom v term, Ord formula, Pretty formula, HasSkolem function,
              atom ~ AtomOf formula, term ~ TermOf atom, function ~ FunOf term,
              v ~ TVarOf term, v ~ SVarOf function) =>
             formula -> [Failing ((K, Map v term), Depth)]

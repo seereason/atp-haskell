@@ -91,8 +91,9 @@ ontermsApply :: JustApply atom => ((TermOf atom) -> (TermOf atom)) -> atom -> at
 ontermsApply f = foldApply (\p ts -> applyPredicate p (map f ts))
 
 -- | Zip two atoms if they are similar
-zipApplys :: (JustApply atom, term ~ TermOf atom, predicate ~ PredOf atom) =>
-                 (predicate -> [(term, term)] -> Maybe r) -> atom -> atom -> Maybe r
+zipApplys :: (JustApply atom1, term ~ TermOf atom1, predicate ~ PredOf atom1,
+              JustApply atom2, term ~ TermOf atom2, predicate ~ PredOf atom2) =>
+             (predicate -> [(term, term)] -> Maybe r) -> atom1 -> atom2 -> Maybe r
 zipApplys f atom1 atom2 =
     foldApply f' atom1
     where

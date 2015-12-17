@@ -51,11 +51,11 @@ a .=. b = atomic (equate a b)
 infix 6 .=.
 
 -- | Zip two atoms that support equality
-zipEquates :: HasEquate atom =>
-              (TermOf atom -> TermOf atom ->
-               TermOf atom -> TermOf atom -> Maybe r)
-           -> (PredOf atom -> [(TermOf atom, TermOf atom)] -> Maybe r)
-           -> atom -> atom -> Maybe r
+zipEquates :: (HasEquate atom1, HasEquate atom2, PredOf atom1 ~ PredOf atom2) =>
+              (TermOf atom1 -> TermOf atom1 ->
+               TermOf atom2 -> TermOf atom2 -> Maybe r)
+           -> (PredOf atom1 -> [(TermOf atom1, TermOf atom2)] -> Maybe r)
+           -> atom1 -> atom2 -> Maybe r
 zipEquates eq ap atom1 atom2 =
     foldEquate eq' ap' atom1
     where
