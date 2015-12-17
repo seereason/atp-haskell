@@ -18,10 +18,10 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Data.Logic.ATP.Prop
-    ( -- * binary operations
-      BinOp(..), binop
+    (
     -- * Propositional formulas
-    , IsPropositional((.|.), (.&.), (.<=>.), (.=>.), foldPropositional', foldCombination)
+      IsPropositional((.|.), (.&.), (.<=>.), (.=>.), foldPropositional', foldCombination)
+    , BinOp(..), binop
     , (⇒), (==>), (⊃), (→)
     , (⇔), (<=>), (↔), (<==>)
     , (∧), (·)
@@ -103,49 +103,6 @@ import Prelude hiding (negate, null)
 import Text.PrettyPrint.HughesPJClass (maybeParens, PrettyLevel, vcat)
 import Test.HUnit
 
--- | Implication synonyms.  Note that if the -XUnicodeSyntax option is
--- turned on the operator ⇒ can not be declared/used as a function -
--- it becomes a reserved special character used in type signatures.
-(⇒), (⊃), (==>), (→) :: IsPropositional formula => formula -> formula -> formula
-(⇒) = (.=>.)
-(⊃) = (.=>.)
-(==>) = (.=>.)
-(→) = (.=>.)
-infixr 3 .=>., ⇒, ⊃, ==>, →
-
--- | If-and-only-if synonyms
-(<=>), (<==>), (⇔), (↔) :: IsPropositional formula => formula -> formula -> formula
-(<=>) = (.<=>.)
-(<==>) = (.<=>.)
-(⇔) = (.<=>.)
-(↔) = (.<=>.)
-infixl 2 .<=>., <=>, <==>, ⇔, ↔
-
--- | And/conjunction synonyms
-(∧), (·) :: IsPropositional formula => formula -> formula -> formula
-(∧) = (.&.)
-(·) = (.&.)
-infixl 5 .&., ∧, ·
-
--- | Or/disjunction synonyms
-(∨) :: IsPropositional formula => formula -> formula -> formula
-(∨) = (.|.)
-infixl 4 .|., ∨
-
-data BinOp
-    = (:<=>:)
-    | (:=>:)
-    | (:&:)
-    | (:|:)
-    deriving (Eq, Ord, Data, Typeable, Show, Enum, Bounded)
-
--- | Combine formulas with a 'BinOp'.
-binop :: IsPropositional formula => formula -> BinOp -> formula -> formula
-binop f1 (:<=>:) f2 = f1 .<=>. f2
-binop f1 (:=>:) f2 = f1 .=>. f2
-binop f1 (:&:) f2 = f1 .&. f2
-binop f1 (:|:) f2 = f1 .|. f2
-
 -- |A type class for propositional logic.  If the type we are writing
 -- an instance for is a zero-order (aka propositional) logic type
 -- there will generally by a type or a type parameter corresponding to
@@ -183,6 +140,35 @@ class IsLiteral formula => IsPropositional formula where
                     -> (formula -> formula -> r) -- equivalence
                     -> formula -> r
 
+-- | Implication synonyms.  Note that if the -XUnicodeSyntax option is
+-- turned on the operator ⇒ can not be declared/used as a function -
+-- it becomes a reserved special character used in type signatures.
+(⇒), (⊃), (==>), (→) :: IsPropositional formula => formula -> formula -> formula
+(⇒) = (.=>.)
+(⊃) = (.=>.)
+(==>) = (.=>.)
+(→) = (.=>.)
+infixr 3 .=>., ⇒, ⊃, ==>, →
+
+-- | If-and-only-if synonyms
+(<=>), (<==>), (⇔), (↔) :: IsPropositional formula => formula -> formula -> formula
+(<=>) = (.<=>.)
+(<==>) = (.<=>.)
+(⇔) = (.<=>.)
+(↔) = (.<=>.)
+infixl 2 .<=>., <=>, <==>, ⇔, ↔
+
+-- | And/conjunction synonyms
+(∧), (·) :: IsPropositional formula => formula -> formula -> formula
+(∧) = (.&.)
+(·) = (.&.)
+infixl 5 .&., ∧, ·
+
+-- | Or/disjunction synonyms
+(∨) :: IsPropositional formula => formula -> formula -> formula
+(∨) = (.|.)
+infixl 4 .|., ∨
+
 -- | Deconstruct a 'JustPropositional' formula.
 foldPropositional :: JustPropositional pf =>
                      (pf -> BinOp -> pf -> r) -- ^ fold on a binary operation formula
@@ -191,6 +177,22 @@ foldPropositional :: JustPropositional pf =>
                   -> (AtomOf pf -> r)         -- ^ fold on an atomic formula
                   -> pf -> r
 foldPropositional = foldPropositional' (error "JustPropositional failure")
+
+-- | This type is used to construct the first argument of 'foldPropositional'.
+data BinOp
+    = (:<=>:)
+    | (:=>:)
+    | (:&:)
+    | (:|:)
+    deriving (Eq, Ord, Data, Typeable, Show, Enum, Bounded)
+
+-- | Combine formulas with a 'BinOp', for use building the first
+-- argument of 'foldPropositional'.
+binop :: IsPropositional formula => formula -> BinOp -> formula -> formula
+binop f1 (:<=>:) f2 = f1 .<=>. f2
+binop f1 (:=>:) f2 = f1 .=>. f2
+binop f1 (:&:) f2 = f1 .&. f2
+binop f1 (:|:) f2 = f1 .|. f2
 
 -- | Combine two 'JustPropositional' formulas if they are similar.
 zipPropositional :: (JustPropositional pf1, JustPropositional pf2) =>

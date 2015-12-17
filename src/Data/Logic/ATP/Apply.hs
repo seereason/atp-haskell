@@ -50,13 +50,15 @@ import Text.PrettyPrint.HughesPJClass (Pretty(pPrint))
 -- an 'IsAtom'.
 class (Eq predicate, Ord predicate, Show predicate, IsString predicate, Pretty predicate) => IsPredicate predicate
 
+-- | The result of applying a predicate to some terms is an atomic
+-- formula whose type is an instance of 'HasApply'.
 class (IsAtom atom, IsPredicate (PredOf atom), IsTerm (TermOf atom)) => HasApply atom where
     type PredOf atom
     type TermOf atom
     applyPredicate :: PredOf atom -> [(TermOf atom)] -> atom
-    foldApply' :: (atom -> r) -> (PredOf atom -> [(TermOf atom)] -> r) -> atom -> r
-    overterms :: ((TermOf atom) -> r -> r) -> r -> atom -> r
-    onterms :: ((TermOf atom) -> (TermOf atom)) -> atom -> atom
+    foldApply' :: (atom -> r) -> (PredOf atom -> [TermOf atom] -> r) -> atom -> r
+    overterms :: (TermOf atom -> r -> r) -> r -> atom -> r
+    onterms :: (TermOf atom -> TermOf atom) -> atom -> atom
 
 -- | The set of functions in an atom.
 atomFuncs :: (HasApply atom, function ~ FunOf (TermOf atom)) => atom -> Set (function, Arity)

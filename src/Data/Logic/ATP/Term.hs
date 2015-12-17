@@ -1,3 +1,8 @@
+-- | A Term is a expression representing a domain element.  It is
+-- composed of variables which can be bound to domain elements, or
+-- functions which can be applied to terms to yield other domain
+-- elements.
+
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}

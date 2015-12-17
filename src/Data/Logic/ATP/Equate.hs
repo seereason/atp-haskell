@@ -1,4 +1,4 @@
--- | ATOM with the Equate predicate
+-- | ATOM with a distinguished Equate predicate.
 
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -16,7 +16,6 @@ module Data.Logic.ATP.Equate
     ( HasEquate(equate, foldEquate)
     , (.=.)
     , zipEquates
-    , isEquate
     , prettyEquate
     , overtermsEq
     , ontermsEq
@@ -39,12 +38,14 @@ import Data.Typeable (Typeable)
 import Prelude hiding (pred)
 import Text.PrettyPrint.HughesPJClass (maybeParens, Pretty(pPrintPrec), PrettyLevel)
 
--- | Atoms that support equality must have HasEquate instance
+-- | Atoms that support equality must be an instance of HasEquate
 class HasApply atom => HasEquate atom where
     equate :: TermOf atom -> TermOf atom -> atom
+    -- ^ Create an equate predicate
     foldEquate :: (TermOf atom -> TermOf atom -> r) -> (PredOf atom -> [TermOf atom] -> r) -> atom -> r
+    -- ^ Analyze whether a predicate is an equate or a regular apply.
 
--- | Build an equality formula from two terms.
+-- | Combine 'equate' and 'atomic' to build a formula from two terms.
 (.=.) :: (IsFormula formula, HasEquate atom, atom ~ AtomOf formula) => TermOf atom -> TermOf atom -> formula
 a .=. b = atomic (equate a b)
 infix 6 .=.
@@ -63,32 +64,30 @@ zipEquates eq ap atom1 atom2 =
       ap'' p1 ts1 p2 ts2 | p1 == p2 && length ts1 == length ts2 = ap p1 (zip ts1 ts2)
       ap'' _ _ _ _ = Nothing
 
-isEquate :: HasEquate atom => atom -> Bool
-isEquate = foldEquate (\_ _ -> True) (\_ _ -> False)
+-- | Convert between HasEquate atom types.
+convertEquate :: (HasEquate atom1, HasEquate atom2) =>
+                 (PredOf atom1 -> PredOf atom2) -> (TermOf atom1 -> TermOf atom2) -> atom1 -> atom2
+convertEquate cp ct = foldEquate (\t1 t2 -> equate (ct t1) (ct t2)) (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
 
--- | Format the infix equality predicate applied to two terms.
-prettyEquate :: IsTerm term => PrettyLevel -> Rational -> term -> term -> Doc
-prettyEquate l p t1 t2 =
-    maybeParens (p > atomPrec) $ pPrintPrec l atomPrec t1 <> text "=" <> pPrintPrec l atomPrec t2
-
--- | Implementation of 'overterms' for 'HasApply' types.
+-- | Implementation of 'overterms' for 'HasEquate' types.
 overtermsEq :: HasEquate atom => ((TermOf atom) -> r -> r) -> r -> atom -> r
 overtermsEq f r0 = foldEquate (\t1 t2 -> f t2 (f t1 r0)) (\_ ts -> foldr f r0 ts)
 
--- | Implementation of 'onterms' for 'HasApply' types.
+-- | Implementation of 'onterms' for 'HasEquate' types.
 ontermsEq :: HasEquate atom => ((TermOf atom) -> (TermOf atom)) -> atom -> atom
 ontermsEq f = foldEquate (\t1 t2 -> equate (f t1) (f t2)) (\p ts -> applyPredicate p (map f ts))
 
--- | Implementation of Show for HasEquate types
+-- | Implementation of Show for 'HasEquate' types
 showApplyAndEquate :: (HasEquate atom, Show (TermOf atom)) => atom -> String
 showApplyAndEquate atom = foldEquate showEquate showApply atom
 
 showEquate :: Show term => term -> term -> String
 showEquate t1 t2 = "(" ++ show t1 ++ ") .=. (" ++ show t2 ++ ")"
 
-convertEquate :: (HasEquate atom1, HasEquate atom2) =>
-                 (PredOf atom1 -> PredOf atom2) -> (TermOf atom1 -> TermOf atom2) -> atom1 -> atom2
-convertEquate cp ct = foldEquate (\t1 t2 -> equate (ct t1) (ct t2)) (\p1 ts1 -> applyPredicate (cp p1) (map ct ts1))
+-- | Format the infix equality predicate applied to two terms.
+prettyEquate :: IsTerm term => PrettyLevel -> Rational -> term -> term -> Doc
+prettyEquate l p t1 t2 =
+    maybeParens (p > atomPrec) $ pPrintPrec l atomPrec t1 <> text "=" <> pPrintPrec l atomPrec t2
 
 precedenceEquate :: HasEquate atom => atom -> Precedence
 precedenceEquate = foldEquate (\_ _ -> eqPrec) (\_ _ -> pAppPrec)
