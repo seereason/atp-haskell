@@ -42,6 +42,7 @@ Library
     Data.Logic.ATP.Equate
     --
     Data.Logic.ATP.Lit
+    Data.Logic.ATP.LitWrapper
     Data.Logic.ATP.Prop
     Data.Logic.ATP.PropExamples
     Data.Logic.ATP.DefCNF

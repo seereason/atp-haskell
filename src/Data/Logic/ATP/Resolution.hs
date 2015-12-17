@@ -68,7 +68,7 @@ test01 = TestCase $ assertEqual ("Barber's paradox: " ++ prettyShow barb ++ " (p
 
 -- | MGU of a set of literals.
 mgu :: forall lit atom term v.
-       (IsLiteral lit, HasApply atom, Unify atom atom v term, IsTerm term,
+       (JustLiteral lit, HasApply atom, Unify atom atom v term, IsTerm term,
         atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
        Set lit -> StateT (Map v term) Failing (Map v term)
 mgu l =
@@ -79,7 +79,7 @@ mgu l =
             _ -> solve <$> get
       _ -> solve <$> get
 
-unifiable :: (IsLiteral lit, IsTerm term, HasApply atom, Unify atom atom v term,
+unifiable :: (JustLiteral lit, IsTerm term, HasApply atom, Unify atom atom v term,
               atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
              lit -> lit -> Bool
 unifiable p q = failing (const False) (const True) (execStateT (unify_literals p q) Map.empty)

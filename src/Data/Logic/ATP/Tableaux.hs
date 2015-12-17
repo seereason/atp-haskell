@@ -30,7 +30,8 @@ import Data.Logic.ATP.FOL (asubst, fv, generalize, IsFirstOrder, subst)
 import Data.Logic.ATP.Formulas (atomic, IsFormula(asBool, AtomOf), onatoms, overatoms)
 import Data.Logic.ATP.Herbrand (davisputnam)
 import Data.Logic.ATP.Lib ((|=>), allpairs, deepen, Depth(Depth), distrib, evalRS, Failing(Success, Failure), failing, settryfind, tryfindM)
-import Data.Logic.ATP.Lit ((.~.), IsLiteral, JustLiteral, LFormula, positive)
+import Data.Logic.ATP.Lit ((.~.), convertToLiteral, IsLiteral, JustLiteral, LFormula, positive)
+import Data.Logic.ATP.LitWrapper (JL)
 import Data.Logic.ATP.Pretty (assertEqual', Pretty(pPrint), prettyShow, text)
 import Data.Logic.ATP.Prop ( (.&.), (.=>.), (.<=>.), (.|.), BinOp((:&:), (:|:)), PFormula, simpdnf)
 import Data.Logic.ATP.Quantified (exists, foldQuantified, for_all, Quant((:!:)))
@@ -44,13 +45,13 @@ import Prelude hiding (compare)
 import Test.HUnit hiding (State)
 
 -- | Unify complementary literals.
-unify_complements :: (IsLiteral lit1, IsLiteral lit2, HasApply atom1, HasApply atom2, Unify atom1 atom2 v term,
+unify_complements :: (IsLiteral lit1, JustLiteral lit2, HasApply atom1, HasApply atom2, Unify atom1 atom2 v term,
                       atom1 ~ AtomOf lit1, atom2 ~ AtomOf lit2, term ~ TermOf atom1, term ~ TermOf atom2, v ~ TVarOf term) =>
                      lit1 -> lit2 -> StateT (Map v term) Failing ()
 unify_complements p q = unify_literals p ((.~.) q)
 
 -- | Unify and refute a set of disjuncts.
-unify_refute :: (IsLiteral lit, Ord lit, HasApply atom, Unify atom atom v term, IsTerm term,
+unify_refute :: (JustLiteral lit, Ord lit, HasApply atom, Unify atom atom v term, IsTerm term,
                  atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
@@ -180,7 +181,7 @@ tableau :: forall formula atom term v function.
 tableau fms n0 =
     go (fms, [], n0) (return . Success) (K 0, Map.empty)
     where
-      go :: ([formula], [formula], Depth)
+      go :: ([formula], [JL formula], Depth)
          -> ((K, Map v term) -> RWS () () () (Failing (K, Map v term)))
          -> (K, Map v term)
          -> RWS () () () (Failing (K, Map v term))
@@ -203,10 +204,11 @@ tableau fms n0 =
 
             go2 :: formula -> [formula] -> RWS () () () (Failing (K, Map v term))
             go2 fm' unexp' =
-                tryfindM (tryLit fm') lits >>=
-                failing (\_ -> go (unexp', fm' : lits, n) cont (k, env))
+                let (fm'' :: JL formula) = convertToLiteral (error "expected JustLiteral") id fm' in
+                tryfindM (tryLit fm'') lits >>=
+                failing (\_ -> go (unexp', fm'' : lits, n) cont (k, env))
                         (return . Success)
-            tryLit :: formula -> formula -> RWS () () () (Failing (K, Map v term))
+            tryLit :: JL formula -> JL formula -> RWS () () () (Failing (K, Map v term))
             tryLit fm' l = failing (return . Failure) (\env' -> cont (k, env')) (execStateT (unify_complements fm' l) env)
 
 tabrefute :: (IsFirstOrder formula, Unify atom atom v term,

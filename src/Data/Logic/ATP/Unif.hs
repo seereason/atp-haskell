@@ -29,7 +29,7 @@ import Data.Logic.ATP.Equate (HasEquate, zipEquates)
 import Data.Logic.ATP.FOL (tsubst)
 import Data.Logic.ATP.Formulas (IsFormula(AtomOf))
 import Data.Logic.ATP.Lib (Failing(Success, Failure))
-import Data.Logic.ATP.Lit (IsLiteral, zipLiterals')
+import Data.Logic.ATP.Lit (IsLiteral, JustLiteral, zipLiterals')
 import Data.Logic.ATP.Skolem (SkAtom, SkTerm)
 import Data.Logic.ATP.Term (IsTerm(..), V)
 import Data.Map.Strict as Map
@@ -104,9 +104,11 @@ unify_and_apply eqs =
     fullunify eqs >>= \i -> return $ List.map (\ (t1, t2) -> (tsubst i t1, tsubst i t2)) eqs
 
 -- | Unify literals, perhaps of different types, but sharing term and
--- variable type.
+-- variable type.  Note that only one needs to be 'JustLiteral', if
+-- the unification succeeds the other must have been too, if it fails,
+-- who cares.
 unify_literals :: (IsLiteral lit1, HasApply atom1, atom1 ~ AtomOf lit1, term ~ TermOf atom1,
-                   IsLiteral lit2, HasApply atom2, atom2 ~ AtomOf lit2, term ~ TermOf atom2,
+                   JustLiteral lit2, HasApply atom2, atom2 ~ AtomOf lit2, term ~ TermOf atom2,
                    Unify atom1 atom2 v term, v ~ TVarOf term) =>
                   lit1 -> lit2 -> StateT (Map v term) Failing ()
 unify_literals f1 f2 =
