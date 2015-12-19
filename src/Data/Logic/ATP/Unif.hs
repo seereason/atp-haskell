@@ -31,29 +31,31 @@ import Data.Logic.ATP.Formulas (IsFormula(AtomOf))
 import Data.Logic.ATP.Lib (Failing(Success, Failure))
 import Data.Logic.ATP.Lit (IsLiteral, JustLiteral, zipLiterals')
 import Data.Logic.ATP.Skolem (SkAtom, SkTerm)
-import Data.Logic.ATP.Term (IsTerm(..), V)
+import Data.Logic.ATP.Term (IsTerm(..))
 import Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
-import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
+-- import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
 import Test.HUnit hiding (State)
 
 -- | Main unification procedure.
-class Unify a b v term where
-    unify :: a -> b -> StateT (Map v term) Failing ()
+class TermOf a ~ TermOf b => Unify a b where
+    unify :: a -> b -> StateT (Map (TVarOf (TermOf a)) (TermOf a)) Failing ()
     -- ^ Unify the two elements of a pair, collecting variable
     -- assignments in the state.
 
-instance Unify a b v term => Unify [a] [b] v term where
+{-
+instance Unify a b => Unify [a] [b] where
     unify [] [] = return ()
     unify (x : xs) (y : ys) = unify x y >> unify xs ys
     unify _ _ = fail "unify - list length mismatch"
 
-instance Unify a b v term => Unify (Seq a) (Seq b) v term where
+instance Unify a b => Unify (Seq a) (Seq b) where
     unify xs ys =
         case (viewl xs, viewl ys) of
           (EmptyL, EmptyL) -> return ()
           (x :< xs', y :< ys') -> unify x y >> unify xs' ys'
           _ -> fail "unify - Seq list length mismatch"
+-}
 
 unify_terms :: (IsTerm term, v ~ TVarOf term) => [(term,term)] -> StateT (Map v term) Failing ()
 unify_terms = mapM_ (uncurry unify_term_pair)
@@ -109,7 +111,7 @@ unify_and_apply eqs =
 -- who cares.
 unify_literals :: (IsLiteral lit1, HasApply atom1, atom1 ~ AtomOf lit1, term ~ TermOf atom1,
                    JustLiteral lit2, HasApply atom2, atom2 ~ AtomOf lit2, term ~ TermOf atom2,
-                   Unify atom1 atom2 v term, v ~ TVarOf term) =>
+                   Unify atom1 atom2, v ~ TVarOf term) =>
                   lit1 -> lit2 -> StateT (Map v term) Failing ()
 unify_literals f1 f2 =
     fromMaybe (fail "Can't unify literals") (zipLiterals' ho ne tf at f1 f2)
@@ -141,7 +143,7 @@ unify_atoms_eq a1 a2 =
 --        where
 --          app (t1, t2) = fullunify eqs >>= \i -> return $ (tsubst i t1, tsubst i t2)
 
-instance Unify SkAtom SkAtom V SkTerm where
+instance Unify SkAtom SkAtom where
     unify = unify_atoms_eq
 
 test01, test02, test03, test04 :: Test

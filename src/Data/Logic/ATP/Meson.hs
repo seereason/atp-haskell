@@ -176,7 +176,7 @@ contrapositives cls =
 -- -------------------------------------------------------------------------
 
 mexpand1 :: (JustLiteral lit, Ord lit,
-             HasApply atom, IsTerm term, Unify atom atom v term,
+             HasApply atom, IsTerm term, Unify atom atom,
              atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
            Set (PrologRule lit)
         -> Set lit
@@ -206,7 +206,7 @@ mexpand1 rules ancestors g cont (env,n,k) =
 -- -------------------------------------------------------------------------
 
 puremeson1 :: forall fof atom term v function.
-              (IsFirstOrder fof, Unify atom atom v term, Ord fof,
+              (IsFirstOrder fof, Unify atom atom, Ord fof,
                atom ~ AtomOf fof, term ~ TermOf atom, function ~ FunOf term,
                v ~ VarOf fof, v ~ TVarOf term) =>
               Maybe Depth -> fof -> Failing Depth
@@ -219,7 +219,7 @@ puremeson1 maxdl fm =
       (cls :: Set (Set (LFormula atom))) = simpcnf id (specialize id (pnf fm) :: PFormula atom)
 
 meson1 :: forall m fof atom predicate term function v.
-          (IsFirstOrder fof, Unify atom atom (VarOf fof) (TermOf (atom)), Ord fof, HasSkolem function, Monad m,
+          (IsFirstOrder fof, Unify atom atom, Ord fof, HasSkolem function, Monad m,
            atom ~ AtomOf fof, term ~ TermOf atom, predicate ~ PredOf atom, function ~ FunOf term, v ~ VarOf fof, v ~ SVarOf function) =>
           Maybe Depth -> fof -> SkolemT m function (Set (Failing Depth))
 meson1 maxdl fm =
@@ -230,7 +230,7 @@ meson1 maxdl fm =
 -- With repetition checking and divide-and-conquer search.
 -- -------------------------------------------------------------------------
 
-equal :: (JustLiteral lit, HasApply atom, Unify atom atom v term, IsTerm term,
+equal :: (JustLiteral lit, HasApply atom, Unify atom atom, IsTerm term,
           atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
          Map v term -> lit -> lit -> Bool
 equal env fm1 fm2 =
@@ -257,7 +257,7 @@ expand2 expfn goals1 n1 goals2 n2 n3 cont env k =
                                    (e1,n2+r1,k1))
                  (env,n1,k)
 
-mexpand2 :: (JustLiteral lit, Ord lit, HasApply atom, IsTerm term, Unify atom atom v term,
+mexpand2 :: (JustLiteral lit, Ord lit, HasApply atom, IsTerm term, Unify atom atom,
              atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
            Set (PrologRule lit)
         -> Set lit
@@ -284,7 +284,7 @@ mexpand2 rules ancestors g cont (env,n,k) =
             mexpand2' = mexpands rules (Set.insert g ancestors) asm cont
             (Prolog asm c, k') = renamerule k rule
 
-mexpands :: (JustLiteral lit, Ord lit, HasApply atom, Unify atom atom v term, IsTerm term,
+mexpands :: (JustLiteral lit, Ord lit, HasApply atom, Unify atom atom, IsTerm term,
              atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
             Set (PrologRule lit)
          -> Set lit
@@ -317,7 +317,7 @@ setSplitAt n s = go n (mempty, s)
 puremeson2 :: forall fof atom term v.
              (atom ~ AtomOf fof, term ~ TermOf atom, v ~ VarOf fof, v ~ TVarOf term,
               IsFirstOrder fof,
-              Unify atom atom v term, Ord fof
+              Unify atom atom, Ord fof
              ) => Maybe Depth -> fof -> Failing Depth
 puremeson2 maxdl fm =
     snd <$> deepen f (Depth 0) maxdl
@@ -328,7 +328,7 @@ puremeson2 maxdl fm =
       (cls :: Set (Set (LFormula atom))) = simpcnf id (specialize id (pnf fm) :: PFormula atom)
 
 meson2 :: forall m fof atom term function v.
-          (IsFirstOrder fof, Unify atom atom v term, Ord fof,
+          (IsFirstOrder fof, Unify atom atom, Ord fof,
            HasSkolem function, Monad m,
            atom ~ AtomOf fof, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf fof, v ~ SVarOf function) =>
           Maybe Depth -> fof -> SkolemT m function (Set (Failing Depth))
@@ -336,7 +336,7 @@ meson2 maxdl fm =
     askolemize ((.~.)(generalize fm)) >>=
     return . Set.map (puremeson2 maxdl . list_conj) . (simpdnf' :: fof -> Set (Set fof))
 
-meson :: (IsFirstOrder fof, Unify atom atom v term, HasSkolem function, Monad m, Ord fof,
+meson :: (IsFirstOrder fof, Unify atom atom, HasSkolem function, Monad m, Ord fof,
           atom ~ AtomOf fof, term ~ TermOf atom, function ~ FunOf term, v ~ VarOf fof, v ~ SVarOf function) =>
          Maybe Depth -> fof -> SkolemT m function (Set (Failing Depth))
 meson = meson2
