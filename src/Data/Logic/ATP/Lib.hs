@@ -54,7 +54,7 @@ module Data.Logic.ATP.Lib
     , testLib
     ) where
 
-import Control.Applicative (Alternative(empty, (<|>)))
+import Control.Applicative.Error (Failing(..))
 import Control.Concurrent (forkIO, killThread, newEmptyMVar, putMVar, takeMVar, threadDelay)
 import Control.Monad.RWS (evalRWS, runRWS, RWS)
 import Data.Data (Data)
@@ -77,25 +77,7 @@ import Test.HUnit (assertEqual, Test(TestCase, TestLabel, TestList))
 
 -- | An error idiom.  Rather like the error monad, but collect all
 -- errors together
-data Failing a = Success a | Failure [ErrorMsg] deriving Show
 type ErrorMsg = String
-
-instance Functor Failing where
-  fmap _ (Failure fs) = Failure fs
-  fmap f (Success a) = Success (f a)
-
-instance Applicative Failing where
-   pure = Success
-   Failure msgs <*> Failure msgs' = Failure (msgs ++ msgs')
-   Success _ <*> Failure msgs' = Failure msgs'
-   Failure msgs' <*> Success _ = Failure msgs'
-   Success f <*> Success x = Success (f x)
-
-instance Alternative Failing where
-  empty                       = Failure []
-  (Success x) <|> _           = Success x
-  _           <|> (Success y) = Success y
-  (Failure x) <|> (Failure y) = Failure (x ++ y)
 
 failing :: ([String] -> b) -> (a -> b) -> Failing a -> b
 failing f _ (Failure errs) = f errs
