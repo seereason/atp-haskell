@@ -3,6 +3,7 @@
 -- Copyright (c) 2003-2007, John Harrison. (See "LICENSE.txt" for details.)
 
 {-# OPTIONS -Wall #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -10,7 +11,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.Logic.ATP.Unif
-    ( Unify(unify)
+    ( Unify(unify, UTermOf)
     , unify_terms
     , unify_literals
     , unify_atoms
@@ -31,31 +32,27 @@ import Data.Logic.ATP.Formulas (IsFormula(AtomOf))
 import Data.Logic.ATP.Lib (Failing(Success, Failure))
 import Data.Logic.ATP.Lit (IsLiteral, JustLiteral, zipLiterals')
 import Data.Logic.ATP.Skolem (SkAtom, SkTerm)
-import Data.Logic.ATP.Term (IsTerm(..))
+import Data.Logic.ATP.Term (IsTerm(..), IsVariable)
 import Data.Map.Strict as Map
 import Data.Maybe (fromMaybe)
 -- import Data.Sequence (Seq, viewl, ViewL(EmptyL, (:<)))
 import Test.HUnit hiding (State)
 
--- | Main unification procedure.
-class TermOf a ~ TermOf b => Unify a b where
-    unify :: a -> b -> StateT (Map (TVarOf (TermOf a)) (TermOf a)) Failing ()
-    -- ^ Unify the two elements of a pair, collecting variable
-    -- assignments in the state.
-
-{-
-instance Unify a b => Unify [a] [b] where
-    unify [] [] = return ()
-    unify (x : xs) (y : ys) = unify x y >> unify xs ys
-    unify _ _ = fail "unify - list length mismatch"
-
-instance Unify a b => Unify (Seq a) (Seq b) where
-    unify xs ys =
-        case (viewl xs, viewl ys) of
-          (EmptyL, EmptyL) -> return ()
-          (x :< xs', y :< ys') -> unify x y >> unify xs' ys'
-          _ -> fail "unify - Seq list length mismatch"
--}
+-- | Main unification procedure.  The result of unification is a
+-- mapping of variables to terms, so although we can unify two
+-- dissimilar types, they must at least have the same term type (which
+-- means the variable type will also match.)  The result of unifying
+-- the two arguments is added to the state, while failure is signalled
+-- in the Failing monad.
+--
+-- One might think that Unify should take two type parameters, the
+-- types of two values to be unified, but there are instances where a
+-- single type contains both - for example, in template-haskell we
+-- want to unify a and b in a predicate such as this: @(AppT (AppT
+-- EqualityT a) b)@.
+class (IsTerm (UTermOf a), IsVariable (TVarOf (UTermOf a))) => Unify a where
+    type UTermOf a
+    unify :: a -> StateT (Map (TVarOf (UTermOf a)) (UTermOf a)) Failing ()
 
 unify_terms :: (IsTerm term, v ~ TVarOf term) => [(term,term)] -> StateT (Map v term) Failing ()
 unify_terms = mapM_ (uncurry unify_term_pair)
@@ -111,7 +108,7 @@ unify_and_apply eqs =
 -- who cares.
 unify_literals :: (IsLiteral lit1, HasApply atom1, atom1 ~ AtomOf lit1, term ~ TermOf atom1,
                    JustLiteral lit2, HasApply atom2, atom2 ~ AtomOf lit2, term ~ TermOf atom2,
-                   Unify atom1 atom2, v ~ TVarOf term) =>
+                   Unify (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term) =>
                   lit1 -> lit2 -> StateT (Map v term) Failing ()
 unify_literals f1 f2 =
     fromMaybe (fail "Can't unify literals") (zipLiterals' ho ne tf at f1 f2)
@@ -119,7 +116,7 @@ unify_literals f1 f2 =
       ho _ _ = Nothing
       ne p q = Just $ unify_literals p q
       tf p q = if p == q then Just (unify_terms []) else Nothing
-      at a1 a2 = Just (unify a1 a2)
+      at a1 a2 = Just (unify (a1, a2))
 
 unify_atoms :: (JustApply atom1, term ~ TermOf atom1,
                 JustApply atom2, term ~ TermOf atom2,
@@ -143,8 +140,9 @@ unify_atoms_eq a1 a2 =
 --        where
 --          app (t1, t2) = fullunify eqs >>= \i -> return $ (tsubst i t1, tsubst i t2)
 
-instance Unify SkAtom SkAtom where
-    unify = unify_atoms_eq
+instance Unify (SkAtom, SkAtom) where
+    type UTermOf (SkAtom, SkAtom) = TermOf SkAtom
+    unify = uncurry unify_atoms_eq
 
 test01, test02, test03, test04 :: Test
 test01 = TestCase (assertEqual "Unify test 1"
