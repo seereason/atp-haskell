@@ -9,7 +9,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
-{-# OPTIONS_GHC -ddump-splices #-}
 
 module Data.Logic.ATP.Pretty
     ( (<>)
@@ -105,7 +104,11 @@ instance (Pretty v, Pretty term) => Pretty (Map v term) where
     pPrint = pPrint . Map.toList
 
 -- | Version of assertEqual that uses the pretty printer instead of show.
-assertEqual' :: (?loc :: CallStack, Eq a, Pretty a) =>
+assertEqual' :: (
+#ifndef ghcjs_HOST_OS
+                 ?loc :: CallStack,
+#endif
+                 Eq a, Pretty a) =>
                 String -- ^ The message prefix
              -> a      -- ^ The expected value
              -> a      -- ^ The actual value
