@@ -15,6 +15,7 @@ Category:         Logic, Theorem Provers
 Cabal-version:    >= 1.9
 Build-Type:       Simple
 Extra-Source-Files: tests/Extra.hs, .travis.yml, .ghci
+Tested-With:      GHC == 7.10.3, GHC == 7.11.*
 
 Source-Repository head
   type: git
