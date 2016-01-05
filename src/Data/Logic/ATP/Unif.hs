@@ -52,31 +52,31 @@ import Test.HUnit hiding (State)
 -- EqualityT a) b)@.
 class (IsTerm (UTermOf a), IsVariable (TVarOf (UTermOf a))) => Unify a where
     type UTermOf a
-    unify :: Monad m => a -> StateT (Map (TVarOf (UTermOf a)) (UTermOf a)) m ()
+    unify :: MonadState (Map (TVarOf (UTermOf a)) (UTermOf a)) m => a -> m ()
 
-unify_terms :: (IsTerm term, v ~ TVarOf term, Monad m) =>
-               [(term,term)] -> StateT (Map v term) m ()
+unify_terms :: (IsTerm term, v ~ TVarOf term, MonadState (Map v term) m) =>
+               [(term,term)] -> m ()
 unify_terms = mapM_ (uncurry unify_term_pair)
 
 unify_term_pair :: forall term v f m.
-                   (IsTerm term, v ~ TVarOf term, f ~ FunOf term, Monad m) =>
-                   term -> term -> StateT (Map v term) m ()
+                   (IsTerm term, v ~ TVarOf term, f ~ FunOf term, MonadState (Map v term) m) =>
+                   term -> term -> m ()
 unify_term_pair a b =
     foldTerm (vr b) (\ f fargs -> foldTerm (vr a) (fn f fargs) b) a
     where
-      vr :: term -> v -> StateT (Map v term) m ()
+      vr :: term -> v -> m ()
       vr t x =
           (Map.lookup x <$> get) >>=
           maybe (istriv x t >>= bool (modify (Map.insert x t)) (return ()))
                 (\y -> unify_term_pair y t)
-      fn :: f -> [term] -> f -> [term] -> StateT (Map v term) m ()
+      fn :: f -> [term] -> f -> [term] -> m ()
       fn f fargs g gargs =
           if f == g && length fargs == length gargs
           then mapM_ (uncurry unify_term_pair) (zip fargs gargs)
           else fail "impossible unification"
 
-istriv :: forall term v m. (IsTerm term, v ~ TVarOf term, Monad m) =>
-          v -> term -> StateT (Map v term) m Bool
+istriv :: forall term v m. (IsTerm term, v ~ TVarOf term, MonadState (Map v term) m) =>
+          v -> term -> m Bool
 istriv x t =
     foldTerm vr fn t
     where
@@ -110,8 +110,9 @@ unify_and_apply eqs =
 -- who cares.
 unify_literals :: (IsLiteral lit1, HasApply atom1, atom1 ~ AtomOf lit1, term ~ TermOf atom1,
                    JustLiteral lit2, HasApply atom2, atom2 ~ AtomOf lit2, term ~ TermOf atom2,
-                   Unify (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term, Monad m) =>
-                  lit1 -> lit2 -> StateT (Map v term) m ()
+                   Unify (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term,
+                   MonadState (Map v term) m) =>
+                  lit1 -> lit2 -> m ()
 unify_literals f1 f2 =
     fromMaybe (fail "Can't unify literals") (zipLiterals' ho ne tf at f1 f2)
     where
@@ -129,8 +130,9 @@ unify_atoms (a1, a2) =
 
 unify_atoms_eq :: (HasEquate atom1, term ~ TermOf atom1,
                    HasEquate atom2, term ~ TermOf atom2,
-                   PredOf atom1 ~ PredOf atom2, v ~ TVarOf term, Monad m) =>
-                  atom1 -> atom2 -> StateT (Map v term) m ()
+                   PredOf atom1 ~ PredOf atom2, v ~ TVarOf term,
+                   MonadState (Map v term) m) =>
+                  atom1 -> atom2 -> m ()
 unify_atoms_eq a1 a2 =
     maybe (fail "unify_atoms") id (zipEquates (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
                                               (\_ tpairs -> Just (unify_terms tpairs))
