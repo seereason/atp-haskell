@@ -62,7 +62,7 @@ class (Monad m, IsTerm term) => HasBindings m term where
     getBindings :: m (Map (TVarOf term) term)
     putBindings :: Map (TVarOf term) term -> m ()
 
-instance (MonadState (Map (TVarOf term) term) m, IsTerm term) => HasBindings m term where
+instance (Monad m, IsTerm term, v ~ TVarOf term) => HasBindings (StateT (Map v term) m) term where
     getBindings = get
     putBindings = put
 
@@ -120,23 +120,25 @@ unify_and_apply eqs =
 -- variable type.  Note that only one needs to be 'JustLiteral', if
 -- the unification succeeds the other must have been too, if it fails,
 -- who cares.
-unify_literals :: (IsLiteral lit1, HasApply atom1, atom1 ~ AtomOf lit1, term ~ TermOf atom1,
+unify_literals :: forall lit1 lit2 atom1 atom2 v term m.
+                  (IsLiteral lit1, HasApply atom1, atom1 ~ AtomOf lit1, term ~ TermOf atom1,
                    JustLiteral lit2, HasApply atom2, atom2 ~ AtomOf lit2, term ~ TermOf atom2,
                    Unify (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term,
-                   MonadState (Map v term) m) =>
+                   HasBindings m term) =>
                   lit1 -> lit2 -> m ()
 unify_literals f1 f2 =
     fromMaybe (fail "Can't unify literals") (zipLiterals' ho ne tf at f1 f2)
     where
       ho _ _ = Nothing
       ne p q = Just $ unify_literals p q
-      tf p q = if p == q then Just (unify_terms []) else Nothing
+      tf :: Bool -> Bool -> Maybe (m ())
+      tf p q = if p == q then Just (unify_terms ([] :: [(term, term)])) else Nothing
       at a1 a2 = Just (unify (a1, a2))
 
 unify_atoms :: (JustApply atom1, term ~ TermOf atom1,
                 JustApply atom2, term ~ TermOf atom2,
-                v ~ TVarOf term, PredOf atom1 ~ PredOf atom2, Monad m) =>
-               (atom1, atom2) -> StateT (Map v term) m ()
+                v ~ TVarOf term, PredOf atom1 ~ PredOf atom2, HasBindings m term) =>
+               (atom1, atom2) -> m ()
 unify_atoms (a1, a2) =
     maybe (fail "unify_atoms") id (zipApplys (\_ tpairs -> Just (unify_terms tpairs)) a1 a2)
 

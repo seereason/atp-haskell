@@ -79,10 +79,11 @@ mgu l =
             _ -> solve <$> get
       _ -> solve <$> get
 
-unifiable :: (JustLiteral lit, IsTerm term, HasApply atom, Unify (atom, atom), term ~ UTermOf (atom, atom),
+unifiable :: forall lit term atom v.
+             (JustLiteral lit, IsTerm term, HasApply atom, Unify (atom, atom), term ~ UTermOf (atom, atom),
               atom ~ AtomOf lit, term ~ TermOf atom, v ~ TVarOf term) =>
              lit -> lit -> Bool
-unifiable p q = failing (const False) (const True) (execStateT (unify_literals p q) Map.empty)
+unifiable p q = failing (const False) (const True) (execStateT (unify_literals p q) Map.empty :: Failing (Map v term))
 
 -- -------------------------------------------------------------------------
 -- Rename a clause.
