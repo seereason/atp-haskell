@@ -13,6 +13,7 @@
 
 module Data.Logic.ATP.Unif
     ( Unify(unify, UTermOf)
+    , HasBindings(getBindings, putBindings)
     , unify_terms
     , unify_literals
     , unify_atoms
