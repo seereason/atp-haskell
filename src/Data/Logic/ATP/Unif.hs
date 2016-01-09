@@ -56,8 +56,8 @@ class (IsTerm (UTermOf a), IsVariable (TVarOf (UTermOf a))) => Unify a where
     type UTermOf a
     unify' :: Monad m => a -> StateT (Map (TVarOf (UTermOf a)) (UTermOf a)) m ()
 
-unify :: Unify a => a -> Map (TVarOf (UTermOf a)) (UTermOf a)
-unify a = execState (unify' a) mempty
+unify :: Unify a => a -> Map (TVarOf (UTermOf a)) (UTermOf a) -> Map (TVarOf (UTermOf a)) (UTermOf a)
+unify a mp0 = execState (unify' a) mp0
 
 unify_terms :: (IsTerm term, v ~ TVarOf term, Monad m) =>
                [(term,term)] -> StateT (Map v term) m ()
