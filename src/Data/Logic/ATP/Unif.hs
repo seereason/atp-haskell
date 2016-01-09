@@ -12,8 +12,8 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Data.Logic.ATP.Unif
-    ( Unify(unify, UTermOf)
-    , HasBindings(getBindings, putBindings)
+    ( Unify(unify', UTermOf)
+    , unify
     , unify_terms
     , unify_literals
     , unify_atoms
@@ -54,48 +54,41 @@ import Test.HUnit hiding (State)
 -- EqualityT a) b)@.
 class (IsTerm (UTermOf a), IsVariable (TVarOf (UTermOf a))) => Unify a where
     type UTermOf a
-    unify :: HasBindings m (UTermOf a) => a -> m ()
+    unify' :: Monad m => a -> StateT (Map (TVarOf (UTermOf a)) (UTermOf a)) m ()
 
--- | A class to allow various ways of associating the variable
--- bindings with the monad used by 'unify'.
-class (Monad m, IsTerm term) => HasBindings m term where
-    getBindings :: m (Map (TVarOf term) term)
-    putBindings :: Map (TVarOf term) term -> m ()
+unify :: Unify a => a -> Map (TVarOf (UTermOf a)) (UTermOf a)
+unify a = execState (unify' a) mempty
 
-instance (Monad m, IsTerm term, v ~ TVarOf term) => HasBindings (StateT (Map v term) m) term where
-    getBindings = get
-    putBindings = put
-
-unify_terms :: (IsTerm term, v ~ TVarOf term, HasBindings m term) =>
-               [(term,term)] -> m ()
+unify_terms :: (IsTerm term, v ~ TVarOf term, Monad m) =>
+               [(term,term)] -> StateT (Map v term) m ()
 unify_terms = mapM_ (uncurry unify_term_pair)
 
 unify_term_pair :: forall term v f m.
-                   (IsTerm term, v ~ TVarOf term, f ~ FunOf term, HasBindings m term) =>
-                   term -> term -> m ()
+                   (IsTerm term, v ~ TVarOf term, f ~ FunOf term, Monad m) =>
+                   term -> term -> StateT (Map v term) m ()
 unify_term_pair a b =
     foldTerm (vr b) (\ f fargs -> foldTerm (vr a) (fn f fargs) b) a
     where
-      vr :: term -> v -> m ()
+      vr :: term -> v -> StateT (Map v term) m ()
       vr t x =
-          (Map.lookup x <$> getBindings) >>=
-          maybe (istriv x t >>= bool (getBindings >>= putBindings . Map.insert x t) (return ()))
+          (Map.lookup x <$> get) >>=
+          maybe (istriv x t >>= bool (modify (Map.insert x t)) (return ()))
                 (\y -> unify_term_pair y t)
-      fn :: f -> [term] -> f -> [term] -> m ()
+      fn :: f -> [term] -> f -> [term] -> StateT (Map v term) m ()
       fn f fargs g gargs =
           if f == g && length fargs == length gargs
           then mapM_ (uncurry unify_term_pair) (zip fargs gargs)
           else fail "impossible unification"
 
-istriv :: forall term v f m. (IsTerm term, v ~ TVarOf term, f ~ FunOf term, HasBindings m term) =>
-          v -> term -> m Bool
+istriv :: forall term v f m. (IsTerm term, v ~ TVarOf term, f ~ FunOf term, Monad m) =>
+          v -> term -> StateT (Map v term) m Bool
 istriv x t =
     foldTerm vr fn t
     where
-      vr :: v -> m Bool
+      vr :: v -> StateT (Map v term) m Bool
       vr y | x == y = return True
-      vr y = (Map.lookup y <$> getBindings) >>= \(mt :: Maybe term) -> maybe (return False) (istriv x) mt
-      fn :: f -> [term] -> m Bool
+      vr y = (Map.lookup y <$> get) >>= \(mt :: Maybe term) -> maybe (return False) (istriv x) mt
+      fn :: f -> [term] -> StateT (Map v term) m Bool
       fn _ args = mapM (istriv x) args >>= bool (return False) (fail "cyclic") . or
 
 -- | Solve to obtain a single instantiation.
@@ -123,30 +116,28 @@ unify_and_apply eqs =
 unify_literals :: forall lit1 lit2 atom1 atom2 v term m.
                   (IsLiteral lit1, HasApply atom1, atom1 ~ AtomOf lit1, term ~ TermOf atom1,
                    JustLiteral lit2, HasApply atom2, atom2 ~ AtomOf lit2, term ~ TermOf atom2,
-                   Unify (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term,
-                   HasBindings m term) =>
-                  lit1 -> lit2 -> m ()
+                   Unify (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term, Monad m) =>
+                  lit1 -> lit2 -> StateT (Map v term) m ()
 unify_literals f1 f2 =
     fromMaybe (fail "Can't unify literals") (zipLiterals' ho ne tf at f1 f2)
     where
       ho _ _ = Nothing
       ne p q = Just $ unify_literals p q
-      tf :: Bool -> Bool -> Maybe (m ())
+      -- tf :: Bool -> Bool -> Maybe (StateT (Map v term) m ())
       tf p q = if p == q then Just (unify_terms ([] :: [(term, term)])) else Nothing
-      at a1 a2 = Just (unify (a1, a2))
+      at a1 a2 = Just (unify' (a1, a2))
 
 unify_atoms :: (JustApply atom1, term ~ TermOf atom1,
                 JustApply atom2, term ~ TermOf atom2,
-                v ~ TVarOf term, PredOf atom1 ~ PredOf atom2, HasBindings m term) =>
-               (atom1, atom2) -> m ()
+                v ~ TVarOf term, PredOf atom1 ~ PredOf atom2, Monad m) =>
+               (atom1, atom2) -> StateT (Map v term) m ()
 unify_atoms (a1, a2) =
     maybe (fail "unify_atoms") id (zipApplys (\_ tpairs -> Just (unify_terms tpairs)) a1 a2)
 
 unify_atoms_eq :: (HasEquate atom1, term ~ TermOf atom1,
                    HasEquate atom2, term ~ TermOf atom2,
-                   PredOf atom1 ~ PredOf atom2, v ~ TVarOf term,
-                   HasBindings m term) =>
-                  atom1 -> atom2 -> m ()
+                   PredOf atom1 ~ PredOf atom2, v ~ TVarOf term, Monad m) =>
+                  atom1 -> atom2 -> StateT (Map v term) m ()
 unify_atoms_eq a1 a2 =
     maybe (fail "unify_atoms") id (zipEquates (\l1 r1 l2 r2 -> Just (unify_terms [(l1, l2), (r1, r2)]))
                                               (\_ tpairs -> Just (unify_terms tpairs))
@@ -160,7 +151,7 @@ unify_atoms_eq a1 a2 =
 
 instance Unify (SkAtom, SkAtom) where
     type UTermOf (SkAtom, SkAtom) = TermOf SkAtom
-    unify = uncurry unify_atoms_eq
+    unify' = uncurry unify_atoms_eq
 
 test01, test02, test03, test04 :: Test
 test01 = TestCase (assertEqual "Unify test 1"
