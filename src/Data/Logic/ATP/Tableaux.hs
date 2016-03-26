@@ -46,10 +46,10 @@ import Test.HUnit hiding (State)
 
 -- | Unify complementary literals.
 unify_complements :: (IsLiteral lit1, JustLiteral lit2, HasApply atom1, HasApply atom2,
-                      Unify Failing (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term,
+                      Unify m (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term,
                       atom1 ~ AtomOf lit1, term ~ TermOf atom1,
                       atom2 ~ AtomOf lit2, term ~ TermOf atom2) =>
-                     lit1 -> lit2 -> StateT (Map v term) Failing ()
+                     lit1 -> lit2 -> StateT (Map v term) m ()
 unify_complements p q = unify_literals p ((.~.) q)
 
 -- | Unify and refute a set of disjuncts.
@@ -59,7 +59,7 @@ unify_refute :: (JustLiteral lit, Ord lit, HasApply atom, IsTerm term,
                 Set (Set lit) -> Map v term -> Failing (Map v term)
 unify_refute djs env =
     case Set.minView djs of
-      Nothing -> Success env
+      Nothing -> pure env
       Just (d, odjs) ->
           settryfind (\ (p, n) -> execStateT (unify_complements p n) env >>= unify_refute odjs) pairs
           where
