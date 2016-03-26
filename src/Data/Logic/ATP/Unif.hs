@@ -52,11 +52,11 @@ import Test.HUnit hiding (State)
 -- single type contains both - for example, in template-haskell we
 -- want to unify a and b in a predicate such as this: @(AppT (AppT
 -- EqualityT a) b)@.
-class (IsTerm (UTermOf a), IsVariable (TVarOf (UTermOf a))) => Unify a where
+class (Monad m, IsTerm (UTermOf a), IsVariable (TVarOf (UTermOf a))) => Unify m a where
     type UTermOf a
-    unify' :: Monad m => a -> StateT (Map (TVarOf (UTermOf a)) (UTermOf a)) m ()
+    unify' :: a -> StateT (Map (TVarOf (UTermOf a)) (UTermOf a)) m ()
 
-unify :: (Unify a, Monad m) => a -> Map (TVarOf (UTermOf a)) (UTermOf a) -> m (Map (TVarOf (UTermOf a)) (UTermOf a))
+unify :: (Unify m a, Monad m) => a -> Map (TVarOf (UTermOf a)) (UTermOf a) -> m (Map (TVarOf (UTermOf a)) (UTermOf a))
 unify a mp0 = execStateT (unify' a) mp0
 
 unify_terms :: (IsTerm term, v ~ TVarOf term, Monad m) =>
@@ -116,7 +116,7 @@ unify_and_apply eqs =
 unify_literals :: forall lit1 lit2 atom1 atom2 v term m.
                   (IsLiteral lit1, HasApply atom1, atom1 ~ AtomOf lit1, term ~ TermOf atom1,
                    JustLiteral lit2, HasApply atom2, atom2 ~ AtomOf lit2, term ~ TermOf atom2,
-                   Unify (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term, Monad m) =>
+                   Unify m (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term) =>
                   lit1 -> lit2 -> StateT (Map v term) m ()
 unify_literals f1 f2 =
     fromMaybe (fail "Can't unify literals") (zipLiterals' ho ne tf at f1 f2)
@@ -149,7 +149,7 @@ unify_atoms_eq a1 a2 =
 --        where
 --          app (t1, t2) = fullunify eqs >>= \i -> return $ (tsubst i t1, tsubst i t2)
 
-instance Unify (SkAtom, SkAtom) where
+instance Monad m => Unify m (SkAtom, SkAtom) where
     type UTermOf (SkAtom, SkAtom) = TermOf SkAtom
     unify' = uncurry unify_atoms_eq
 
