@@ -89,7 +89,7 @@ precedenceQuantified = foldQuantified qu co ne tf at
       co _ (:<=>:) _ = iffPrec
       ne _ = notPrec
       tf _ = leafPrec
-      at = precedence
+      at = (precedence :: Num a => AtomOf formula -> a)
 
 associativityQuantified :: forall formula. IsQuantified formula => formula -> Associativity
 associativityQuantified = foldQuantified qu co ne tf at

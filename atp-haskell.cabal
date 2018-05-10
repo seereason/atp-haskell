@@ -1,5 +1,5 @@
 Name:             atp-haskell
-Version:          1.14
+Version:          1.14.0.1
 Synopsis:         Translation from Ocaml to Haskell of John Harrison's ATP code
 Description:      This package is a liberal translation from OCaml to Haskell of
                   the automated theorem prover written in OCaml in
@@ -33,7 +33,7 @@ Library
     pretty >= 1.1.2,
     template-haskell,
     time
-  GHC-options: -Wall -O2
+  GHC-options: -Wall -O2 -fprint-potential-instances
   Hs-Source-Dirs: src
   Exposed-Modules:
     Data.Logic.ATP
