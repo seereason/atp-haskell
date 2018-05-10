@@ -33,7 +33,7 @@ Library
     pretty >= 1.1.2,
     template-haskell,
     time
-  GHC-options: -Wall -O2 -fprint-potential-instances
+  GHC-options: -Wall -O2
   Hs-Source-Dirs: src
   Exposed-Modules:
     Data.Logic.ATP
