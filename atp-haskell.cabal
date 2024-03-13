@@ -25,7 +25,7 @@ Library
   Default-Language: Haskell2010
   Build-Depends:
     applicative-extras,
-    base >= 4.8 && < 5,
+    base >= 4.8 && < 4.13,
     containers,
     extra,
     HUnit,
