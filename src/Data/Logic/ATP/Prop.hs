@@ -1087,8 +1087,8 @@ simpcnf :: (JustPropositional pf, JustLiteral lit, Ord lit) =>
 simpcnf ca fm =
     foldPropositional (\_ _ _ -> go) (\_ -> go) tf (\_ -> go) fm
     where
-      tf False = Set.empty
-      tf True = singleton Set.empty
+      tf False = singleton Set.empty
+      tf True = Set.empty
       go = let cjs = Set.filter (not . trivial) (purecnf ca fm) in
            Set.filter (\c -> not (setAny (\c' -> Set.isProperSubsetOf c' c) cjs)) cjs
 
@@ -1103,8 +1103,21 @@ test35 :: Test
 test35 = TestCase $ assertEqual "cnf (p. 61)" expected input
     where input = (prettyShow (cnf' fm), tautology (Iff fm (cnf' fm)))
           expected = ("(p∨q)∧(p∨r)∧(¬p∨¬r)", True)
+          fm :: PFormula Prop
           fm = (p .|. q .&. r) .&. (((.~.)p) .|. ((.~.)r))
           [p, q, r] = [Atom (P "p"), Atom (P "q"), Atom (P "r")]
+
+test36, test37 :: Test
+test36 = TestCase $ assertEqual "cnf (trivial case: False)" expected input
+    where input = (prettyShow (cnf' fm), tautology (Iff fm (cnf' fm)))
+          expected = ("⊥", True)
+          fm :: PFormula Prop
+          fm = F
+test37 = TestCase $ assertEqual "cnf (trivial case: True)" expected input
+    where input = (prettyShow (cnf' fm), tautology (Iff fm (cnf' fm)))
+          expected = ("⊤", True)
+          fm :: PFormula Prop
+          fm = T
 
 testProp :: Test
 testProp = TestLabel "Prop" $
@@ -1114,4 +1127,5 @@ testProp = TestLabel "Prop" $
                      test16, test17, test18, test19, test20,
                      test21, test22, test23, test24, test25,
                      test26, test27, test28, test29, test30,
-                     test31, test32, test33, test34, test35]
+                     test31, test32, test33, test34, test35,
+                     test36, test37]
