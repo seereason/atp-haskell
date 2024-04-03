@@ -24,7 +24,9 @@ module Data.Logic.ATP.Unif
     , testUnif
     ) where
 
-import Control.Monad.State -- (evalStateT, runStateT, State, StateT, get)
+import Control.Monad.State hiding (fail) -- (evalStateT, runStateT, State, StateT, get)
+import Prelude hiding (fail)
+import Control.Monad.Fail
 import Data.Bool (bool)
 import Data.List as List (map)
 import Data.Logic.ATP.Apply (HasApply(TermOf, PredOf), JustApply, zipApplys)

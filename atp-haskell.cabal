@@ -1,5 +1,5 @@
 Name:             atp-haskell
-Version:          1.14.2
+Version:          1.14.3
 Synopsis:         Translation from Ocaml to Haskell of John Harrison's ATP code
 Description:      This package is a liberal translation from OCaml to Haskell of
                   the automated theorem prover written in OCaml in
@@ -12,7 +12,7 @@ Author:           John Harrison
 Maintainer:       David Fox <dsf@seereason.com>
 Bug-Reports:      https://github.com/seereason/atp-haskell/issues
 Category:         Logic, Theorem Provers
-Cabal-version:    >= 1.9
+Cabal-version:    >= 1.10
 Build-Type:       Simple
 Extra-Source-Files: tests/Extra.hs, .travis.yml, .ghci
 Tested-With:      GHC == 7.10.3, GHC == 7.11.*, GHC == 8.6.5, GHC == 9.8.2
@@ -98,3 +98,4 @@ Test-Suite atp-haskell-tests
   Main-Is: Main.hs
   Build-Depends: atp-haskell, base, containers, HUnit, time
   GHC-options: -Wall -O2
+  Other-Modules: Extra

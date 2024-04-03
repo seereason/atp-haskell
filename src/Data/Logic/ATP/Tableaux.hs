@@ -23,6 +23,7 @@ module Data.Logic.ATP.Tableaux
     ) where
 
 import Data.Logic.ATP.Apply (HasApply(TermOf), pApp)
+import Control.Monad.Fail
 import Control.Monad.RWS (RWS)
 import Control.Monad.State (execStateT, StateT)
 import Data.List as List (map)
