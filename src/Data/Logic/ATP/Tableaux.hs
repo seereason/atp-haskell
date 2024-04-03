@@ -48,7 +48,7 @@ import Test.HUnit hiding (State)
 unify_complements :: (IsLiteral lit1, JustLiteral lit2, HasApply atom1, HasApply atom2,
                       Unify m (atom1, atom2), term ~ UTermOf (atom1, atom2), v ~ TVarOf term,
                       atom1 ~ AtomOf lit1, term ~ TermOf atom1,
-                      atom2 ~ AtomOf lit2, term ~ TermOf atom2) =>
+                      atom2 ~ AtomOf lit2, term ~ TermOf atom2, MonadFail m) =>
                      lit1 -> lit2 -> StateT (Map v term) m ()
 unify_complements p q = unify_literals p ((.~.) q)
 

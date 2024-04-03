@@ -159,7 +159,7 @@ carryselect x y c0 c1 s0 s1 c s n k =
           (n - k) k)
 
 -- | Equivalence problems for carry-select vs ripple carry adders. (p. 69)
-mk_adder_test :: (IsPropositional formula, Ord formula, AtomOf formula ~ Knows a, Ord a, Num a, Enum a) =>
+mk_adder_test :: (IsPropositional formula, Ord formula, AtomOf formula ~ Knows a, Ord a, Num a, Enum a, Show a) =>
                  a -> a -> formula
 mk_adder_test n k =
   let [x, y, c, s, c0, s0, c1, s1, c2, s2] =

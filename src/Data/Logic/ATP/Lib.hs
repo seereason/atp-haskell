@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -56,6 +57,9 @@ module Data.Logic.ATP.Lib
 
 import Control.Applicative.Error (Failing(..))
 import Control.Concurrent (forkIO, killThread, newEmptyMVar, putMVar, takeMVar, threadDelay)
+#if MIN_VERSION_base(4,9,0)
+import qualified Control.Monad.Fail as Fail
+#endif
 import Control.Monad.RWS (evalRWS, runRWS, RWS)
 import Data.Data (Data)
 import Data.Foldable as Foldable
@@ -92,7 +96,14 @@ instance Monad Failing where
       case m of
         (Failure errs) -> (Failure errs)
         (Success a) -> f a
+#if !MIN_VERSION_base(4,13,0)
   fail errMsg = Failure [errMsg]
+#endif
+
+#if MIN_VERSION_base(4,9,0)
+instance Fail.MonadFail Failing where
+  fail errMsg = Failure [errMsg]
+#endif
 
 deriving instance Typeable Failing
 deriving instance Data a => Data (Failing a)
